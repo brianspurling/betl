@@ -1,6 +1,7 @@
 from . import utilities as utils
 from . import conf
 
+import traceback
 log = utils.setUpLogger('SCHDLR', __name__)
 
 # Globals
@@ -84,6 +85,7 @@ def executeJob(runExtract=True, runTransform=True, runLoad=True,
             for func in LOAD_SCHEDULE:
                 func()
     except Exception as e1:
+        tb1 = traceback.format_exc()
         try:
             ctlDBCursor.execute("UPDATE job_log " +
                                 "SET " +
@@ -95,13 +97,14 @@ def executeJob(runExtract=True, runTransform=True, runLoad=True,
             log.critical("\n\n" +
                          "THE JOB FAILED (the job_log has been updated)\n\n" +
                          "THE error was >>> \n\n"
-                         + str(e1) + "\n")
+                         + tb1 + "\n")
         except Exception as e2:
+            tb2 = traceback.format_exc()
             log.critical("\n\n" +
                          "THE JOB FAILED, AND THEN FAILED TO WRITE TO THE " +
                          "JOB_LOG\n\n" +
                          "THE first error was >>> \n\n"
-                         + str(e1) + "\n\n"
+                         + tb1 + "\n\n"
                          "The second error was >>> \n\n"
-                         + str(e2) + "\n")
+                         + tb2 + "\n")
     log.debug("END")
