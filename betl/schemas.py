@@ -182,8 +182,8 @@ class SrcLayer():
 
         # The SRC Layer object holds the data model schema and the
         # source system connection details
-        self.srcSystemConns = {}  # {<srcSysId>:Connection()}
         self.dataModels = {}
+        self.srcSystemConns = {}  # {<dataModelId>:Connection()}
         self.getSrcSysDBConnections()
         self.loadLogicalDataModel()
 
@@ -202,40 +202,40 @@ class SrcLayer():
         for srcWorksheet in srcWorksheets:
 
             # Cut off the SRC.<dataModelId>. prefix
-            srcSysId = srcWorksheet.title[srcWorksheet.title.rfind('.')+1:]
+            dataModelId = srcWorksheet.title[srcWorksheet.title.rfind('.')+1:]
 
             # Each worksheet is one data model - corresponding to the entire
             # SRC for one source system.
             # Create a new entry in our dataModel dictionary, indexed by the
             # source system ID
 
-            tempSchema[srcSysId] = {}
+            tempSchema[dataModelId] = {}
 
             # Get the schema for this DataModel
             stmRows = srcWorksheet.get_all_records()
 
             # We've got a list of cols, so detect when we move to a new table
             for stmRow in stmRows:
-                if stmRow['Table Name'].lower() not in tempSchema[srcSysId]:
+                if stmRow['Table Name'].lower() not in tempSchema[dataModelId]:
                     # Insert a new table into our dictionary for this data
                     # model, indexed by table name, with an empty list of cols
-                    tempSchema[srcSysId][stmRow['Table Name'].lower()] = []
+                    tempSchema[dataModelId][stmRow['Table Name'].lower()] = []
 
                 # And add the current column to this table's list of columns.
                 # Each list item is a dictionary of column metadata indexed by
                 # column name
-                tempList = tempSchema[srcSysId][stmRow['Table Name'].lower()]
-                tempList.append({'columnName': stmRow['Column Name'],
-                                 'dataType': stmRow['data_type'],
-                                 'isNK': stmRow['natural_key'],
-                                 'isAudit': stmRow['audit_column']})
+                tmpList = tempSchema[dataModelId][stmRow['Table Name'].lower()]
+                tmpList.append({'columnName': stmRow['Column Name'],
+                                'dataType': stmRow['data_type'],
+                                'isNK': stmRow['natural_key'],
+                                'isAudit': stmRow['audit_column']})
 
             # Create the DataModel() for this SRC system. This is the object
             # we "leave behind" in this class - the full schema gets passed
             # down to "child" constructors
-            self.dataModelSchemas[srcSysId] = DataModel(srcWorksheet.title,
-                                                        tempSchema[srcSysId],
-                                                        srcWorksheet)
+            self.dataModels[dataModelId] = DataModel(srcWorksheet.title,
+                                                     tempSchema[dataModelId],
+                                                     srcWorksheet)
 
             log.info("Loaded logical data model for " + srcWorksheet.title)
 
