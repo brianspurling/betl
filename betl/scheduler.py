@@ -74,8 +74,6 @@ def executeJob(runExtract=True, runTransform=True, runLoad=True,
         ctlDBCursor.execute("SELECT MAX(job_id) FROM job_log")
         jobId = ctlDBCursor.fetchall()[0][0]
 
-        raise ValueError('error 3')
-
         if runExtract:
             for func in EXTRACT_SCHEDULE:
                 func()
