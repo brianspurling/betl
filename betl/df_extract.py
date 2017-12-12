@@ -8,14 +8,10 @@ from . import conf
 log = utils.setUpLogger('EXTRCT', __name__)
 
 
-######
 #
-# The main.excute function works through the extract_scheduler, looking up the
-# appropriate dataflows.
-# The dataflows table holds the function names, which, when executed, run the
-# code from this module.
+# A default extraction process. Bulk is obvious and as you would expect
+# Delta does full-table comparisons to identify deltas
 #
-####
 def df_defaultExtract():
 
     log.debug("START")
