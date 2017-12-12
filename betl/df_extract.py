@@ -1,4 +1,4 @@
-import pandas
+import pandas as pd
 import datetime
 
 from . import utilities as utils
@@ -22,42 +22,41 @@ def df_defaultExtract():
 
     time = str(datetime.datetime.time(datetime.datetime.now()))
 
-    for dataModelId in schemas.SRC_LAYER.dataModelSchemas:
+    for dataModelId in schemas.SRC_LAYER.dataModels:
 
-        for tableName in schemas.SRC_LAYER.dataModelSchemas[dataModelId]      \
-                         .tableSchemas:
-            tableShortName = schemas.SRC_LAYER.dataModelSchemas[dataModelId]  \
-                             .tableSchemas[tableName].tableShortName
-            columnList = schemas.SRC_LAYER.dataModelSchemas[dataModelId]      \
-                .tableSchemas[tableName].columnList
+        for tableName in schemas.SRC_LAYER.dataModels[dataModelId]      \
+                         .tables:
+            tableShortName = schemas.SRC_LAYER.dataModels[dataModelId]  \
+                             .tables[tableName].tableShortName
+            columnList = schemas.SRC_LAYER.dataModels[dataModelId]      \
+                .tables[tableName].columnList
             columnList_withoutAudit = schemas.SRC_LAYER                       \
-                .dataModelSchemas[dataModelId]                                \
-                .tableSchemas[tableName]                                      \
+                .dataModels[dataModelId]                                \
+                .tables[tableName]                                      \
                 .columnList_withoutAudit
-            nkList = schemas.SRC_LAYER.dataModelSchemas[dataModelId]          \
-                .tableSchemas[tableName].nkList
-            nonNkList = schemas.SRC_LAYER.dataModelSchemas[dataModelId]       \
-                .tableSchemas[tableName].nonNkList
+            nkList = schemas.SRC_LAYER.dataModels[dataModelId]          \
+                .tables[tableName].nkList
+            nonNkList = schemas.SRC_LAYER.dataModels[dataModelId]       \
+                .tables[tableName].nonNkList
 
             # This is what we're going to read our data into
-            srcDF = pandas.DataFrame()
+            srcDF = pd.DataFrame()
 
             srcSysType = schemas.SRC_LAYER.srcSystemConns[dataModelId].type
             if srcSysType == 'POSTGRES':
-                srcConn = schemas.SRC_LAYER \
-                    .srcSystemConns[dataModelId].connection
-                srcDF = pandas.read_sql('SELECT * FROM '
-                                        + tableShortName, con=srcConn)
+                srcConn = schemas.SRC_LAYER.srcSystemConns[dataModelId].conn
+                srcDF = pd.read_sql('SELECT * FROM '
+                                    + tableShortName, con=srcConn)
 
             elif srcSysType == 'FILESYSTEM':
                 fullTableName = tableShortName + '.csv',
-                srcDF = pandas.read_csv(filepath_or_buffer=fullTableName,
-                                        sep=schemas.SRC_LAYER
-                                        .srcSystemConns[dataModelId]
-                                        .files[tableShortName]['delimiter'],
-                                        quotechar=schemas.SRC_LAYER
-                                        .srcSystemConns[dataModelId]
-                                        .files[tableShortName]['quotechar'])
+                srcDF = pd.read_csv(filepath_or_buffer=fullTableName,
+                                    sep=schemas.SRC_LAYER
+                                    .srcSystemConns[dataModelId]
+                                    .files[tableShortName]['delimiter'],
+                                    quotechar=schemas.SRC_LAYER
+                                    .srcSystemConns[dataModelId]
+                                    .files[tableShortName]['quotechar'])
 
             else:
                 raise ValueError('Extract for source systems type <'
@@ -104,8 +103,6 @@ def df_defaultExtract():
                 updateColumnList = []
                 deleteColumnList = []
 
-                columns = schemas.SRC_LAYER.dataModelSchemas[dataModelId]     \
-                    .tableSchemas[tableName].columnSchemas
 
                 for column in columns:
                         if column.isNK:
@@ -120,12 +117,12 @@ def df_defaultExtract():
                             updateColumnList.append(column.columnName)
                             deleteColumnList.append(column.columnName + '_stg')
 
-                stgDF = pandas.read_sql('SELECT * FROM ' + tableName,
-                                        con=conf.ETL_DB_CONN)
+                stgDF = pd.read_sql('SELECT * FROM ' + tableName,
+                                    con=conf.ETL_DB_CONN)
 
-                deltaDF = pandas.merge(left=srcDF, right=stgDF, how='outer',
-                                       suffixes=('_src', '_stg'), on=nkList,
-                                       indicator=True)
+                deltaDF = pd.merge(left=srcDF, right=stgDF, how='outer',
+                                   suffixes=('_src', '_stg'), on=nkList,
+                                   indicator=True)
 
                 ###########
                 # INSERTS #
@@ -191,7 +188,7 @@ def df_defaultExtract():
                                             + nkWhereClause)
                     conf.ETL_DB_CONN.commit()
                     log.info('Deletes applied (end: ' + time + ')')
-                    stgDF = pandas.concat([stgDF, deletesDF])                 \
+                    stgDF = pd.concat([stgDF, deletesDF])                 \
                         .drop_duplicates(keep=False)
                 else:
                     log.info('No deletes found for ' + tableName)
@@ -211,11 +208,11 @@ def df_defaultExtract():
 
                 # Compare the two dataframes again, this time across all rows,
                 # to pick up edits
-                deltaDF = pandas.merge(left=srcDF_withoutAudit,
-                                       right=stgDF_withoutAudit,
-                                       how='outer',
-                                       suffixes=('_src', '_stg'),
-                                       indicator=True)
+                deltaDF = pd.merge(left=srcDF_withoutAudit,
+                                   right=stgDF_withoutAudit,
+                                   how='outer',
+                                   suffixes=('_src', '_stg'),
+                                   indicator=True)
 
                 # Pull out the updates and tidy
                 updatesDF = deltaDF.loc[deltaDF['_merge'] == 'left_only',

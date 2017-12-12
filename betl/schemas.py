@@ -43,7 +43,7 @@ class Connection():
                                     + self.dbName + "' user='"                \
                                     + self.userName + "' password='"          \
                                     + self.password + "'"
-            self.connection = psycopg2.connect(self.connectionString)
+            self.conn = psycopg2.connect(self.connectionString)
 
         elif (self.type == 'FILESYSTEM'):
             self.files = {}
@@ -52,7 +52,7 @@ class Connection():
                                                 'quotechar': file['quotechar']}
 
 
-class ColumnSchema():
+class Column():
 
     # columnSchema must be a schema list like this:
     # {columnName:<columnName>,dataType:<dataType>}
@@ -77,7 +77,7 @@ class ColumnSchema():
                                     self.columnSchema.items()) + '\n'
 
 
-class TableSchema():
+class Table():
 
     # To do: we will lose the NKs if we rebuild the schema from source.
     # Consider making the ETL.SRC.<dataModelId> sheets the dumping ground,
@@ -93,7 +93,7 @@ class TableSchema():
         tempTname = tempTname[tempTname.find("_")+1:]
         self.tableShortName = tempTname
 
-        self.columnSchemas = []
+        self.columns = []
 
         self.columnList = []
         self.columnList_withoutAudit = []
@@ -112,14 +112,14 @@ class TableSchema():
             if column['isAudit'].upper() != 'Y':
                 self.columnList_withoutAudit.append(column['columnName'])
 
-            self.columnSchemas.append(ColumnSchema(column))
+            self.columns.append(Column(column))
 
     def getSqlCreateStatements(self):
 
         tableCreateStatement = 'CREATE TABLE ' + self.tableName + ' ('
 
         columns = []
-        for columnSchema in self.columnSchemas:
+        for columnSchema in self.columns:
             columns.append(columnSchema.getSqlCreateStatements())
         tableCreateStatement += ', '.join(columns)
 
@@ -129,7 +129,7 @@ class TableSchema():
 
     def __str__(self):
         columnsStr = '\n' + '    ' + self.tableName + '\n'
-        for columnSchema in self.columnSchemas:
+        for columnSchema in self.columns:
             columnsStr += str(columnSchema)
         return columnsStr
 
@@ -140,7 +140,7 @@ class DataModel():
     # Tables > [{column metadata}],
     def __init__(self, dataModelName, dataModelSchema, stmWorksheet):
         self.dataModelName = dataModelName
-        self.tableSchemas = {}
+        self.tables = {}
         self.isStmPopulated = True
         self.stmWorksheet = stmWorksheet
 
@@ -148,14 +148,14 @@ class DataModel():
             self.isStmPopulated = False
 
         for table in dataModelSchema:
-            self.tableSchemas[table] = TableSchema(table,
-                                                   dataModelSchema[table])
+            self.tables[table] = Table(table,
+                                       dataModelSchema[table])
 
     def getSqlCreateStatements(self):
 
         dataModelCreateStatements = []
-        for tableName in self.tableSchemas:
-            dataModelCreateStatements.append(self.tableSchemas[tableName]
+        for tableName in self.tables:
+            dataModelCreateStatements.append(self.tables[tableName]
                                              .getSqlCreateStatements())
 
         return dataModelCreateStatements
@@ -163,8 +163,8 @@ class DataModel():
     def __str__(self):
         tablesStr = '\n' + '  ** ' + self.dataModelName + ' **' + '\n'
         if (self.isStmPopulated):
-            for tableName in self.tableSchemas:
-                tablesStr += str(self.tableSchemas[tableName])
+            for tableName in self.tables:
+                tablesStr += str(self.tables[tableName])
         else:
             tablesStr += '\n' + '      !! DATA MODEL MISSING FROM STM !!'     \
                               + '\n'
@@ -182,8 +182,8 @@ class SrcLayer():
 
         # The SRC Layer object holds the data model schema and the
         # source system connection details
-        self.dataModelSchemas = {}
         self.srcSystemConns = {}  # {<srcSysId>:Connection()}
+        self.dataModels = {}
         self.getSrcSysDBConnections()
         self.loadLogicalDataModel()
 
@@ -399,7 +399,7 @@ class SrcLayer():
         # We build up our new GSheets table first, in memory,
         # then write it all in one go.
 
-        cell_list = self.dataModelSchemas[dataModelId].stmWorksheet.          \
+        cell_list = self.dataModels[dataModelId].stmWorksheet.          \
             range('A2:G'+str(len(schema)+1))
         rangeRowCount = 0
         for schemaRow in schema:
@@ -412,10 +412,10 @@ class SrcLayer():
             cell_list[rangeRowCount+6].value = schemaRow[6]
             rangeRowCount += 7
 
-        self.dataModelSchemas[dataModelId].stmWorksheet.update_cells(cell_list)
+        self.dataModels[dataModelId].stmWorksheet.update_cells(cell_list)
 
         log.info("STM schema updated in worksheet: "
-                 + self.dataModelSchemas[dataModelId].stmWorksheet.title)
+                 + self.dataModels[dataModelId].stmWorksheet.title)
 
     def rebuildPhsyicalDataModel(self):
 
@@ -428,12 +428,12 @@ class SrcLayer():
 
         haveWeChangedStm = False
 
-        for dataModelId in self.dataModelSchemas:
+        for dataModelId in self.dataModels:
 
             # If this worksheet of the STM is not already populated, we
             # populate it with an exact copy of the source DB's schema
 
-            if (self.dataModelSchemas[dataModelId].isStmPopulated):
+            if (self.dataModels[dataModelId].isStmPopulated):
                 log.info("the STM for source system <" + dataModelId + "> " +
                          "is already populated")
             else:
@@ -477,16 +477,16 @@ class SrcLayer():
     def getSqlCreateStatements(self):
         log.debug("START")
         dataLayerCreateStatements = []
-        for dataModelId in self.dataModelSchemas:
+        for dataModelId in self.dataModels:
             dataLayerCreateStatements.extend(
-                self.dataModelSchemas[dataModelId].getSqlCreateStatements())
+                self.dataModels[dataModelId].getSqlCreateStatements())
 
         return dataLayerCreateStatements
 
     def __str__(self):
         dataModelStr = '\n' + '*** Data Layer: Source ***' + '\n'
-        for dataModelId in self.dataModelSchemas:
-            dataModelStr += str(self.dataModelSchemas[dataModelId])
+        for dataModelId in self.dataModels:
+            dataModelStr += str(self.dataModels[dataModelId])
 
         return dataModelStr
 
