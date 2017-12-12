@@ -162,34 +162,41 @@ def processArgs(args):
     skipWarnings = False
     bulk = False
     delta = False
+    unrecognisedArg = False
 
     for arg in args:
         if arg == 'help':
             showHelp = True
-        if arg == 'bulk':
+        elif arg == 'bulk':
             bulk = True
             conf.BULK_OR_DELTA = 'BULK'
-        if arg == 'delta':
+        elif arg == 'delta':
             delta = True
             conf.BULK_OR_DELTA = 'DELTA'
-        if arg == 'nowarnings':
+        elif arg == 'nowarnings':
             skipWarnings = True
-        if arg == 'setup':
+        elif arg == 'setup':
             RUN_SETUP = True
-        if arg == 'rebuildAll':
+        elif arg == 'rebuildAll':
             RUN_REBUILD_ALL = True
-        if arg == 'rebuildSrc':
+        elif arg == 'rebuildSrc':
             RUN_REBUILD_SRC = True
-        if arg == 'rebuildStg':
+        elif arg == 'rebuildStg':
             RUN_REBUILD_STG = True
-        if arg == 'rebuildTrg':
+        elif arg == 'rebuildTrg':
             RUN_REBUILD_TRG = True
-        if arg == 'rebuildSum':
+        elif arg == 'rebuildSum':
             RUN_REBUILD_SUM = True
-        if arg == 'job':
+        elif arg == 'job':
             RUN_JOB = True
+        else:
+            if arg != sys.argv[0]:
+                unrecognisedArg = True
 
-    if showHelp:
+    if unrecognisedArg and not showHelp:
+        print("Argument " + arg + " not recognised. Try 'help'")
+        sys.exit()
+    elif showHelp:
         print("")
         print("--------------------------------------------------------------")
         print("")
