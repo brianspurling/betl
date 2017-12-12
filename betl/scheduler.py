@@ -88,11 +88,12 @@ def executeJob(runExtract=True, runTransform=True, runLoad=True,
     except Exception as e1:
         tb1 = traceback.format_exc()
         try:
+            e1Str = str(e1).replace("'", "").replace('"', '')
             ctlDBCursor.execute("UPDATE job_log " +
                                 "SET " +
                                 "end_datetime = current_timestamp, " +
                                 "status = 'FINISHED WITH ERROR', " +
-                                "status_message = '" + str(e1) + "'" +
+                                "status_message = '" + e1Str + "' " +
                                 "WHERE job_id = " + str(jobId))
             conf.CTL_DB_CONN.commit()
             log.critical("\n\n" +
@@ -101,6 +102,10 @@ def executeJob(runExtract=True, runTransform=True, runLoad=True,
                          + tb1 + "\n")
         except Exception as e2:
             tb2 = traceback.format_exc()
+            tb1 = tb1.replace("'", "")
+            tb1 = tb1.replace('"', '')
+            tb2 = tb2.replace("'", "")
+            tb2 = tb2.replace('"', '')
             log.critical("\n\n" +
                          "THE JOB FAILED, AND THEN FAILED TO WRITE TO THE " +
                          "JOB_LOG\n\n" +
