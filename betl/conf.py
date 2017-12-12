@@ -2,7 +2,6 @@ import logging as logging
 
 # Global variables
 BULK_OR_DELTA = None
-USE_DEFAULT_EXTRACT = False
 LOG_LEVEL = logging.INFO
 
 #
@@ -42,8 +41,3 @@ def loadAppConfig(conf):
     STM_FILE_NAME = conf['STM_FILE_NAME']
     GOOGLE_SHEETS_API_URL = conf['GOOGLE_SHEETS_API_URL']
     GOOGLE_SHEETS_API_KEY_FILE = conf['GOOGLE_SHEETS_API_KEY_FILE']
-
-
-def useDefaultExtract(useDefaultExtract=True):
-    global USE_DEFAULT_EXTRACT
-    USE_DEFAULT_EXTRACT = useDefaultExtract

@@ -43,18 +43,6 @@ def setupBetl():
 
 
 #
-# Initialise the schedule
-# Most of the scheduling is done by the application, using
-# scheduler.scheduleDataFlow()
-#
-def initialiseSchedule():
-    log.debug("START")
-    if conf.USE_DEFAULT_EXTRACT:
-        scheduler.scheduleDataFlow(df_extract.df_defaultExtract, 'EXTRACT', 0)
-    log.debug("END")
-
-
-#
 # These need to be called in every execution.
 # They create the Layer and DataModel objects
 # that will be used throughout executation of
@@ -140,6 +128,17 @@ def rebuildPhysicalDataModel_trg():
 #
 def rebuildPhysicalDataModel_sum():
     log.debug("START")
+    log.debug("END")
+
+
+#
+# Stick betl's default extraction data flow at the start of the schedule
+#
+def addDefaultExtractToSchedule():
+    log.debug("START")
+    scheduler.scheduleDataFlow(function=df_extract.df_defaultExtract,
+                               etlStage='EXTRACT',
+                               pos=0)
     log.debug("END")
 
 
@@ -255,8 +254,6 @@ def run(args):
 
     if RUN_SETUP:
         setupBetl()
-
-    initialiseSchedule()
 
     loadLogicalDataModels()
 
