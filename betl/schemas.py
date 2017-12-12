@@ -201,7 +201,7 @@ class SrcLayer():
         srcWorksheets = utils.getStmWorksheets(dataLayer='src')
         for srcWorksheet in srcWorksheets:
 
-            # Cut off the SRC.<dataModelId>. prefix
+            # Cut off the "ETL.SRC." prefix
             dataModelId = srcWorksheet.title[srcWorksheet.title.rfind('.')+1:]
 
             # Each worksheet is one data model - corresponding to the entire
