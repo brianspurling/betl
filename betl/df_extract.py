@@ -99,6 +99,8 @@ def df_defaultExtract():
                 updateColumnList = []
                 deleteColumnList = []
 
+                columns = schemas.SRC_LAYER.dataModels[dataModelId]     \
+                    .tables[tableName].columns
 
                 for column in columns:
                         if column.isNK:
