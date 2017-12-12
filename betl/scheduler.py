@@ -76,15 +76,24 @@ def executeJob(runExtract=True, runTransform=True, runLoad=True,
         ctlDBCursor.execute("SELECT MAX(job_id) FROM job_log")
         jobId = ctlDBCursor.fetchall()[0][0]
 
-        if runExtract:
+        if len(EXTRACT_SCHEDULE) > 0 and runExtract:
+            log.info("STAGE: EXTRACT")
             for func in EXTRACT_SCHEDULE:
+                log.info("Executing " + func.__name__)
                 func()
-        if runTransform:
+                log.info("Completed " + func.__name__)
+        if len(TRANSFORM_SCHEDULE) > 0 and runTransform:
+            log.info("STAGE: TRANSFORM")
             for func in TRANSFORM_SCHEDULE:
+                log.info("Executing " + func.__name__)
                 func()
-        if runLoad:
+                log.info("Completed " + func.__name__)
+        if len(LOAD_SCHEDULE) > 0 and runLoad:
+            log.info("STAGE: LOAD")
             for func in LOAD_SCHEDULE:
+                log.info("Executing " + func.__name__)
                 func()
+                log.info("Completed " + func.__name__)
     except Exception as e1:
         tb1 = traceback.format_exc()
         try:
