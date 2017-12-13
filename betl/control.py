@@ -26,9 +26,15 @@ RUN_JOB = False
 #
 def initialiseDBConnections():
     log.debug("START")
+
     utils.getCtlDBConnection()
+
     utils.getEtlDBConnection()
     utils.getEtlDBEngine()
+
+    utils.getTrgDBConnection()
+    utils.getTrgDBEngine()
+
     utils.getStmConnection()
     log.debug("END")
 

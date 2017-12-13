@@ -24,7 +24,7 @@ log = setUpLogger(' UTILS', __name__)
 
 
 #
-# Functions to connect to the DBs (ETL and CTL) and STM
+# Functions to connect to the DBs (CTL, ETL and TRG) and STM
 #
 def getCtlDBConnection(reload=False):
     if conf.CTL_DB_CONN is None or reload:
@@ -38,6 +38,12 @@ def getEtlDBConnection(reload=False):
     return conf.ETL_DB_CONN
 
 
+def getTrgDBConnection(reload=False):
+    if conf.TRG_DB_CONN is None or reload:
+        conf.TRG_DB_CONN = getDBConnection('trg')
+    return conf.TRG_DB_CONN
+
+
 def getDBConnection(connId):
 
     # If we don't have a connection yet, connect to the postgres instance,
@@ -46,12 +52,23 @@ def getDBConnection(connId):
     log.debug(connId + " DB connection does not yet exist, " +
               "attempting to connect")
 
+    # Get the correct connection details from conf
+    connDetails = {}
+    if connId == 'ctl':
+        connDetails = conf.CTL_DB_CONN_DETAILS
+    elif connId == 'etl':
+        connDetails = conf.ETL_DB_CONN_DETAILS
+    elif connId == 'trg':
+        connDetails = conf.ETL_DB_CONN_DETAILS
+
+    # Connect to the DB server, without specifiying a database. We're going
+    # to first check whether the DB exists
     dbServerConnectionString = 'host='                                    \
-        + conf.ETL_DB_CONNS[connId]['HOST']                               \
+        + connDetails['HOST']                                             \
         + ' dbname=postgres user='                                        \
-        + conf.ETL_DB_CONNS[connId]['USER']                               \
+        + connDetails['USER']                                             \
         + ' password='                                                    \
-        + conf.ETL_DB_CONNS[connId]['PASSWORD']
+        + connDetails['PASSWORD']
     dbServerConn = psycopg2.connect(dbServerConnectionString)
     dbServerConn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
     dbServerCursor = dbServerConn.cursor()
@@ -65,14 +82,13 @@ def getDBConnection(connId):
                                + conf.DWH_ID + '_'
                                + connId)
         log.info("an empty " + connId + " database has been created")
-    else:
-        pass
 
+    # Reconstruct the connection string, this time with the DB name
     dbConnectionString = 'host='                                          \
-        + conf.ETL_DB_CONNS[connId]['HOST']                               \
-        + ' dbname=' + conf.ETL_DB_CONNS[connId]['DBNAME']                \
-        + ' user=' + conf.ETL_DB_CONNS[connId]['USER']                    \
-        + ' password=' + conf.ETL_DB_CONNS[connId]['PASSWORD']
+        + connDetails['HOST']                               \
+        + ' dbname=' + connDetails['DBNAME']                \
+        + ' user=' + connDetails['USER']                    \
+        + ' password=' + connDetails['PASSWORD']
     connection = psycopg2.connect(dbConnectionString)
 
     log.info("Connected to " + connId + " DB")
@@ -85,14 +101,29 @@ def getEtlDBEngine(reload=False):
 
     if conf.ETL_DB_ENG is None or reload:
         conf.ETL_DB_ENG = create_engine(r'postgresql://'
-                                        + conf.ETL_DB_CONNS['etl']['USER']
+                                        + conf.ETL_DB_CONN_DETAILS['USER']
                                         + ':@'
-                                        + conf.ETL_DB_CONNS['etl']['HOST']
+                                        + conf.ETL_DB_CONN_DETAILS['HOST']
                                         + '/'
-                                        + conf.ETL_DB_CONNS['etl']['DBNAME'])
+                                        + conf.ETL_DB_CONN_DETAILS['DBNAME'])
     log.debug('END')
 
     return conf.ETL_DB_ENG
+
+
+def getTrgDBEngine(reload=False):
+    log.debug('START')
+
+    if conf.TRG_DB_ENG is None or reload:
+        conf.TRG_DB_ENG = create_engine(r'postgresql://'
+                                        + conf.TRG_DB_CONN_DETAILS['USER']
+                                        + ':@'
+                                        + conf.TRG_DB_CONN_DETAILS['HOST']
+                                        + '/'
+                                        + conf.TRG_DB_CONN_DETAILS['DBNAME'])
+    log.debug('END')
+
+    return conf.TRG_DB_ENG
 
 
 #

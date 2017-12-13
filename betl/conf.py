@@ -12,7 +12,9 @@ LOG_LEVEL = logging.INFO
 DWH_ID = None
 
 # Connection details
-ETL_DB_CONNS = None
+CTL_DB_CONN_DETAILS = None
+ETL_DB_CONN_DETAILS = None
+TRG_DB_CONN_DETAILS = None
 SOURCE_SYSTEM_CONNS = None
 
 # Source to Target Mapping document
@@ -25,19 +27,31 @@ STM_CONN = None
 CTL_DB_CONN = None
 ETL_DB_CONN = None
 ETL_DB_ENG = None
+TRG_DB_CONN = None
+TRG_DB_ENG = None
 
 
-def loadAppConfig(conf):
+
+def loadAppConfig(appConf):
     global DWH_ID
-    global ETL_DB_CONNS
+
+    global CTL_DB_CONN_DETAILS
+    global ETL_DB_CONN_DETAILS
+    global TRG_DB_CONN_DETAILS
     global SOURCE_SYSTEM_CONNS
+
     global STM_FILE_NAME
     global GOOGLE_SHEETS_API_URL
     global GOOGLE_SHEETS_API_KEY_FILE
 
-    DWH_ID = conf['DWH_ID']
-    ETL_DB_CONNS = conf['ETL_DB_CONNS']
-    SOURCE_SYSTEM_CONNS = conf['SOURCE_SYSTEM_CONNS']
-    STM_FILE_NAME = conf['STM_FILE_NAME']
-    GOOGLE_SHEETS_API_URL = conf['GOOGLE_SHEETS_API_URL']
-    GOOGLE_SHEETS_API_KEY_FILE = conf['GOOGLE_SHEETS_API_KEY_FILE']
+    DWH_ID = appConf['DWH_ID']
+
+    CTL_DB_CONN_DETAILS = appConf['CTL_DB_CONN']
+    ETL_DB_CONN_DETAILS = appConf['ETL_DB_CONN']
+    TRG_DB_CONN_DETAILS = appConf['TRG_DB_CONN']
+    SOURCE_SYSTEM_CONNS = appConf['SOURCE_SYSTEM_CONNS']
+
+    STM_FILE_NAME = appConf['STM_FILE_NAME']
+    GOOGLE_SHEETS_API_URL = appConf['GOOGLE_SHEETS_API_URL']
+    GOOGLE_SHEETS_API_KEY_FILE = appConf['GOOGLE_SHEETS_API_KEY_FILE']
+
