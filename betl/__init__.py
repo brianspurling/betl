@@ -11,3 +11,5 @@ from .utilities import getEtlDBConnection
 from .utilities import describeDF
 
 from .scheduler import scheduleDataFlow
+
+from .profiler import profileSrc
