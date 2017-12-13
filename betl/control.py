@@ -3,6 +3,7 @@ from . import schemas
 from . import conf
 from . import scheduler
 from . import df_extract
+from . import df_transform
 from . import utilities as utils
 from . import setup
 
@@ -142,7 +143,18 @@ def rebuildPhysicalDataModel_sum():
 #
 def addDefaultExtractToSchedule():
     log.debug("START")
-    scheduler.scheduleDataFlow(function=df_extract.df_defaultExtract,
+    scheduler.scheduleDataFlow(function=df_extract.defaultExtract,
+                               etlStage='EXTRACT',
+                               pos=0)
+    log.debug("END")
+
+
+#
+# Generate a standard DATE dimension
+#
+def addDMDateToSchedule():
+    log.debug("START")
+    scheduler.scheduleDataFlow(function=df_transform.generateDMDate,
                                etlStage='EXTRACT',
                                pos=0)
     log.debug("END")

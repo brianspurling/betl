@@ -1,4 +1,5 @@
 import logging as logging
+import datetime
 
 # Global variables
 BULK_OR_DELTA = None
@@ -30,6 +31,12 @@ ETL_DB_ENG = None
 TRG_DB_CONN = None
 TRG_DB_ENG = None
 
+# Job execution parameters
+# These dictate the start/end dates of DM_DATE. They can be overridden at
+# any point in the application's ETL process, providing the generateDMDate
+# function is added to the schedule _after_ the functions in which they're set
+EARLIEST_DATE_IN_DATA = datetime.date(1900, 1, 1)
+LATEST_DATE_IN_DATA = datetime.date.today() + datetime.timedelta(days=365)
 
 
 def loadAppConfig(appConf):
@@ -55,3 +62,12 @@ def loadAppConfig(appConf):
     GOOGLE_SHEETS_API_URL = appConf['GOOGLE_SHEETS_API_URL']
     GOOGLE_SHEETS_API_KEY_FILE = appConf['GOOGLE_SHEETS_API_KEY_FILE']
 
+
+def setEarliestDate(earliestDate):
+    global EARLIEST_DATE_IN_DATA
+    EARLIEST_DATE_IN_DATA = earliestDate
+
+
+def setLatestDate(latestDate):
+    global LATEST_DATE_IN_DATA
+    LATEST_DATE_IN_DATA = latestDate
