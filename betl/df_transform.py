@@ -33,9 +33,6 @@ def generateDMDate(writeToDimension='True'):
 
     df = pd.DataFrame(dmDateList)
 
-    # To do: this needs to be set up as bulk only. Delta would be additional
-    # dates, or maybe the ability to add new columns, but needs to be done
-    # without changing SKs
     if writeToDimension:
         df.to_sql('DM_DATE',
                   conf.TRG_DB_ENG,
