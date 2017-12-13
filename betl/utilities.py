@@ -8,6 +8,11 @@ import datetime
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from sqlalchemy import create_engine
+# For clearing out the temp data folder
+import os
+import tempfile
+import shutil
+import pprint
 
 
 def setUpLogger(moduleCode, name):
@@ -238,6 +243,27 @@ def setAuditCols_delete(df):
     log.debug("END")
 
     return df
+
+
+def deleteTempoaryData():
+    log.debug("START")
+
+    path = conf.TMP_DATA_PATH
+
+    if (os.path.exists(path)):
+        # `tempfile.mktemp` Returns an absolute pathname of a file that
+        # did not exist at the time the call is made. We pass
+        # dir=os.path.dirname(dir_name) here to ensure we will move
+        # to the same filesystem. Otherwise, shutil.copy2 will be used
+        # internally and the problem remains: we're still deleting the
+        # folder when we come to recreate it
+        tmp = tempfile.mktemp(dir=os.path.dirname(path))
+        shutil.move(path, tmp)  # rename
+        shutil.rmtree(tmp)  # delete
+    os.makedirs(path)  # create the new folder
+
+    log.debug("END")
+
 
 def describeDF(funcName, stepDescription, df, stepId):
     print('\n')

@@ -295,6 +295,7 @@ def run(args):
             rebuildPhysicalDataModel_sum()
 
     if RUN_JOB:
+        utils.deleteTempoaryData()
         scheduler.executeJob()
 
     log.debug("END")

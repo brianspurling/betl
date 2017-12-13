@@ -11,6 +11,7 @@ LOG_LEVEL = logging.INFO
 
 # General
 DWH_ID = None
+TMP_DATA_PATH = None
 
 # Connection details
 CTL_DB_CONN_DETAILS = None
@@ -50,6 +51,7 @@ def loadAppConfig(appConf):
     global STM_FILE_NAME
     global GOOGLE_SHEETS_API_URL
     global GOOGLE_SHEETS_API_KEY_FILE
+    global TMP_DATA_PATH
 
     DWH_ID = appConf['DWH_ID']
 
@@ -61,6 +63,7 @@ def loadAppConfig(appConf):
     STM_FILE_NAME = appConf['STM_FILE_NAME']
     GOOGLE_SHEETS_API_URL = appConf['GOOGLE_SHEETS_API_URL']
     GOOGLE_SHEETS_API_KEY_FILE = appConf['GOOGLE_SHEETS_API_KEY_FILE']
+    TMP_DATA_PATH = appConf['TMP_DATA_PATH'].replace('/', '')
 
 
 def setEarliestDate(earliestDate):
