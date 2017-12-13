@@ -12,27 +12,39 @@ log = utils.setUpLogger('EXTRCT', __name__)
 # A default extraction process. Bulk is obvious and as you would expect
 # Delta does full-table comparisons to identify deltas
 #
-def defaultExtract():
+def defaultExtract(srcTablesToExclude=[]):
 
+    srcTablesToExclude = conf.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT
+
+    # To do: stop "index" cols appearing at the start of every src table
     log.debug("START")
 
     time = str(datetime.datetime.time(datetime.datetime.now()))
 
     for dataModelId in schemas.SRC_LAYER.dataModels:
 
-        for tableName in schemas.SRC_LAYER.dataModels[dataModelId]      \
+        for tableName in schemas.SRC_LAYER.dataModels[dataModelId]            \
                          .tables:
-            tableShortName = schemas.SRC_LAYER.dataModels[dataModelId]  \
-                             .tables[tableName].tableShortName
-            columnList = schemas.SRC_LAYER.dataModels[dataModelId]      \
+
+            # The app might want to take care of some tables itself, rather
+            # than using the default. These will have been passed in, so if
+            # this table is one of them let's skip
+            if tableName in srcTablesToExclude:
+                log.info("Skipping default extract for " + tableName)
+                continue
+
+            tableShortName = schemas.SRC_LAYER.dataModels[dataModelId]        \
+                .tables[tableName].tableShortName
+
+            columnList = schemas.SRC_LAYER.dataModels[dataModelId]            \
                 .tables[tableName].columnList
             columnList_withoutAudit = schemas.SRC_LAYER                       \
-                .dataModels[dataModelId]                                \
-                .tables[tableName]                                      \
+                .dataModels[dataModelId]                                      \
+                .tables[tableName]                                            \
                 .columnList_withoutAudit
-            nkList = schemas.SRC_LAYER.dataModels[dataModelId]          \
+            nkList = schemas.SRC_LAYER.dataModels[dataModelId]                \
                 .tables[tableName].nkList
-            nonNkList = schemas.SRC_LAYER.dataModels[dataModelId]       \
+            nonNkList = schemas.SRC_LAYER.dataModels[dataModelId]             \
                 .tables[tableName].nonNkList
 
             # This is what we're going to read our data into

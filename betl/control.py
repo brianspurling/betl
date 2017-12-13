@@ -141,8 +141,11 @@ def rebuildPhysicalDataModel_sum():
 #
 # Stick betl's default extraction data flow at the start of the schedule
 #
-def addDefaultExtractToSchedule():
+def addDefaultExtractToSchedule(srcTablesToExclude=[]):
     log.debug("START")
+
+    conf.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT = srcTablesToExclude
+
     scheduler.scheduleDataFlow(function=df_extract.defaultExtract,
                                etlStage='EXTRACT',
                                pos=0)
