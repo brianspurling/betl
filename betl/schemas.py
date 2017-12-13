@@ -48,6 +48,8 @@ class Connection():
         elif (self.type == 'FILESYSTEM'):
             self.files = {}
             for file in configDetails['FILES']:
+                # file is a dictionary like:
+                # {filename: , delimiter: , quotechar: }
                 self.files[file['filename']] = {'delimiter': file['delimiter'],
                                                 'quotechar': file['quotechar']}
 
@@ -508,6 +510,7 @@ class SumLayer():
 
 
 def getAuditColumns(dataModelId, dataModelType, tableName):
+    log.debug("START")
     schema = []
     schema.append([dataModelId,
                    dataModelType,
@@ -525,4 +528,5 @@ def getAuditColumns(dataModelId, dataModelType, tableName):
                    dataModelType,
                    tableName,
                    'audit_latest_delta_load_operation', 'YES', 'text', ''])
+    log.debug("END")
     return schema
