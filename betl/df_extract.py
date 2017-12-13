@@ -1,5 +1,5 @@
 import pandas as pd
-import datetime
+from datetime import datetime
 
 from . import utilities as utils
 from . import schemas
@@ -18,8 +18,6 @@ def defaultExtract(srcTablesToExclude=[]):
 
     # To do: stop "index" cols appearing at the start of every src table
     log.debug("START")
-
-    time = str(datetime.datetime.time(datetime.datetime.now()))
 
     for dataModelId in schemas.SRC_LAYER.dataModels:
 
@@ -83,6 +81,7 @@ def defaultExtract(srcTablesToExclude=[]):
                                        action='BULK')
 
                 # Bulk load the SRC table
+                time = str(datetime.time(datetime.now()))
                 log.info('bulk writing ' + tableName
                          + ' to SRC (start: ' + time + ')')
 
@@ -91,8 +90,9 @@ def defaultExtract(srcTablesToExclude=[]):
                              conf.ETL_DB_ENG,
                              if_exists='replace')
 
+                time = str(datetime.time(datetime.now()))
                 log.info(tableName
-                         + ' written to SRC (start: ' + time + ')')
+                         + ' written to SRC (end: ' + time + ')')
 
             elif conf.BULK_OR_DELTA == 'DELTA':
 
@@ -145,6 +145,7 @@ def defaultExtract(srcTablesToExclude=[]):
 
                 # Apply inserts, to DB and DF
                 if not insertsDF.empty:
+                    time = str(datetime.time(datetime.now()))
                     log.info('Applying ' + str(insertsDF.shape)
                              + ' inserts to ' + tableName
                              + ' (start: ' + time + ')')
@@ -156,6 +157,7 @@ def defaultExtract(srcTablesToExclude=[]):
                                      if_exists='append', index=False)
                     stgDF = stgDF.append(insertsDF, ignore_index=True,
                                          verify_integrity=True)
+                    time = str(datetime.time(datetime.now()))
                     log.info('Inserts applied ' + str(insertsDF.shape)
                              + ' inserts to ' + tableName
                              + ' (end: ' + time + ')')
@@ -175,6 +177,7 @@ def defaultExtract(srcTablesToExclude=[]):
 
                 # Apply deletes, to DB and DF
                 if not deletesDF.empty:
+                    time = str(datetime.time(datetime.now()))
                     log.info('Applying ' + str(deletesDF.shape) + ' deletes to'
                              + ' ' + tableName + ' (start: ' + time + ')')
                     deletesDF = utils.setAuditCols(df=deletesDF,
@@ -197,6 +200,7 @@ def defaultExtract(srcTablesToExclude=[]):
                         etlDbCursor.execute("DELETE FROM src_ipa_addresses "
                                             + nkWhereClause)
                     conf.ETL_DB_CONN.commit()
+                    time = str(datetime.time(datetime.now()))
                     log.info('Deletes applied (end: ' + time + ')')
                     stgDF = pd.concat([stgDF, deletesDF])                 \
                         .drop_duplicates(keep=False)
@@ -231,6 +235,7 @@ def defaultExtract(srcTablesToExclude=[]):
 
                 # Apply updates, to DB and DF
                 if not updatesDF.empty:
+                    time = str(datetime.time(datetime.now()))
                     log.info('Applying ' + str(updatesDF.shape) + ' updates to'
                              + ' ' + tableName + ' (start: ' + time + ')')
                     updatesDF = utils.setAuditCols(df=updatesDF,
@@ -271,6 +276,7 @@ def defaultExtract(srcTablesToExclude=[]):
                                             + nonNkSetClause + " "
                                             + nkWhereClause)
                     conf.ETL_DB_CONN.commit()
+                    time = str(datetime.time(datetime.now()))
                     log.info('Updates applied (end: ' + time + ')')
                 else:
                     log.info('No updates found for ' + tableName)
