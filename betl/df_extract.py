@@ -12,7 +12,7 @@ log = utils.setUpLogger('EXTRCT', __name__)
 # A default extraction process. Bulk is obvious and as you would expect
 # Delta does full-table comparisons to identify deltas
 #
-def df_defaultExtract():
+def defaultExtract():
 
     log.debug("START")
 
