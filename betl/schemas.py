@@ -530,3 +530,8 @@ def getAuditColumns(dataModelId, dataModelType, tableName):
                    'audit_latest_delta_load_operation', 'YES', 'text', ''])
     log.debug("END")
     return schema
+
+
+def getSrcLayerSchema():
+    global SRC_LAYER
+    return SRC_LAYER

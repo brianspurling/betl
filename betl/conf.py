@@ -76,3 +76,13 @@ def setEarliestDate(earliestDate):
 def setLatestDate(latestDate):
     global LATEST_DATE_IN_DATA
     LATEST_DATE_IN_DATA = latestDate
+
+
+def getEtlDBEng():
+    global ETL_DB_ENG
+    return ETL_DB_ENG
+
+
+def isBulkOrDelta():
+    global BULK_OR_DELTA
+    return BULK_OR_DELTA
