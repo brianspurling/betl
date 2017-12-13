@@ -8,5 +8,6 @@ from .control import addDMDateToSchedule
 from .control import run
 
 from .utilities import getEtlDBConnection
+from .utilities import describeDF
 
 from .scheduler import scheduleDataFlow
