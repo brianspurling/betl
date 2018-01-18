@@ -53,6 +53,14 @@ class Connection():
                 self.files[file['filename']] = {'delimiter': file['delimiter'],
                                                 'quotechar': file['quotechar']}
 
+        elif (self.type == 'SPREADSHEET'):
+            self.worksheets = {}
+            msdWorksheets = utils.getMsdWorksheets()
+            for worksheet in msdWorksheets:
+                # a dictionary indexed by table name, containing the worksheet
+                # object
+                self.worksheets[worksheet.title] = worksheet
+
 
 class Column():
 
@@ -175,7 +183,8 @@ class DataModel():
 
 
 class SrcLayer():
-    # 1+ Data Models, one for each source system
+    # 1+ Data Models, one for each source system, with the MSD being considered
+    # a signle Data Model
     # {sourceSystemId:DataModel}
 
     def __init__(self):
@@ -186,60 +195,117 @@ class SrcLayer():
         # source system connection details
         self.dataModels = {}
         self.srcSystemConns = {}  # {<dataModelId>:Connection()}
-        self.getSrcSysDBConnections()
+
+        self.getSrcSysDBConnections()  # populates srcSystemConns
         self.loadLogicalDataModel()
 
+    #
+    # Each source system is a Data Model (within the SRC Data Layer).
+    # The STM contains a tab per source system, which lists all the columns for
+    # all the tables in that source system.
+    #
+    # So first, we pull these schemas out of the STM and load them into our
+    # logical data model
+    #
+    # Then we pull the MSD schema (manual source data) from the MSD spreadsheet
+    # and load that into our logical data model as one additional Data Model of
+    # the SRC Data Layer
+    #
     def loadLogicalDataModel(self):
-        # Pull schemas for each data model out of the worksheets, and
-        # bulid up a dictionary of DataModels > Tables > [{column metadata}],
-        # but just pass this through to the "child" constructors. We'll leave
-        # this SrcLayer object with just a simple reference to a dictionary
-        # of DataModel objects, and let these "child" objects handle the detail
 
         log.debug("START")
 
-        tempSchema = {}
+        # We'll be building up a dictionary, indexed by dataModelId, containing
+        # a dictionary with two elements needed by the DataModel constructor:
+        # the worksheet itself, and then a dictionary, indexed by tableName,
+        # containing a list of dictionaries, each one indexed by column
+        # attribute name, containing the column attribute value
 
+        tmp_dataModels = {}
+
+        # First, the STM
         srcWorksheets = utils.getStmWorksheets(dataLayer='src')
         for srcWorksheet in srcWorksheets:
 
-            # Cut off the "ETL.SRC." prefix
-            dataModelId = srcWorksheet.title[srcWorksheet.title.rfind('.')+1:]
-
-            # Each worksheet is one data model - corresponding to the entire
-            # SRC for one source system.
             # Create a new entry in our dataModel dictionary, indexed by the
-            # source system ID
+            # dataModelId (which is the source system ID)
 
-            tempSchema[dataModelId] = {}
+            # Cut off the "ETL.SRC." prefix
+            dmId = srcWorksheet.title[srcWorksheet.title.rfind('.')+1:]
+            tmp_dataModels[dmId] = {'stmWorksheet':  srcWorksheet,
+                                    'dataModelName': srcWorksheet.title,
+                                    'dataModelId':   dmId,
+                                    'tableSchemas':  {}}
+            tmp_tableSchemas = tmp_dataModels[dmId]['tableSchemas']
 
-            # Get the schema for this DataModel
-            stmRows = srcWorksheet.get_all_records()
+            # Load the schema for this DataModel out of the STM spreadsheet
+            dataModelSchema_allRows = srcWorksheet.get_all_records()
 
-            # We've got a list of cols, so detect when we move to a new table
-            for stmRow in stmRows:
-                if stmRow['Table Name'].lower() not in tempSchema[dataModelId]:
-                    # Insert a new table into our dictionary for this data
-                    # model, indexed by table name, with an empty list of cols
-                    tempSchema[dataModelId][stmRow['Table Name'].lower()] = []
+            # We're working through a list of cols spanning multiple tables, so
+            # detect when we move to a new table
+            for stmRow in dataModelSchema_allRows:
+                if stmRow['Table Name'].lower() not in tmp_tableSchemas:
+                    # Insert a new table into our dictionary,
+                    # with an empty list of columns
+                    tmp_tableSchemas[stmRow['Table Name'].lower()] = []
 
                 # And add the current column to this table's list of columns.
+                # Each list item is a dictionary of column metadata
+                colums = tmp_tableSchemas[stmRow['Table Name'].lower()]
+                colums.append({'columnName': stmRow['Column Name'],
+                               'dataType':   stmRow['data_type'],
+                               'isNK':       stmRow['natural_key'],
+                               'isAudit':    stmRow['audit_column']})
+
+        # Next, the MSD
+
+        # We're going to add one more dataModel, which will include all
+        # manual source data from the MSD spreadsheet
+        msdWorksheets = utils.getMsdWorksheets()
+        dmId = 'MSD'
+        tmp_dataModels[dmId] = {'stmWorksheet': None,
+                                'dataModelName': 'MSD',
+                                'dataModelId':   dmId,
+                                'tableSchemas': {}}
+        tmp_tableSchemas = tmp_dataModels[dmId]['tableSchemas']
+
+        for msdWorksheet in msdWorksheets:
+
+            # Insert a new table into our dictionary, with an empty list of
+            # columns.
+            tmp_tableSchemas[msdWorksheet.title] = []
+
+            # The first row of the spreadsheet has column names
+            # The second row has data types
+            # The third row has isNKs
+            columnNames = msdWorksheet.row_values(1)
+            dataTypes = msdWorksheet.row_values(2)
+            isNKs = msdWorksheet.row_values(3)
+
+            for i in range(len(columnNames)):
+                if columnNames[i] == '':
+                    break  # to stop reading empty cells as values
+
+                # Add the current column to this table's list of columns.
                 # Each list item is a dictionary of column metadata indexed by
                 # column name
-                tmpList = tempSchema[dataModelId][stmRow['Table Name'].lower()]
-                tmpList.append({'columnName': stmRow['Column Name'],
-                                'dataType': stmRow['data_type'],
-                                'isNK': stmRow['natural_key'],
-                                'isAudit': stmRow['audit_column']})
+                colums = tmp_tableSchemas[msdWorksheet.title]
+                colums.append({'columnName': columnNames[i],
+                               'dataType':   dataTypes[i],
+                               'isNK':       isNKs[i],
+                               'isAudit':    'N'})
 
-            # Create the DataModel() for this SRC system. This is the object
-            # we "leave behind" in this class - the full schema gets passed
-            # down to "child" constructors
-            self.dataModels[dataModelId] = DataModel(srcWorksheet.title,
-                                                     tempSchema[dataModelId],
-                                                     srcWorksheet)
+        # We have all the schema data now, so create the DataModel() object.
+        # This is the object we "leave behind" in this class - the full schema
+        # gets passed down to "child" constructors
+        for i in tmp_dataModels:
+            self.dataModels[tmp_dataModels[i]['dataModelId']] =               \
+                    DataModel(tmp_dataModels[i]['dataModelName'],
+                              tmp_dataModels[i]['tableSchemas'],
+                              tmp_dataModels[i]['stmWorksheet'])
 
-            log.info("Loaded logical data model for " + srcWorksheet.title)
+            log.info("Loaded logical data model for " +
+                     tmp_dataModels[i]['dataModelName'])
 
     def getSrcSysDBConnections(self):
 
@@ -254,6 +320,10 @@ class SrcLayer():
             self.srcSystemConns[srcSysId] = Connection(conf.SOURCE_SYSTEM_CONNS
                                                        [srcSysId])
 
+        # To do, some kind of conditional on this and other places to make
+        # using MSD optional
+        self.srcSystemConns['MSD'] = Connection(conf.SOURCE_SYSTEM_CONNS
+                                                ['MSD'])
         log.info("Connected to source systems")
 
     def dropAllTables(self):

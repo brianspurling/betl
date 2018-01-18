@@ -36,6 +36,7 @@ def initialiseDBConnections():
     utils.getTrgDBConnection()
     utils.getTrgDBEngine()
 
+    utils.getMsdConnection()
     utils.getStmConnection()
     log.debug("END")
 
@@ -249,7 +250,8 @@ def processArgs(args):
         print("  betl.scheduleDataFlow(function,stage,pos)")
         print("- If the STM's SRC schema is empty, betl will auto-populate")
         print("  it from the source system(s)")
-        print("- You will then need to identify the natural keys manually")
+        print("- You will then need to identify the natural keys manually, in")
+        print("  the spreadsheet")
         print("- Use betl.useDefaultExtract() to use a standard extract:")
         print("  (It will use full table comparisons on the NKs to get deltas")
         print("")
@@ -274,7 +276,7 @@ def processArgs(args):
 #
 # The main function that executes betl
 #
-def run(args):
+def run():
 
     log.debug("START")
 

@@ -153,15 +153,38 @@ def getStmConnection(reload=False):
     return conf.STM_CONN
 
 
+#
+# Returns the connection to the Manual Source Data spreadsheet
+# The returned value is a gspread object that allows access to the GSheet,
+# via Google's API
+#
+def getMsdConnection(reload=False):
+
+    log.debug("START")
+
+    if conf.MSD_CONN is None or reload:
+        client = gspread.authorize(
+            ServiceAccountCredentials.from_json_keyfile_name(
+                conf.GOOGLE_SHEETS_API_KEY_FILE,
+                [conf.GOOGLE_SHEETS_API_URL]))
+        conf.MSD_CONN = client.open(conf.MSD_FILE_NAME)
+
+    log.info("Connected to Manual Source Data Google Sheet")
+
+    return conf.MSD_CONN
+
+
+#
+# Get all the worksheets from the STM GSheet document, then
+# filter to only those relevant to this Data Layer
+#
 def getStmWorksheets(dataLayer):
 
-    # Get all the worksheets from the STM GSheet document, then
-    # filter to only those relevant to this Data Layer
-    allSTMWorksheets = conf.STM_CONN.worksheets()
+    allStmWorksheets = conf.STM_CONN.worksheets()
     worksheets = []
 
     if dataLayer == 'src':
-        for worksheet in allSTMWorksheets:
+        for worksheet in allStmWorksheets:
             if worksheet.title.find('ETL.SRC.') > -1:
                 worksheets.append(worksheet)
     else:
@@ -170,6 +193,14 @@ def getStmWorksheets(dataLayer):
         raise ValueError('code not written yet')
 
     return worksheets
+
+
+#
+# Get all the worksheets from the Manual Source Data GSheet document, then
+#
+def getMsdWorksheets():
+
+    return conf.MSD_CONN.worksheets()
 
 
 #

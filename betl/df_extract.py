@@ -64,6 +64,13 @@ def defaultExtract(srcTablesToExclude=[]):
                                     .srcSystemConns[dataModelId]
                                     .files[tableShortName]['quotechar'])
 
+            elif srcSysType == 'SPREADSHEET':
+
+                data = schemas.SRC_LAYER                                      \
+                    .srcSystemConns[dataModelId]                              \
+                    .worksheets[tableName].get_all_values()
+                srcDF = pd.DataFrame(data[3:], columns=data[0])
+
             else:
                 raise ValueError('Extract for source systems type <'
                                  + srcSysType
