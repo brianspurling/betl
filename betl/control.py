@@ -23,6 +23,39 @@ RUN_JOB = False
 
 
 #
+# The main function that executes betl
+#
+def run():
+
+    log.debug("START")
+
+    initialiseDBConnections()
+
+    if RUN_SETUP:
+        setupBetl()
+
+    loadLogicalDataModels()
+
+    if RUN_REBUILD_ALL:
+        rebuildPhysicalDataModels()
+    else:
+        if RUN_REBUILD_SRC:
+            rebuildPhysicalDataModels_src()
+        if RUN_REBUILD_STG:
+            rebuildPhysicalDataModels_stg()
+        if RUN_REBUILD_TRG:
+            rebuildPhysicalDataModel_trg()
+        if RUN_REBUILD_SUM:
+            rebuildPhysicalDataModel_sum()
+
+    if RUN_JOB:
+        utils.deleteTempoaryData()
+        scheduler.executeJob()
+
+    log.debug("END")
+
+
+#
 # Initialise the connections to the various DBs & spreadsheets
 #
 def initialiseDBConnections():
@@ -65,6 +98,7 @@ def loadLogicalDataModels():
     loadLogicalDataModels_stg()
     loadLogicalDataModels_trg()
     loadLogicalDataModels_sum()
+
     log.debug("END")
 
 
@@ -122,6 +156,11 @@ def rebuildPhysicalDataModels_src():
 #
 def rebuildPhysicalDataModels_stg():
     log.debug("START")
+    if conf.BULK_OR_DELTA == 'BULK':
+        schemas.STG_LAYER.rebuildPhsyicalDataModel()
+    elif conf.BULK_OR_DELTA == 'DELTA':
+        raise ValueError("You cannot rebuild the ETL database's data models " +
+                         "as part of a delta load. Fool.")
     log.debug("END")
 
 
@@ -130,6 +169,11 @@ def rebuildPhysicalDataModels_stg():
 #
 def rebuildPhysicalDataModel_trg():
     log.debug("START")
+    if conf.BULK_OR_DELTA == 'BULK':
+        schemas.TRG_LAYER.rebuildPhsyicalDataModel()
+    elif conf.BULK_OR_DELTA == 'DELTA':
+        raise ValueError("You cannot rebuild the TRG database's data models " +
+                         "as part of a delta load. Fool.")
     log.debug("END")
 
 
@@ -138,6 +182,11 @@ def rebuildPhysicalDataModel_trg():
 #
 def rebuildPhysicalDataModel_sum():
     log.debug("START")
+    if conf.BULK_OR_DELTA == 'BULK':
+        schemas.SUM_LAYER.rebuildPhsyicalDataModel()
+    elif conf.BULK_OR_DELTA == 'DELTA':
+        raise ValueError("You cannot rebuild the TRG database's data models " +
+                         "as part of a delta load. Fool.")
     log.debug("END")
 
 
@@ -272,37 +321,4 @@ def processArgs(args):
                     sys.exit()
                 else:
                     print('')
-    log.debug("END")
-
-
-#
-# The main function that executes betl
-#
-def run():
-
-    log.debug("START")
-
-    initialiseDBConnections()
-
-    if RUN_SETUP:
-        setupBetl()
-
-    loadLogicalDataModels()
-
-    if RUN_REBUILD_ALL:
-        rebuildPhysicalDataModels()
-    else:
-        if RUN_REBUILD_SRC:
-            rebuildPhysicalDataModels_src()
-        if RUN_REBUILD_STG:
-            rebuildPhysicalDataModels_stg()
-        if RUN_REBUILD_TRG:
-            rebuildPhysicalDataModel_trg()
-        if RUN_REBUILD_SUM:
-            rebuildPhysicalDataModel_sum()
-
-    if RUN_JOB:
-        utils.deleteTempoaryData()
-        scheduler.executeJob()
-
     log.debug("END")

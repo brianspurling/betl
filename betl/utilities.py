@@ -65,7 +65,7 @@ def getDBConnection(connId):
     elif connId == 'etl':
         connDetails = conf.ETL_DB_CONN_DETAILS
     elif connId == 'trg':
-        connDetails = conf.ETL_DB_CONN_DETAILS
+        connDetails = conf.TRG_DB_CONN_DETAILS
 
     # Connect to the DB server, without specifiying a database. We're going
     # to first check whether the DB exists
@@ -217,9 +217,6 @@ def getSchemaWorksheets(database, etlDataLayer=None):
 
     worksheets = []
 
-    # We have reason to want the SRC and STG dataLayers separately, because
-    # the way the schemas are documented is different (SRC is one tab per
-    # dataModel; STG is one tab per table)
     if database == 'etl' and etlDataLayer == 'src':
         allEtlSchemaWorksheets = conf.ETL_DB_SCHEMA_CONN.worksheets()
         for worksheet in allEtlSchemaWorksheets:
@@ -233,12 +230,16 @@ def getSchemaWorksheets(database, etlDataLayer=None):
                     worksheet.title.find('ETL.') > -1:
                 worksheets.append(worksheet)
 
-    # The TRG and SUM dataLayers, however, are all documented in the same way
-    # (one tab per table), therefore we will always return these all together
-    elif database == 'trg':
+    elif database == 'trg' and etlDataLayer == 'trg':
         allTrgSchemaWorksheets = conf.TRG_DB_SCHEMA_CONN.worksheets()
         for worksheet in allTrgSchemaWorksheets:
-            if worksheet.title.find('TRG.SRC.') > -1:
+            if worksheet.title.find('TRG.TRG.') > -1:
+                worksheets.append(worksheet)
+
+    elif database == 'trg' and etlDataLayer == 'sum':
+        allTrgSchemaWorksheets = conf.TRG_DB_SCHEMA_CONN.worksheets()
+        for worksheet in allTrgSchemaWorksheets:
+            if worksheet.title.find('TRG.SUM.') > -1:
                 worksheets.append(worksheet)
     else:
         # this needs to do something differnet for other layers, e.g. TRG

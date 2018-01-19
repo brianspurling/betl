@@ -21,6 +21,7 @@ SUM_LAYER = None
 ###########
 # Logging #
 ###########
+
 log = utils.setUpLogger('SCHEMA', __name__)
 
 
@@ -151,6 +152,12 @@ class Table():
 
         return tableCreateStatement
 
+    def getSqlDropStatements(self):
+
+        tableDropStatement = 'DROP TABLE ' + self.tableName
+
+        return tableDropStatement
+
     def __str__(self):
         columnsStr = '\n' + '    ' + self.tableName + '\n'
         for columnObject in self.columns:
@@ -187,6 +194,14 @@ class DataModel():
                                              .getSqlCreateStatements())
         return dataModelCreateStatements
 
+    def getSqlDropStatements(self):
+
+        dataModelDropStatements = []
+        for tableName in self.tables:
+            dataModelDropStatements.append(self.tables[tableName]
+                                           .getSqlDropStatements())
+        return dataModelDropStatements
+
     def __str__(self):
         tablesStr = '\n' + '  ** ' + self.dataModelName + ' **' + '\n'
         if (self.isSchemaDefined):
@@ -212,6 +227,8 @@ class DataModel():
 # It also contains 1+ srcSystemConns (connection details for each source
 # system)
 #
+# To do: if possible, this needs to inherit from a base DataLayer class,
+#        which should be almost/completely? the same for STG and TRG and SUM
 class SrcLayer():
 
     def __init__(self):
@@ -258,7 +275,7 @@ class SrcLayer():
 
         tmp_dataModels = {}
 
-        # First, the ETL DB Schema doc
+        # First, get all the relevant worksheets from the ETL DB Schema doc
         srcWorksheets = utils.getSchemaWorksheets('etl', 'src')
 
         for srcWorksheet in srcWorksheets:
@@ -359,27 +376,27 @@ class SrcLayer():
         log.info("Loaded connections to " + str(len(self.srcSystemIds)) +
                  " source systems")
 
-    def dropAllTables(self):
+    def dropPhysicalDataModel(self):
 
         log.debug("START")
 
-        etlDBCursor = conf.ETL_DB_CONN.cursor()
+        dropStatements = self.getSqlDropStatements()
 
-        etlDBCursor.execute("SELECT * FROM information_schema.tables t " +
-                            "WHERE t.table_schema = 'public' " +
-                            "AND t.table_name LIKE '" + 'src' + "_%'")
-        stgSRCtables = etlDBCursor.fetchall()
-
+        etlDbCursor = conf.ETL_DB_CONN.cursor()
         counter = 0
-        for stgSRCtable in stgSRCtables:
+        for dropStatement in dropStatements:
             try:
-                etlDBCursor.execute("DROP TABLE " + stgSRCtable[2])
+                etlDbCursor.execute(dropStatement)
                 conf.ETL_DB_CONN.commit()
                 counter += 1
+
             except psycopg2.Error as e:
                 pprint.pprint(e)
                 # to do, need to catch if table didn't already exist
                 # (expected exception), and raise everything else
+                # If it didn't exist, I think we need to commit
+                # otherwise no other commands will work
+                conf.ETL_DB_CONN.commit()
                 pass
 
         log.info("Dropped " + str(counter) + ' tables')
@@ -528,10 +545,10 @@ class SrcLayer():
 
         log.info("START (src)")
 
-        # First, we need to drop every staging table prefixed SRC_  - we
+        # First, we need to drop every source table (prefixed SRC_)  - we
         # are clearing out and starting again
         log.info("Dropping all SRC tables")
-        self.dropAllTables()
+        self.dropPhysicalDataModel()
 
         haveWeChangedSchemaSS = False
 
@@ -581,6 +598,7 @@ class SrcLayer():
                 counter += 1
 
             except psycopg2.Error as e:
+                pprint.pprint(e)
                 pass
 
         log.info("Created " + str(counter) + ' tables')
@@ -594,28 +612,507 @@ class SrcLayer():
 
         return dataLayerCreateStatements
 
+    def getSqlDropStatements(self):
+        log.debug("START")
+        dataLayerDropStatements = []
+        for dataModelId in self.dataModels:
+            dataLayerDropStatements.extend(
+                self.dataModels[dataModelId].getSqlDropStatements())
+
+        return dataLayerDropStatements
+
     def __str__(self):
-        dataModelStr = '\n' + '*** Data Layer: Source ***' + '\n'
+        dataModelStr = '\n' + '\n' + '*** Data Layer: Source ***' + '\n'
         for dataModelId in self.dataModels:
             dataModelStr += str(self.dataModels[dataModelId])
 
         return dataModelStr
 
 
+#
+# A StgLayer() contains 0+ DataModel()s, one for each peristent stage
+# in the ETL's transformation process
+#
 class StgLayer():
-    # 0+ Data Models, one for each peristent stage in the ETL's
-    # transformation process
-    pass
+
+    def __init__(self):
+
+        log.debug("START")
+
+        self.dataModels = {}
+
+        # Now populate dataModels with the schema from the SS
+        self.loadSchemaFromSpreadsheet()
+
+    #
+    # The ETL DB Schema spreadsheet contains a worksheet per table for all
+    # data models in the staging data layer. Each worksheet lists the columns
+    # in the table
+    #
+    # So we pull these schema out of the SS and load them into our
+    # hierarchy of classes
+    #
+    def loadSchemaFromSpreadsheet(self):
+
+        log.debug("START")
+
+        # We'll be building up a dictionary, indexed by dataModelId, containing
+        # a dictionary with two elements needed by the DataModel constructor:
+        # the worksheet itself, and then a dictionary, indexed by tableName,
+        # containing a list of dictionaries, each one indexed by column
+        # attribute name, containing the column attribute value
+
+        tmp_dataModels = {}
+        tmp_tableSchemas = {}
+
+        # First, get all the relevant worksheets from the ETL DB Schema doc
+        stgWorksheets = utils.getSchemaWorksheets('etl', 'stg')
+
+        for stgWorksheet in stgWorksheets:
+
+            # Cut off the table name "suffix" from the worksheet name
+            # and the "ETL.STG." prefix to get the dataModel Id
+            # Cut off the ETL.STG.---. prefix to et the table name
+            dmId = stgWorksheet.title[:stgWorksheet.title.rfind('.')]
+            dmId = dmId[dmId.rfind('.')+1:]
+            tableName = stgWorksheet.title[stgWorksheet.title.rfind('.')+1:]
+            tableName = tableName.lower()
+
+            # We're working through a list of worksheets spanning multiple
+            # dataModels, so detect when we move to a new data model
+            if dmId not in tmp_dataModels:
+
+                # Create a new entry in our dataModel dictionary, indexed by
+                # the dataModelId
+                tmp_dataModels[dmId] = {'dataModelName': dmId,
+                                        'dataModelId':   dmId,
+                                        'tableSchemas':  {}}
+                tmp_tableSchemas = tmp_dataModels[dmId]['tableSchemas']
+
+            # Add this current worksheet's table to our dict of tables, with
+            # an empty list of columns
+            tmp_tableSchemas[tableName] = []
+
+            # Load the schema for this table out of the spreadsheet
+            tableSchema_allRows = stgWorksheet.get_all_records()
+
+            # And add the columns to this table's list of columns.
+            for columnRow in tableSchema_allRows:
+                # Each list item is a dictionary of column metadata
+                columns = tmp_tableSchemas[tableName]
+                columns.append({'columnName': columnRow['Column Name'],
+                                'dataType':   columnRow['Data Type'],
+                                'columnType': columnRow['Column Type'],
+                                'isNK':       'N',
+                                'isAudit':    'N'})
+
+        # We have all the schema data now, so create the DataModel() object.
+        # This is the object we "leave behind" in this class - the full schema
+        # gets passed down to "child" constructors
+        for i in tmp_dataModels:
+            self.dataModels[tmp_dataModels[i]['dataModelId']] =               \
+                    DataModel(tmp_dataModels[i]['dataModelName'],
+                              tmp_dataModels[i]['tableSchemas'])
+
+            log.info("Loaded schema for data model: " +
+                     tmp_dataModels[i]['dataModelName'])
+
+    def dropPhysicalDataModel(self):
+
+        log.debug("START")
+
+        dropStatements = self.getSqlDropStatements()
+
+        etlDbCursor = conf.ETL_DB_CONN.cursor()
+        counter = 0
+        for dropStatement in dropStatements:
+            try:
+                etlDbCursor.execute(dropStatement)
+                conf.ETL_DB_CONN.commit()
+                counter += 1
+
+            except psycopg2.Error as e:
+                pprint.pprint(e)
+                # to do, need to catch if table didn't already exist
+                # (expected exception), and raise everything else
+                # If it didn't exist, I think we need to commit
+                # otherwise no other commands will work
+                conf.ETL_DB_CONN.commit()
+
+                pass
+
+        log.info("Dropped " + str(counter) + ' tables')
+
+    def rebuildPhsyicalDataModel(self):
+
+        log.info("START (stg)")
+
+        # First, we need to drop every staging table  - we
+        # are clearing out and starting again
+        log.info("Dropping all STG tables")
+        self.dropPhysicalDataModel()
+
+        # Then create the tables
+
+        log.info("Recreating all STG tables")
+        createStatements = self.getSqlCreateStatements()
+
+        etlDbCursor = conf.ETL_DB_CONN.cursor()
+        counter = 0
+        for createStatement in createStatements:
+            try:
+                etlDbCursor.execute(createStatement)
+                conf.ETL_DB_CONN.commit()
+                counter += 1
+
+            except psycopg2.Error as e:
+                pprint.pprint(e)
+                pass
+
+        log.info("Created " + str(counter) + ' tables')
+
+    def getSqlCreateStatements(self):
+        log.debug("START")
+        dataLayerCreateStatements = []
+        for dataModelId in self.dataModels:
+            dataLayerCreateStatements.extend(
+                self.dataModels[dataModelId].getSqlCreateStatements())
+
+        return dataLayerCreateStatements
+
+    def getSqlDropStatements(self):
+        log.debug("START")
+        dataLayerDropStatements = []
+        for dataModelId in self.dataModels:
+            dataLayerDropStatements.extend(
+                self.dataModels[dataModelId].getSqlDropStatements())
+
+        return dataLayerDropStatements
+
+    def __str__(self):
+        dataModelStr = '\n' + '\n' + '*** Data Layer: Staging ***' + '\n'
+        for dataModelId in self.dataModels:
+            dataModelStr += str(self.dataModels[dataModelId])
+
+        return dataModelStr
 
 
+#
+# A TrgLayer() contains # 1 Data Model, the Target data model
+#
 class TrgLayer():
-    # 1 Data Model
-    pass
+
+    def __init__(self):
+
+        log.debug("START")
+
+        self.dataModels = {}
+
+        # Now populate dataModels with the schema from the SS
+        self.loadSchemaFromSpreadsheet()
+
+    #
+    # The TRG DB Schema spreadsheet contains a worksheet per table for all
+    # data models in the target and summary data layers. Each worksheet
+    # lists the columns in the table
+    #
+    # So we pull these schema out of the SS and load them into our
+    # hierarchy of classes
+    #
+    def loadSchemaFromSpreadsheet(self):
+
+        log.debug("START")
+
+        # We'll be building up a dictionary, indexed by dataModelId, containing
+        # a dictionary with two elements needed by the DataModel constructor:
+        # the worksheet itself, and then a dictionary, indexed by tableName,
+        # containing a list of dictionaries, each one indexed by column
+        # attribute name, containing the column attribute value
+
+        tmp_dataModels = {}
+        tmp_dataModels['TRG'] = {'dataModelName': 'TRG',
+                                 'dataModelId':   'TRG',
+                                 'tableSchemas':  {}}
+        tmp_tableSchemas = {}
+
+        # First, get all the relevant worksheets from the TRG DB Schema doc
+        trgWorksheets = utils.getSchemaWorksheets('trg', 'trg')
+
+        for trgWorksheet in trgWorksheets:
+
+            # Cut off the TRG.TRG.TRG. prefix to get the table name
+            tableName = trgWorksheet.title[trgWorksheet.title.rfind('.')+1:]
+            tableName = tableName.lower()
+
+            # Create a new entry in our dataModel dictionary, indexed by
+            # the dataModelId
+
+            tmp_tableSchemas = tmp_dataModels['TRG']['tableSchemas']
+
+            # Add this current worksheet's table to our dict of tables, with
+            # an empty list of columns
+            tmp_tableSchemas[tableName] = []
+
+            # Load the schema for this table out of the spreadsheet
+            tableSchema_allRows = trgWorksheet.get_all_records()
+
+            # And add the columns to this table's list of columns.
+            for columnRow in tableSchema_allRows:
+                # Each list item is a dictionary of column metadata
+                columns = tmp_tableSchemas[tableName]
+                columns.append({'columnName': columnRow['Column Name'],
+                                'dataType':   columnRow['Data Type'],
+                                'columnType': columnRow['Column Type'],
+                                'isNK':       'N',
+                                'isAudit':    'N'})
+
+        # We have all the schema data now, so create the DataModel() object.
+        # This is the object we "leave behind" in this class - the full schema
+        # gets passed down to "child" constructors
+        for i in tmp_dataModels:
+            self.dataModels[tmp_dataModels[i]['dataModelId']] =               \
+                    DataModel(tmp_dataModels[i]['dataModelName'],
+                              tmp_dataModels[i]['tableSchemas'])
+
+            log.info("Loaded schema for data model: " +
+                     tmp_dataModels[i]['dataModelName'])
+
+    def dropPhysicalDataModel(self):
+
+        log.debug("START")
+
+        dropStatements = self.getSqlDropStatements()
+
+        trgDbCursor = conf.TRG_DB_CONN.cursor()
+        counter = 0
+        for dropStatement in dropStatements:
+            try:
+                trgDbCursor.execute(dropStatement)
+                conf.TRG_DB_CONN.commit()
+                counter += 1
+
+            except psycopg2.Error as e:
+                pprint.pprint(e)
+                # to do, need to catch if table didn't already exist
+                # (expected exception), and raise everything else
+                # If it didn't exist, I think we need to commit
+                # otherwise no other commands will work
+                conf.TRG_DB_CONN.commit()
+                pass
+
+        log.info("Dropped " + str(counter) + ' tables')
+
+    def rebuildPhsyicalDataModel(self):
+
+        log.info("START (trg)")
+
+        # First, we need to drop every staging table  - we
+        # are clearing out and starting again
+        log.info("Dropping all TRG tables")
+        self.dropPhysicalDataModel()
+
+        # Then create the tables
+
+        log.info("Recreating all TRG tables")
+        createStatements = self.getSqlCreateStatements()
+
+        trgDbCursor = conf.TRG_DB_CONN.cursor()
+        counter = 0
+        for createStatement in createStatements:
+            try:
+                trgDbCursor.execute(createStatement)
+                conf.TRG_DB_CONN.commit()
+                counter += 1
+
+            except psycopg2.Error as e:
+                pprint.pprint(e)
+                pass
+
+        log.info("Created " + str(counter) + ' tables')
+
+    def getSqlCreateStatements(self):
+        log.debug("START")
+        dataLayerCreateStatements = []
+        for dataModelId in self.dataModels:
+            dataLayerCreateStatements.extend(
+                self.dataModels[dataModelId].getSqlCreateStatements())
+
+        return dataLayerCreateStatements
+
+    def getSqlDropStatements(self):
+        log.debug("START")
+        dataLayerDropStatements = []
+        for dataModelId in self.dataModels:
+            dataLayerDropStatements.extend(
+                self.dataModels[dataModelId].getSqlDropStatements())
+
+        return dataLayerDropStatements
+
+    def __str__(self):
+        dataModelStr = '\n' + '\n' + '*** Data Layer: Staging ***' + '\n'
+        for dataModelId in self.dataModels:
+            dataModelStr += str(self.dataModels[dataModelId])
+
+        return dataModelStr
 
 
+#
+# A SumLayer() contains 1 Data Model, the Summary data model
+#
 class SumLayer():
-    # 1 Data Model
-    pass
+
+    def __init__(self):
+
+        log.debug("START")
+
+        self.dataModels = {}
+
+        # Now populate dataModels with the schema from the SS
+        self.loadSchemaFromSpreadsheet()
+
+    #
+    # The TRG DB Schema spreadsheet contains a worksheet per table for all
+    # data models in the target and summary data layers. Each worksheet
+    # lists the columns in the table
+    #
+    # So we pull these schema out of the SS and load them into our
+    # hierarchy of classes
+    #
+    def loadSchemaFromSpreadsheet(self):
+
+        log.debug("START")
+
+        # We'll be building up a dictionary, indexed by dataModelId, containing
+        # a dictionary with two elements needed by the DataModel constructor:
+        # the worksheet itself, and then a dictionary, indexed by tableName,
+        # containing a list of dictionaries, each one indexed by column
+        # attribute name, containing the column attribute value
+
+        tmp_dataModels = {}
+        tmp_dataModels['SUM'] = {'dataModelName': 'SUM',
+                                 'dataModelId':   'SUM',
+                                 'tableSchemas':  {}}
+        tmp_tableSchemas = {}
+
+        # First, get all the relevant worksheets from the TRG DB Schema doc
+        sumWorksheets = utils.getSchemaWorksheets('trg', 'sum')
+
+        for sumWorksheet in sumWorksheets:
+
+            # Cut off the TRG.SUM.SUM. prefix to get the table name
+            tableName = sumWorksheet.title[sumWorksheet.title.rfind('.')+1:]
+            tableName = tableName.lower()
+
+            # Create a new entry in our dataModel dictionary, indexed by
+            # the dataModelId
+
+            tmp_tableSchemas = tmp_dataModels['SUM']['tableSchemas']
+
+            # Add this current worksheet's table to our dict of tables, with
+            # an empty list of columns
+            tmp_tableSchemas[tableName] = []
+
+            # Load the schema for this table out of the spreadsheet
+            tableSchema_allRows = sumWorksheet.get_all_records()
+
+            # And add the columns to this table's list of columns.
+            for columnRow in tableSchema_allRows:
+                # Each list item is a dictionary of column metadata
+                columns = tmp_tableSchemas[tableName]
+                columns.append({'columnName': columnRow['Column Name'],
+                                'dataType':   columnRow['Data Type'],
+                                'columnType': columnRow['Column Type'],
+                                'isNK':       'N',
+                                'isAudit':    'N'})
+
+        # We have all the schema data now, so create the DataModel() object.
+        # This is the object we "leave behind" in this class - the full schema
+        # gets passed down to "child" constructors
+        for i in tmp_dataModels:
+            self.dataModels[tmp_dataModels[i]['dataModelId']] =               \
+                    DataModel(tmp_dataModels[i]['dataModelName'],
+                              tmp_dataModels[i]['tableSchemas'])
+
+            log.info("Loaded schema for data model: " +
+                     tmp_dataModels[i]['dataModelName'])
+
+    def dropPhysicalDataModel(self):
+
+        log.debug("START")
+
+        dropStatements = self.getSqlDropStatements()
+
+        trgDbCursor = conf.TRG_DB_CONN.cursor()
+        counter = 0
+        for dropStatement in dropStatements:
+            try:
+                trgDbCursor.execute(dropStatement)
+                conf.TRG_DB_CONN.commit()
+                counter += 1
+
+            except psycopg2.Error as e:
+                pprint.pprint(e)
+                # to do, need to catch if table didn't already exist
+                # (expected exception), and raise everything else
+                # If it didn't exist, I think we need to commit
+                # otherwise no other commands will work
+                conf.TRG_DB_CONN.commit()
+                pass
+
+        log.info("Dropped " + str(counter) + ' tables')
+
+    def rebuildPhsyicalDataModel(self):
+
+        log.info("START (SUM)")
+
+        # First, we need to drop every staging table  - we
+        # are clearing out and starting again
+        log.info("Dropping all SUM tables")
+        self.dropPhysicalDataModel()
+
+        # Then create the tables
+
+        log.info("Recreating all SUM tables")
+        createStatements = self.getSqlCreateStatements()
+
+        trgDbCursor = conf.TRG_DB_CONN.cursor()
+        counter = 0
+        for createStatement in createStatements:
+            try:
+                trgDbCursor.execute(createStatement)
+                conf.TRG_DB_CONN.commit()
+                counter += 1
+
+            except psycopg2.Error as e:
+                pprint.pprint(e)
+                pass
+
+        log.info("Created " + str(counter) + ' tables')
+
+    def getSqlCreateStatements(self):
+        log.debug("START")
+        dataLayerCreateStatements = []
+        for dataModelId in self.dataModels:
+            dataLayerCreateStatements.extend(
+                self.dataModels[dataModelId].getSqlCreateStatements())
+
+        return dataLayerCreateStatements
+
+    def getSqlDropStatements(self):
+        log.debug("START")
+        dataLayerDropStatements = []
+        for dataModelId in self.dataModels:
+            dataLayerDropStatements.extend(
+                self.dataModels[dataModelId].getSqlDropStatements())
+
+        return dataLayerDropStatements
+
+    def __str__(self):
+        dataModelStr = '\n' + '\n' + '*** Data Layer: Summary ***' + '\n'
+        for dataModelId in self.dataModels:
+            dataModelStr += str(self.dataModels[dataModelId])
+
+        return dataModelStr
 
 
 def getAuditColumns(dataModelId, dataModelType, tableName):
