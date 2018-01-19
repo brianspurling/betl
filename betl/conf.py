@@ -23,12 +23,18 @@ SOURCE_SYSTEM_CONNS = None
 GOOGLE_SHEETS_API_URL = None
 GOOGLE_SHEETS_API_KEY_FILE = None
 
-STM_FILE_NAME = None  # Source to Target Mapping document
+ETL_DB_SCHEMA_FILE_NAME = None  # ETL database schema spreadsheet
+TRG_DB_SCHEMA_FILE_NAME = None  # TRG database schema spreadsheet
 MSD_FILE_NAME = None  # Manual source data spreadsheet
 
 # Connection objects (these are set by functions in utils, called by control)
-STM_CONN = None
+
+# Spreadsheets
+ETL_DB_SCHEMA_CONN = None
+TRG_DB_SCHEMA_CONN = None
 MSD_CONN = None  # Manual source data spreadsheet
+
+# Databases
 CTL_DB_CONN = None
 ETL_DB_CONN = None
 ETL_DB_ENG = None
@@ -55,7 +61,8 @@ def loadAppConfig(appConf):
 
     global GOOGLE_SHEETS_API_URL
     global GOOGLE_SHEETS_API_KEY_FILE
-    global STM_FILE_NAME
+    global ETL_DB_SCHEMA_FILE_NAME
+    global TRG_DB_SCHEMA_FILE_NAME
     global MSD_FILE_NAME
 
     global TMP_DATA_PATH
@@ -70,7 +77,8 @@ def loadAppConfig(appConf):
     GOOGLE_SHEETS_API_URL = appConf['GOOGLE_SHEETS_API_URL']
     GOOGLE_SHEETS_API_KEY_FILE = appConf['GOOGLE_SHEETS_API_KEY_FILE']
 
-    STM_FILE_NAME = appConf['STM_FILE_NAME']
+    ETL_DB_SCHEMA_FILE_NAME = appConf['ETL_DB_SCHEMA_FILE_NAME']
+    TRG_DB_SCHEMA_FILE_NAME = appConf['TRG_DB_SCHEMA_FILE_NAME']
     MSD_FILE_NAME = appConf['MSD_FILE_NAME']
 
     TMP_DATA_PATH = appConf['TMP_DATA_PATH'].replace('/', '')

@@ -23,7 +23,7 @@ RUN_JOB = False
 
 
 #
-# Initialise the connections to the various DBs / STM
+# Initialise the connections to the various DBs & spreadsheets
 #
 def initialiseDBConnections():
     log.debug("START")
@@ -36,8 +36,10 @@ def initialiseDBConnections():
     utils.getTrgDBConnection()
     utils.getTrgDBEngine()
 
+    utils.getEtlSchemaConnection()
+    utils.getTrgSchemaConnection()
     utils.getMsdConnection()
-    utils.getStmConnection()
+
     log.debug("END")
 
 
@@ -248,7 +250,7 @@ def processArgs(args):
         print("  Refer to betl.conf.py for the configuration required")
         print("- Add your bespoke data flows to the schedule with")
         print("  betl.scheduleDataFlow(function,stage,pos)")
-        print("- If the STM's SRC schema is empty, betl will auto-populate")
+        print("- If the SRC schema def is empty, betl will auto-populate")
         print("  it from the source system(s)")
         print("- You will then need to identify the natural keys manually, in")
         print("  the spreadsheet")

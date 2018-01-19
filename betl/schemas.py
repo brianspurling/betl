@@ -28,10 +28,16 @@ log = utils.setUpLogger('SCHEMA', __name__)
 # Classes #
 ###########
 
+#
+# A single connection class, that holds connection details for all our
+# data source types (e.g. Postgres DB, filesystems, spreadsheets)
+#
 class Connection():
 
     def __init__(self, configDetails):
+
         self.type = configDetails['TYPE']
+
         if (self.type == 'POSTGRES'):
 
             self.host = configDetails['HOST']
@@ -61,11 +67,19 @@ class Connection():
                 # object
                 self.worksheets[worksheet.title] = worksheet
 
+#
+# Now starts a set of nested classes that in total define the entire
+# for our Postgres ETL and TRG databases. The nested structure is:
+#   srcLayer/stgLayer/trgLayer/sumLayer  > dataModel > table > column
+#
 
+
+#
+# First up, the column. It holds a set of attributes that describe a single
+# column
+#
 class Column():
 
-    # columnSchema must be a schema list like this:
-    # {columnName:<columnName>,dataType:<dataType>}
     def __init__(self, columnSchema):
         self.columnName = columnSchema['columnName']
         self.dataType = columnSchema['dataType']
@@ -77,7 +91,7 @@ class Column():
         if columnSchema['isAudit'].upper() == 'Y':
             self.isAudit = True
 
-        self.columnSchema = columnSchema
+        self.columnSchema = columnSchema  # to do: should i hold this as well?
 
     def getSqlCreateStatements(self):
         return self.columnName + ' ' + self.columnSchema['dataType']
@@ -87,13 +101,13 @@ class Column():
                                     self.columnSchema.items()) + '\n'
 
 
+#
+# A table object pretty much just holds a table name and a list of columns
+# But for convenience, we hold multiple copies of the column list, with
+# different filters applied
+#
 class Table():
 
-    # To do: we will lose the NKs if we rebuild the schema from source.
-    # Consider making the ETL.SRC.<dataModelId> sheets the dumping ground,
-    # with the STM proper looking up from them and holding the NK somehow
-
-    # tableSchema must be a schema list like this: [{column metadata}],
     def __init__(self, tableName, tableSchema):
         self.tableName = tableName.lower()
 
@@ -105,14 +119,14 @@ class Table():
 
         self.columns = []
 
-        self.columnList = []
-        self.columnList_withoutAudit = []
+        self.colNameList = []
+        self.colNameList_withoutAudit = []
         self.nkList = []
         self.nonNkList = []
 
         for column in tableSchema:
 
-            self.columnList.append(column['columnName'])
+            self.colNameList.append(column['columnName'])
 
             if column['isNK'].upper() == 'Y':
                 self.nkList.append(column['columnName'])
@@ -120,7 +134,7 @@ class Table():
                 self.nonNkList.append(column['columnName'])
 
             if column['isAudit'].upper() != 'Y':
-                self.columnList_withoutAudit.append(column['columnName'])
+                self.colNameList_withoutAudit.append(column['columnName'])
 
             self.columns.append(Column(column))
 
@@ -129,8 +143,8 @@ class Table():
         tableCreateStatement = 'CREATE TABLE ' + self.tableName + ' ('
 
         columns = []
-        for columnSchema in self.columns:
-            columns.append(columnSchema.getSqlCreateStatements())
+        for columnObject in self.columns:
+            columns.append(columnObject.getSqlCreateStatements())
         tableCreateStatement += ', '.join(columns)
 
         tableCreateStatement += ')'
@@ -139,27 +153,31 @@ class Table():
 
     def __str__(self):
         columnsStr = '\n' + '    ' + self.tableName + '\n'
-        for columnSchema in self.columns:
-            columnsStr += str(columnSchema)
+        for columnObject in self.columns:
+            columnsStr += str(columnObject)
         return columnsStr
 
 
+#
+# A data model is a collection of tables, and it sits below dataLayer in the
+# hierarchy. In the SRC data layer, a data model is synonymous with a source
+# system. In the staging data layer, a data model is synonymous with a "stage"
+# in the ETL process. In the target data layer, there is just one data model:
+# the target data model. In the summary data layer, there is again just one
+# data model: the summary data model.
+#
 class DataModel():
 
-    # dataModelSchema must be a schema dictionary like this:
-    # Tables > [{column metadata}],
-    def __init__(self, dataModelName, dataModelSchema, stmWorksheet):
+    def __init__(self, dataModelName, dataModelSchema):
         self.dataModelName = dataModelName
         self.tables = {}
-        self.isStmPopulated = True
-        self.stmWorksheet = stmWorksheet
+        self.isSchemaDefined = True
 
         if (len(dataModelSchema) == 0):
-            self.isStmPopulated = False
+            self.isSchemaDefined = False
 
         for table in dataModelSchema:
-            self.tables[table] = Table(table,
-                                       dataModelSchema[table])
+            self.tables[table] = Table(table, dataModelSchema[table])
 
     def getSqlCreateStatements(self):
 
@@ -167,51 +185,68 @@ class DataModel():
         for tableName in self.tables:
             dataModelCreateStatements.append(self.tables[tableName]
                                              .getSqlCreateStatements())
-
         return dataModelCreateStatements
 
     def __str__(self):
         tablesStr = '\n' + '  ** ' + self.dataModelName + ' **' + '\n'
-        if (self.isStmPopulated):
+        if (self.isSchemaDefined):
             for tableName in self.tables:
                 tablesStr += str(self.tables[tableName])
         else:
-            tablesStr += '\n' + '      !! DATA MODEL MISSING FROM STM !!'     \
+            tablesStr += '\n' + '      !! DATA MODEL SCHEMA NOT DEFINED !!'   \
                               + '\n'
 
         return tablesStr
 
 
+#
+# Finally, our DataLayer objects. We have four data layers: source (SRC),
+# staging (STG), target (TRG) and summary (SUM). These are quite radially
+# different, so we have a class for each.
+#
+
+
+#
+# A SrcLayer() contains 1+ DataModel()s, one for each source system,
+# plus one additional for the MSD (manually-sourced data)
+# It also contains 1+ srcSystemConns (connection details for each source
+# system)
+#
 class SrcLayer():
-    # 1+ Data Models, one for each source system, with the MSD being considered
-    # a signle Data Model
-    # {sourceSystemId:DataModel}
 
     def __init__(self):
 
         log.debug("START")
 
-        # The SRC Layer object holds the data model schema and the
-        # source system connection details
+        self.srcSystemIds = []
+        self.srcSystemSchemaWorksheets = {}
         self.dataModels = {}
-        self.srcSystemConns = {}  # {<dataModelId>:Connection()}
+        self.srcSystemConns = {}
 
-        self.getSrcSysDBConnections()  # populates srcSystemConns
-        self.loadLogicalDataModel()
+        # Now populate dataModels with the schema from the SS,
+        # and populate srcSystemIds and srcSystemSchemaWorksheets at the same
+        # time
+        self.loadSchemaFromSpreadsheet()
+
+        # Now, separately, load the connection details for each source system
+        # and establish connections to the DBs
+        # Even though, in  SRC Data Layer, a source system is synonymous
+        # with a DataModel, we hold the connection details separate to the
+        # dataModels because dataModel is generic across all DataLayers.
+        self.loadSrcSysDBConnections()
 
     #
-    # Each source system is a Data Model (within the SRC Data Layer).
-    # The STM contains a tab per source system, which lists all the columns for
-    # all the tables in that source system.
+    # The ETL DB Schema spreadsheet contains a worksheet per source system,
+    # which lists all the columns for all the tables in that source system.
     #
-    # So first, we pull these schemas out of the STM and load them into our
-    # logical data model
+    # So first, we pull these schema out of the SS and load them into our
+    # hierarchy of classes
     #
     # Then we pull the MSD schema (manual source data) from the MSD spreadsheet
-    # and load that into our logical data model as one additional Data Model of
+    # and load that into our hierarchy as one additional Data Model of
     # the SRC Data Layer
     #
-    def loadLogicalDataModel(self):
+    def loadSchemaFromSpreadsheet(self):
 
         log.debug("START")
 
@@ -223,48 +258,49 @@ class SrcLayer():
 
         tmp_dataModels = {}
 
-        # First, the STM
-        srcWorksheets = utils.getStmWorksheets(dataLayer='src')
+        # First, the ETL DB Schema doc
+        srcWorksheets = utils.getSchemaWorksheets('etl', 'src')
+
         for srcWorksheet in srcWorksheets:
 
             # Create a new entry in our dataModel dictionary, indexed by the
             # dataModelId (which is the source system ID)
 
-            # Cut off the "ETL.SRC." prefix
+            # Cut off the "ETL.SRC." prefix from the worksheet name
             dmId = srcWorksheet.title[srcWorksheet.title.rfind('.')+1:]
-            tmp_dataModels[dmId] = {'stmWorksheet':  srcWorksheet,
-                                    'dataModelName': srcWorksheet.title,
+            self.srcSystemIds.append(dmId)
+            self.srcSystemSchemaWorksheets[dmId] = srcWorksheet
+
+            tmp_dataModels[dmId] = {'dataModelName': srcWorksheet.title,
                                     'dataModelId':   dmId,
                                     'tableSchemas':  {}}
             tmp_tableSchemas = tmp_dataModels[dmId]['tableSchemas']
 
-            # Load the schema for this DataModel out of the STM spreadsheet
+            # Load the schema for this DataModel out of the spreadsheet
             dataModelSchema_allRows = srcWorksheet.get_all_records()
 
             # We're working through a list of cols spanning multiple tables, so
             # detect when we move to a new table
-            for stmRow in dataModelSchema_allRows:
-                if stmRow['Table Name'].lower() not in tmp_tableSchemas:
+            for schemaRow in dataModelSchema_allRows:
+                if schemaRow['Table Name'].lower() not in tmp_tableSchemas:
                     # Insert a new table into our dictionary,
                     # with an empty list of columns
-                    tmp_tableSchemas[stmRow['Table Name'].lower()] = []
+                    tmp_tableSchemas[schemaRow['Table Name'].lower()] = []
 
                 # And add the current column to this table's list of columns.
                 # Each list item is a dictionary of column metadata
-                colums = tmp_tableSchemas[stmRow['Table Name'].lower()]
-                colums.append({'columnName': stmRow['Column Name'],
-                               'dataType':   stmRow['data_type'],
-                               'isNK':       stmRow['natural_key'],
-                               'isAudit':    stmRow['audit_column']})
+                colums = tmp_tableSchemas[schemaRow['Table Name'].lower()]
+                colums.append({'columnName': schemaRow['Column Name'],
+                               'dataType':   schemaRow['data_type'],
+                               'isNK':       schemaRow['natural_key'],
+                               'isAudit':    schemaRow['audit_column']})
 
-        # Next, the MSD
+        # Next, the MSD: We're going to add one more dataModel, which will
+        # include all manual source data from the MSD spreadsheet
 
-        # We're going to add one more dataModel, which will include all
-        # manual source data from the MSD spreadsheet
         msdWorksheets = utils.getMsdWorksheets()
         dmId = 'MSD'
-        tmp_dataModels[dmId] = {'stmWorksheet': None,
-                                'dataModelName': 'MSD',
+        tmp_dataModels[dmId] = {'dataModelName': 'MSD',
                                 'dataModelId':   dmId,
                                 'tableSchemas': {}}
         tmp_tableSchemas = tmp_dataModels[dmId]['tableSchemas']
@@ -301,20 +337,16 @@ class SrcLayer():
         for i in tmp_dataModels:
             self.dataModels[tmp_dataModels[i]['dataModelId']] =               \
                     DataModel(tmp_dataModels[i]['dataModelName'],
-                              tmp_dataModels[i]['tableSchemas'],
-                              tmp_dataModels[i]['stmWorksheet'])
+                              tmp_dataModels[i]['tableSchemas'])
 
-            log.info("Loaded logical data model for " +
+            log.info("Loaded schema for data model: " +
                      tmp_dataModels[i]['dataModelName'])
 
-    def getSrcSysDBConnections(self):
+    def loadSrcSysDBConnections(self):
 
         log.debug("START")
 
-        srcWorksheets = utils.getStmWorksheets(dataLayer='src')
-        for srcWorksheet in srcWorksheets:
-            # Cut off the SRC.<dataModelId>. prefix
-            srcSysId = srcWorksheet.title[srcWorksheet.title.rfind('.')+1:]
+        for srcSysId in self.srcSystemIds:
             # Get the srcSystemConn details from settings and dump them into
             # our dictionary
             self.srcSystemConns[srcSysId] = Connection(conf.SOURCE_SYSTEM_CONNS
@@ -324,7 +356,8 @@ class SrcLayer():
         # using MSD optional
         self.srcSystemConns['MSD'] = Connection(conf.SOURCE_SYSTEM_CONNS
                                                 ['MSD'])
-        log.info("Connected to source systems")
+        log.info("Loaded connections to " + str(len(self.srcSystemIds)) +
+                 " source systems")
 
     def dropAllTables(self):
 
@@ -351,7 +384,7 @@ class SrcLayer():
 
         log.info("Dropped " + str(counter) + ' tables')
 
-    def autoPopulateLogicalDataModels(self, dataModelId):
+    def autoPopulateSrcLayerSchemasInSpreadsheet(self, dataModelId):
 
         log.debug("START")
 
@@ -455,24 +488,27 @@ class SrcLayer():
 
         else:
             raise ValueError("Failed to rebuild SRC Layer: Source system " +
-                             "type is ' + self.srcSystemConns[dataModelId]." +
-                             "type + '. Stopping execution, because we only " +
-                             "deal with 'POSGRES' and 'FILESYSTEM', so " +
-                             "cannot populate the STM for this source system")
+                             "type is " +
+                             self.srcSystemConns[dataModelId].type +
+                             ". Stopping execution. We only " +
+                             "deal with 'POSTGRES' and 'FILESYSTEM' source " +
+                             "system types, so cannot auto-populate the " +
+                             "ETL.SRC schemas for this source system")
 
         # Check we managed to find some kind of schema
         # from the source system, otherwise abort
         if (len(schema) == 0):
-            raise ValueError("Failed to rebuild SRC Layer: STM is not yet " +
+            raise ValueError("Failed to rebuild SRC Layer: SRC data layer " +
+                             "in the ETL DB schema spreadsheet is not yet " +
                              "populated, so we tried to pull the schema " +
-                             "from the source system, but we could not " +
-                             "find anything")
+                             "from the source systems directly, but we " +
+                             "could not find anything")
 
         # We build up our new GSheets table first, in memory,
         # then write it all in one go.
 
-        cell_list = self.dataModels[dataModelId].stmWorksheet.          \
-            range('A2:G'+str(len(schema)+1))
+        schemaWS = self.srcSystemSchemaWorksheets[dataModelId]
+        cell_list = schemaWS.range('A2:G'+str(len(schema)+1))
         rangeRowCount = 0
         for schemaRow in schema:
             cell_list[rangeRowCount].value = schemaRow[0]
@@ -484,10 +520,9 @@ class SrcLayer():
             cell_list[rangeRowCount+6].value = schemaRow[6]
             rangeRowCount += 7
 
-        self.dataModels[dataModelId].stmWorksheet.update_cells(cell_list)
+        self.dataModels[dataModelId].schemaWS.update_cells(cell_list)
 
-        log.info("STM schema updated in worksheet: "
-                 + self.dataModels[dataModelId].stmWorksheet.title)
+        log.info("SRC schema updated in worksheet: " + schemaWS.title)
 
     def rebuildPhsyicalDataModel(self):
 
@@ -498,34 +533,38 @@ class SrcLayer():
         log.info("Dropping all SRC tables")
         self.dropAllTables()
 
-        haveWeChangedStm = False
+        haveWeChangedSchemaSS = False
 
         for dataModelId in self.dataModels:
 
-            # If this worksheet of the STM is not already populated, we
-            # populate it with an exact copy of the source DB's schema
+            # If this worksheet of the Schema doc is not already populated, we
+            # populate it with an exact copy of the source DB's schema.
+            # Obviously don't do this for the MSD
 
-            if (self.dataModels[dataModelId].isStmPopulated):
-                log.info("the STM for source system <" + dataModelId + "> " +
-                         "is already populated")
+            if dataModelId == 'MSD':
+                break
+
+            if (self.dataModels[dataModelId].isSchemaDefined):
+                log.info("the schema worksheet for source system <" +
+                         dataModelId + "> " + "is already populated")
             else:
-                log.info("the STM for source system <" + dataModelId + "> " +
-                         "is NOT yet populated")
-                haveWeChangedStm = True
-                self.autoPopulateLogicalDataModels(dataModelId)
+                log.info("the schema worksheet for source system <" +
+                         dataModelId + "> " + "is NOT yet populated")
+                haveWeChangedSchemaSS = True
+                self.autoPopulateSrcLayerSchemasInSpreadsheet(dataModelId)
 
-        if haveWeChangedStm:
+        if haveWeChangedSchemaSS:
             # Finally, having just updated the spreadsheet, we do a complete
             # reload of the Data Layers, so our Data Layer objects are all
             # up to date
-            log.info("Reloading the logical data model from the spreadsheet")
-            self.loadLogicalDataModel()
+            log.info("Reloading the schema from the spreadsheet")
+            self.loadSchemaFromSpreadsheet()
 
         #
-        # The STM is now populated, either with a direct copy of the source
-        # schema, or with a bespoke configuration entered/edited directly in
-        # the spreadsheet. We now need to clear out any existing SRC staging
-        # tables and recreate
+        # The schema worksheet is now populated, either with a direct copy of
+        # the source schema, or with a bespoke configuration entered/edited
+        # directly in the spreadsheet. We now need to clear out any existing
+        # SRC staging tables and recreate
         #
 
         log.info("Recreating all SRC tables")
@@ -564,7 +603,7 @@ class SrcLayer():
 
 
 class StgLayer():
-    # 0+ Data Models, one for each peristent "step" in the ETL's
+    # 0+ Data Models, one for each peristent stage in the ETL's
     # transformation process
     pass
 

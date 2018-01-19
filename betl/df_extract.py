@@ -34,12 +34,12 @@ def defaultExtract(srcTablesToExclude=[]):
             tableShortName = schemas.SRC_LAYER.dataModels[dataModelId]        \
                 .tables[tableName].tableShortName
 
-            columnList = schemas.SRC_LAYER.dataModels[dataModelId]            \
-                .tables[tableName].columnList
-            columnList_withoutAudit = schemas.SRC_LAYER                       \
+            colNameList = schemas.SRC_LAYER.dataModels[dataModelId]            \
+                .tables[tableName].colNameList
+            colNameList_withoutAudit = schemas.SRC_LAYER                       \
                 .dataModels[dataModelId]                                      \
                 .tables[tableName]                                            \
-                .columnList_withoutAudit
+                .colNameList_withoutAudit
             nkList = schemas.SRC_LAYER.dataModels[dataModelId]                \
                 .tables[tableName].nkList
             nonNkList = schemas.SRC_LAYER.dataModels[dataModelId]             \
@@ -114,25 +114,25 @@ def defaultExtract(srcTablesToExclude=[]):
                 # want, which depends whether we're keeping left_only (inserts)
                 # or right_only (deletes)
 
-                insertColumnList = []
-                updateColumnList = []
-                deleteColumnList = []
+                insertcolNameList = []
+                updatecolNameList = []
+                deletecolNameList = []
 
                 columns = schemas.SRC_LAYER.dataModels[dataModelId]     \
                     .tables[tableName].columns
 
                 for column in columns:
                         if column.isNK:
-                            insertColumnList.append(column.columnName)
-                            updateColumnList.append(column.columnName)
-                            deleteColumnList.append(column.columnName)
+                            insertcolNameList.append(column.columnName)
+                            updatecolNameList.append(column.columnName)
+                            deletecolNameList.append(column.columnName)
                         elif column.columnName.find('audit_') == 0:
-                            insertColumnList.append(column.columnName)
-                            deleteColumnList.append(column.columnName)
+                            insertcolNameList.append(column.columnName)
+                            deletecolNameList.append(column.columnName)
                         else:
-                            insertColumnList.append(column.columnName + '_src')
-                            updateColumnList.append(column.columnName)
-                            deleteColumnList.append(column.columnName + '_stg')
+                            insertcolNameList.append(column.columnName + '_src')
+                            updatecolNameList.append(column.columnName)
+                            deletecolNameList.append(column.columnName + '_stg')
 
                 stgDF = pd.read_sql('SELECT * FROM ' + tableName,
                                     con=conf.ETL_DB_CONN)
@@ -147,8 +147,8 @@ def defaultExtract(srcTablesToExclude=[]):
 
                 # Pull out the inserts and tidy
                 insertsDF = deltaDF.loc[deltaDF['_merge'] == 'left_only',
-                                        insertColumnList]
-                insertsDF.columns = columnList
+                                        insertcolNameList]
+                insertsDF.columns = colNameList
 
                 # Apply inserts, to DB and DF
                 if not insertsDF.empty:
@@ -177,8 +177,8 @@ def defaultExtract(srcTablesToExclude=[]):
 
                 # Pull out the deletes and tidy
                 deletesDF = deltaDF.loc[deltaDF['_merge'] == 'right_only',
-                                        deleteColumnList]
-                deletesDF.columns = columnList
+                                        deletecolNameList]
+                deletesDF.columns = colNameList
                 # to do: I don't like just losing these. Do we flag them?
                 # Or push them out to another table?
 
@@ -224,8 +224,8 @@ def defaultExtract(srcTablesToExclude=[]):
                 # This works because we've already applied inserts and deletes
                 # to the dfs (they would show up again, otherwise)
 
-                srcDF_withoutAudit = srcDF[columnList_withoutAudit]
-                stgDF_withoutAudit = stgDF[columnList_withoutAudit]
+                srcDF_withoutAudit = srcDF[colNameList_withoutAudit]
+                stgDF_withoutAudit = stgDF[colNameList_withoutAudit]
 
                 # Compare the two dataframes again, this time across all rows,
                 # to pick up edits
@@ -237,8 +237,8 @@ def defaultExtract(srcTablesToExclude=[]):
 
                 # Pull out the updates and tidy
                 updatesDF = deltaDF.loc[deltaDF['_merge'] == 'left_only',
-                                        updateColumnList]
-                updatesDF.columns = columnList_withoutAudit
+                                        updatecolNameList]
+                updatesDF.columns = colNameList_withoutAudit
 
                 # Apply updates, to DB and DF
                 if not updatesDF.empty:

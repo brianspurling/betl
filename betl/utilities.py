@@ -3,6 +3,7 @@ from . import conf
 import logging as logging
 
 import gspread
+from gspread import SpreadsheetNotFound
 from oauth2client.service_account import ServiceAccountCredentials
 import datetime
 import psycopg2
@@ -29,7 +30,7 @@ log = setUpLogger(' UTILS', __name__)
 
 
 #
-# Functions to connect to the DBs (CTL, ETL and TRG) and STM
+# Functions to connect to the DBs (CTL, ETL and TRG) & spreadsheets (ETL, TRG)
 #
 def getCtlDBConnection(reload=False):
     if conf.CTL_DB_CONN is None or reload:
@@ -132,25 +133,51 @@ def getTrgDBEngine(reload=False):
 
 
 #
-# Returns the connection to the STM (source to target mapping) document,
-# which is a Google Spreadsheet.
-# The returned value is a gspread object that allows access to the GSheet,
-# via Google's API
+# Returns the connection to the ETL Schema document, which is a Google sheet
 #
-def getStmConnection(reload=False):
+def getEtlSchemaConnection(reload=False):
 
     log.debug("START")
 
-    if conf.STM_CONN is None or reload:
+    if conf.ETL_DB_SCHEMA_CONN is None or reload:
         client = gspread.authorize(
             ServiceAccountCredentials.from_json_keyfile_name(
                 conf.GOOGLE_SHEETS_API_KEY_FILE,
                 [conf.GOOGLE_SHEETS_API_URL]))
-        conf.STM_CONN = client.open(conf.STM_FILE_NAME)
 
-    log.info("Connected to STM Google Sheet")
+        try:
+            conf.ETL_DB_SCHEMA_CONN = client.open(conf.ETL_DB_SCHEMA_FILE_NAME)
+        except SpreadsheetNotFound:
+            log.error('Failed to establish a connection to the ETL Schema ' +
+                      'spreadsheet: ' + conf.ETL_DB_SCHEMA_FILE_NAME + '. ' +
+                      'This doc should be a Google Doc, matching this name ' +
+                      'exactly, and shared to the user in your Google API ' +
+                      'auth file (client_email)')
+            raise
 
-    return conf.STM_CONN
+    log.info("Connected to ETL DB Schema Google Sheet")
+
+    return conf.ETL_DB_SCHEMA_CONN
+
+
+#
+# Returns the connection to the TRG Schema document, which is a Google sheet
+#
+# To do: remove duplication with previous function
+def getTrgSchemaConnection(reload=False):
+
+    log.debug("START")
+
+    if conf.TRG_DB_SCHEMA_CONN is None or reload:
+        client = gspread.authorize(
+            ServiceAccountCredentials.from_json_keyfile_name(
+                conf.GOOGLE_SHEETS_API_KEY_FILE,
+                [conf.GOOGLE_SHEETS_API_URL]))
+        conf.TRG_DB_SCHEMA_CONN = client.open(conf.TRG_DB_SCHEMA_FILE_NAME)
+
+    log.info("Connected to TRG DB Schema Google Sheet")
+
+    return conf.TRG_DB_SCHEMA_CONN
 
 
 #
@@ -175,22 +202,49 @@ def getMsdConnection(reload=False):
 
 
 #
-# Get all the worksheets from the STM GSheet document, then
-# filter to only those relevant to this Data Layer
+# Get all the worksheets from the appropriate DB Schema document, then
+# filter to only those relevant to this dataLase / dataLayer. There are two
+# DB Schema documents, covering the following dataLayers
+#   etl.src     --> one dataModel per source system (and one for MSD)
+#   etl.stg     --> one dataModel per stage of the ETL staging process
+#   trg.trg     --> one dataModel only, called TRG as well (but prefixed ft/dm)
+#   trg.sum     --> one dataModel only, called SUM as well (but prefixed su)
 #
-def getStmWorksheets(dataLayer):
+# Do not specify an etlDataLayer if you are requesting the TRG database - you
+# always get all worksheets for all dataLayers for TRG
+#
+def getSchemaWorksheets(database, etlDataLayer=None):
 
-    allStmWorksheets = conf.STM_CONN.worksheets()
     worksheets = []
 
-    if dataLayer == 'src':
-        for worksheet in allStmWorksheets:
+    # We have reason to want the SRC and STG dataLayers separately, because
+    # the way the schemas are documented is different (SRC is one tab per
+    # dataModel; STG is one tab per table)
+    if database == 'etl' and etlDataLayer == 'src':
+        allEtlSchemaWorksheets = conf.ETL_DB_SCHEMA_CONN.worksheets()
+        for worksheet in allEtlSchemaWorksheets:
             if worksheet.title.find('ETL.SRC.') > -1:
+                worksheets.append(worksheet)
+
+    elif database == 'etl' and etlDataLayer == 'stg':
+        allEtlSchemaWorksheets = conf.ETL_DB_SCHEMA_CONN.worksheets()
+        for worksheet in allEtlSchemaWorksheets:
+            if worksheet.title.find('ETL.SRC.') == -1 and                     \
+                    worksheet.title.find('ETL.') > -1:
+                worksheets.append(worksheet)
+
+    # The TRG and SUM dataLayers, however, are all documented in the same way
+    # (one tab per table), therefore we will always return these all together
+    elif database == 'trg':
+        allTrgSchemaWorksheets = conf.TRG_DB_SCHEMA_CONN.worksheets()
+        for worksheet in allTrgSchemaWorksheets:
+            if worksheet.title.find('TRG.SRC.') > -1:
                 worksheets.append(worksheet)
     else:
         # this needs to do something differnet for other layers, e.g. TRG
         # will have DM_ and FT_ worksheets
-        raise ValueError('code not written yet')
+        raise ValueError('Invalid combination of database and etlDataLayer: ' +
+                         database + ' - ' + etlDataLayer)
 
     return worksheets
 
