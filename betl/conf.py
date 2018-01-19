@@ -44,7 +44,7 @@ TRG_DB_ENG = None
 # Job execution parameters
 SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT = []
 
-# These dictate the start/end dates of DM_DATE. They can be overridden at
+# These dictate the start/end dates of dm_date. They can be overridden at
 # any point in the application's ETL process, providing the generateDMDate
 # function is added to the schedule _after_ the functions in which they're set
 EARLIEST_DATE_IN_DATA = datetime.date(1900, 1, 1)

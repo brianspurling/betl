@@ -37,7 +37,7 @@ def generateDMDate(writeToDimension='True'):
     # dates, or maybe the ability to add new columns, but needs to be done
     # without changing SKs
     if writeToDimension:
-        df.to_sql('DM_DATE',
+        df.to_sql('dm_date',
                   conf.TRG_DB_ENG,
                   if_exists='replace')
 
