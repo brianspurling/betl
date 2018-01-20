@@ -11,6 +11,9 @@ TRANSFORM_SCHEDULE = []
 LOAD_SCHEDULE = []
 
 
+#
+# Call this from your app to insert your custom functions into the schedule
+#
 def scheduleDataFlow(function, etlStage, pos=None):
 
     global EXTRACT_SCHEDULE
@@ -34,6 +37,11 @@ def scheduleDataFlow(function, etlStage, pos=None):
 
 
 #
+# The calling application should have scheduled 1+ functions, which we
+# have stored in our global _SCHEDULE vars. Now that we're excuting the job,
+# we know that the schedule is "locked down", so we're going to write it
+# all to the control table.
+#
 # Run the ETL job, excuting each of the functions stored in the schedule
 #
 def executeJob(runExtract=True, runTransform=True, runLoad=True,
@@ -45,8 +53,6 @@ def executeJob(runExtract=True, runTransform=True, runLoad=True,
 
     log.debug("START")
 
-    # To do: should start by checking there are no uncompleted jobs
-    # in the table!
     ctlDBCursor = conf.CTL_DB_CONN.cursor()
 
     ctlDBCursor.execute("INSERT " +
@@ -67,14 +73,46 @@ def executeJob(runExtract=True, runTransform=True, runLoad=True,
 
     conf.CTL_DB_CONN.commit()
 
+    ctlDBCursor.execute("SELECT MAX(job_id) FROM job_log")
+    jobId = ctlDBCursor.fetchall()[0][0]
+
+    for func in EXTRACT_SCHEDULE:
+        ctlDBCursor.execute("INSERT " +
+                            "INTO job_schedule (" +
+                            "job_id, " +
+                            "function_name, " +
+                            "status) " +
+                            "VALUES (" +
+                            str(jobId) + ", " +
+                            "'" + func.__name__ + "', " +
+                            "'PENDING')")
+    for func in TRANSFORM_SCHEDULE:
+        ctlDBCursor.execute("INSERT " +
+                            "INTO job_schedule (" +
+                            "job_id, " +
+                            "function_name, " +
+                            "status) " +
+                            "VALUES (" +
+                            str(jobId) + ", " +
+                            "'" + func.__name__ + "', " +
+                            "'PENDING')")
+    for func in LOAD_SCHEDULE:
+        ctlDBCursor.execute("INSERT " +
+                            "INTO job_schedule (" +
+                            "job_id, " +
+                            "function_name, " +
+                            "status) " +
+                            "VALUES (" +
+                            str(jobId) + ", " +
+                            "'" + func.__name__ + "', " +
+                            "'PENDING')")
+    conf.CTL_DB_CONN.commit()
+
     # The job has now, as far as we're concerned, started, so it's crucial
     # we keep a catch-all around EVERYTHING (to ensure we update the job
     # status on-failure)
 
     try:
-
-        ctlDBCursor.execute("SELECT MAX(job_id) FROM job_log")
-        jobId = ctlDBCursor.fetchall()[0][0]
 
         if len(EXTRACT_SCHEDULE) > 0 and runExtract:
             log.info("STAGE: EXTRACT")
@@ -123,3 +161,22 @@ def executeJob(runExtract=True, runTransform=True, runLoad=True,
                          "The second error was >>> \n\n"
                          + tb2 + "\n")
     log.debug("END")
+
+
+#
+# Check what happened last time.
+#
+def getStatusOfLastExecution():
+
+    log.debug("START")
+
+    ctlDBCursor = conf.CTL_DB_CONN.cursor()
+
+    ctlDBCursor.execute("SELECT status FROM job_log where job_id = " +
+                        "(select max(job_id) from job_log)")
+
+    results = ctlDBCursor.fetchall()
+    status = 'OK'
+    if len(results) > 0:
+        status = results[0][0]
+    return status

@@ -19,7 +19,7 @@ RUN_REBUILD_SRC = False
 RUN_REBUILD_STG = False
 RUN_REBUILD_TRG = False
 RUN_REBUILD_SUM = False
-RUN_JOB = False
+EXE_JOB = False
 
 
 #
@@ -30,6 +30,21 @@ def run():
     log.debug("START")
 
     initialiseDBConnections()
+
+    lastRunStatus = scheduler.getStatusOfLastExecution()
+    if lastRunStatus == 'RUNNING' and EXE_JOB:
+        text = input("\n\nThe last execution of the job is still running. " +
+                     "Press any key to abort the new execution.")
+        sys.exit()
+    elif lastRunStatus != 'OK' and EXE_JOB:
+        text = input("\n\nThe last execution of the job failed to complete. " +
+                     "It finished with status: " + lastRunStatus + ". It is " +
+                     "strongly recommended you complete the execution before" +
+                     " running a new load.\n\nTo ignore this warning and run" +
+                     " a brand new load, enter 'ignore'\n")
+        if text.lower() != 'ignore':
+            scheduler.completePreviousJob()
+            return
 
     if RUN_SETUP:
         setupBetl()
@@ -48,7 +63,7 @@ def run():
         if RUN_REBUILD_SUM:
             rebuildPhysicalDataModel_sum()
 
-    if RUN_JOB:
+    if EXE_JOB:
         utils.deleteTempoaryData()
         scheduler.executeJob()
 
@@ -229,7 +244,7 @@ def processArgs(args):
     global RUN_REBUILD_STG
     global RUN_REBUILD_TRG
     global RUN_REBUILD_SUM
-    global RUN_JOB
+    global EXE_JOB
 
     showHelp = False
     skipWarnings = False
@@ -240,6 +255,8 @@ def processArgs(args):
     for arg in args:
         if arg == 'help':
             showHelp = True
+        elif arg == 'job':
+            EXE_JOB = True
         elif arg == 'bulk':
             bulk = True
             conf.BULK_OR_DELTA = 'BULK'
@@ -260,8 +277,6 @@ def processArgs(args):
             RUN_REBUILD_TRG = True
         elif arg == 'rebuildSum':
             RUN_REBUILD_SUM = True
-        elif arg == 'job':
-            RUN_JOB = True
         else:
             if arg != sys.argv[0]:
                 unrecognisedArg = True
@@ -311,14 +326,28 @@ def processArgs(args):
         sys.exit()
     else:
         # Check that bulk/delta set correctly
-        if ((bulk and delta) or ((not bulk) and (not delta))):
+        if (EXE_JOB and ((bulk and delta) or ((not bulk) and (not delta)))):
             raise ValueError('Job must be either bulk or delta load')
-        elif bulk:
+        elif EXE_JOB and bulk:
             if not skipWarnings:
-                text = input("\SURE you want to do a bulk load? Y or N:  ")
-                if text != 'Y' and text != 'y':
+                text = input("\nRunning a BULK load will completely wipe your" +
+                             "data warehouse's history.\nAll changes stored " +
+                             "your deltas will be lost.\nSure? (Y or N)  ")
+                if text.lower() != 'y':
                     log.info('Betl execution quit by user')
                     sys.exit()
                 else:
                     print('')
+
+        if RUN_SETUP:
+            if not skipWarnings:
+                text = input("\nRunning SETUP will completely wipe your " +
+                             "job's config.\nAll job logs will be lost.\n" +
+                             "Sure? (Y or N)  ")
+                if text.lower() != 'y':
+                    log.info('Betl execution quit by user')
+                    sys.exit()
+                else:
+                    print('')
+
     log.debug("END")

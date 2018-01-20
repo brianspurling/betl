@@ -34,12 +34,21 @@ def setupBetl():
 
     ctlDBCursor.execute("CREATE TABLE job_log (" +
                         "job_id serial primary key, " +
-                        "start_datetime timestamp without time zone, " +
+                        "start_datetime timestamp without " +
+                        "time zone NOT NULL, " +
                         "end_datetime timestamp without time zone, " +
-                        "status text, " +
+                        "status text NOT NULL, " +
                         "status_message text, " +
-                        "bulk_or_delta text, " +
-                        "scheduled_or_manual text)")
+                        "bulk_or_delta text NOT NULL, " +
+                        "scheduled_or_manual text NOT NULL)")
+
+    ctlDBCursor.execute("CREATE TABLE job_schedule (" +
+                        "job_id integer NOT NULL, " +
+                        "sequence serial NOT NULL, "
+                        "function_name text NOT NULL, " +
+                        "status text NOT NULL, " +
+                        "PRIMARY KEY(job_id,sequence))")
+
     conf.CTL_DB_CONN.commit()
 
     log.info("Created new control tables")
