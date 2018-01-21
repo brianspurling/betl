@@ -32,6 +32,9 @@ def setupBetl():
 
     # Recreate the control tables
 
+    # To do: I shouldn't have used job_id like this. A job will be a
+    # predefined sequence of functions. A job_run (or something like that) is
+    # what job_id below is really referring to
     ctlDBCursor.execute("CREATE TABLE job_log (" +
                         "job_id serial primary key, " +
                         "start_datetime timestamp without " +
@@ -46,7 +49,11 @@ def setupBetl():
                         "job_id integer NOT NULL, " +
                         "sequence serial NOT NULL, "
                         "function_name text NOT NULL, " +
+                        "stage text NOT NULL, " +
                         "status text NOT NULL, " +
+                        "start_datetime timestamp without time zone, " +
+                        "end_datetime timestamp without time zone, " +
+                        "log text, " +
                         "PRIMARY KEY(job_id,sequence))")
 
     conf.CTL_DB_CONN.commit()

@@ -8,6 +8,9 @@ from . import conf
 
 def generateDMDate(writeToDimension='True'):
 
+    # to do: need to build up a logStr in this function, like bespoke funcs do
+    logStr = ''
+
     startDate = EARLIEST_DATE_IN_DATA
     endDate = LATEST_DATE_IN_DATA
 
@@ -41,4 +44,4 @@ def generateDMDate(writeToDimension='True'):
                   conf.TRG_DB_ENG,
                   if_exists='replace')
 
-    return df
+    return logStr

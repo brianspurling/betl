@@ -14,6 +14,8 @@ log = utils.setUpLogger('EXTRCT', __name__)
 #
 def defaultExtract(srcTablesToExclude=[]):
 
+    # to do: need to build up a logStr in this function, like bespoke funcs do
+    logStr = ''
     srcTablesToExclude = conf.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT
 
     # To do: stop "index" cols appearing at the start of every src table
@@ -34,9 +36,9 @@ def defaultExtract(srcTablesToExclude=[]):
             tableShortName = schemas.SRC_LAYER.dataModels[dataModelId]        \
                 .tables[tableName].tableShortName
 
-            colNameList = schemas.SRC_LAYER.dataModels[dataModelId]            \
+            colNameList = schemas.SRC_LAYER.dataModels[dataModelId]           \
                 .tables[tableName].colNameList
-            colNameList_withoutAudit = schemas.SRC_LAYER                       \
+            colNameList_withoutAudit = schemas.SRC_LAYER                      \
                 .dataModels[dataModelId]                                      \
                 .tables[tableName]                                            \
                 .colNameList_withoutAudit
@@ -130,9 +132,11 @@ def defaultExtract(srcTablesToExclude=[]):
                             insertcolNameList.append(column.columnName)
                             deletecolNameList.append(column.columnName)
                         else:
-                            insertcolNameList.append(column.columnName + '_src')
+                            insertcolNameList.append(column.columnName +
+                                                     '_src')
                             updatecolNameList.append(column.columnName)
-                            deletecolNameList.append(column.columnName + '_stg')
+                            deletecolNameList.append(column.columnName +
+                                                     '_stg')
 
                 stgDF = pd.read_sql('SELECT * FROM ' + tableName,
                                     con=conf.ETL_DB_CONN)
@@ -287,3 +291,5 @@ def defaultExtract(srcTablesToExclude=[]):
                     log.info('Updates applied (end: ' + time + ')')
                 else:
                     log.info('No updates found for ' + tableName)
+
+        return logStr

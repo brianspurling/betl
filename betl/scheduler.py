@@ -6,9 +6,10 @@ import traceback
 log = utils.setUpLogger('SCHDLR', __name__)
 
 # Globals
-EXTRACT_SCHEDULE = []
-TRANSFORM_SCHEDULE = []
-LOAD_SCHEDULE = []
+EXTRACT_FUNCTIONS = []
+TRANSFORM_FUNCTIONS = []
+LOAD_FUNCTIONS = []
+SCHEDULE = {}
 
 
 #
@@ -16,16 +17,16 @@ LOAD_SCHEDULE = []
 #
 def scheduleDataFlow(function, etlStage, pos=None):
 
-    global EXTRACT_SCHEDULE
-    global TRANSFORM_SCHEDULE
-    global LOAD_SCHEDULE
+    global EXTRACT_FUNCTIONS
+    global TRANSFORM_FUNCTIONS
+    global LOAD_FUNCTIONS
 
     if etlStage == 'EXTRACT':
-        schedule = EXTRACT_SCHEDULE
+        schedule = EXTRACT_FUNCTIONS
     elif etlStage == 'TRANSFORM':
-        schedule = TRANSFORM_SCHEDULE
+        schedule = TRANSFORM_FUNCTIONS
     elif etlStage == 'LOAD':
-        schedule = LOAD_SCHEDULE
+        schedule = LOAD_FUNCTIONS
     else:
         raise ValueError("You can only schedule functions in one of " +
                          "the three ETL stages: EXTRACT, TRANSFORM, LOAD")
@@ -44,12 +45,13 @@ def scheduleDataFlow(function, etlStage, pos=None):
 #
 # Run the ETL job, excuting each of the functions stored in the schedule
 #
-def executeJob(runExtract=True, runTransform=True, runLoad=True,
+def executeJob(runExtract, runTransform, runLoad,
                scheduledOrManual="MANUAL"):
 
-    global EXTRACT_SCHEDULE
-    global TRANSFORM_SCHEDULE
-    global LOAD_SCHEDULE
+    global EXTRACT_FUNCTIONS
+    global TRANSFORM_FUNCTIONS
+    global LOAD_FUNCTIONS
+    global SCHEDULE
 
     log.debug("START")
 
@@ -76,36 +78,22 @@ def executeJob(runExtract=True, runTransform=True, runLoad=True,
     ctlDBCursor.execute("SELECT MAX(job_id) FROM job_log")
     jobId = ctlDBCursor.fetchall()[0][0]
 
-    for func in EXTRACT_SCHEDULE:
-        ctlDBCursor.execute("INSERT " +
-                            "INTO job_schedule (" +
-                            "job_id, " +
-                            "function_name, " +
-                            "status) " +
-                            "VALUES (" +
-                            str(jobId) + ", " +
-                            "'" + func.__name__ + "', " +
-                            "'PENDING')")
-    for func in TRANSFORM_SCHEDULE:
-        ctlDBCursor.execute("INSERT " +
-                            "INTO job_schedule (" +
-                            "job_id, " +
-                            "function_name, " +
-                            "status) " +
-                            "VALUES (" +
-                            str(jobId) + ", " +
-                            "'" + func.__name__ + "', " +
-                            "'PENDING')")
-    for func in LOAD_SCHEDULE:
-        ctlDBCursor.execute("INSERT " +
-                            "INTO job_schedule (" +
-                            "job_id, " +
-                            "function_name, " +
-                            "status) " +
-                            "VALUES (" +
-                            str(jobId) + ", " +
-                            "'" + func.__name__ + "', " +
-                            "'PENDING')")
+    if runExtract:
+        for func in EXTRACT_FUNCTIONS:
+            SCHEDULE[func.__name__] = func
+            sql = getJobScheduleInsertStatement(jobId, func, 'EXTRACT')
+            ctlDBCursor.execute(sql)
+    if runTransform:
+        for func in TRANSFORM_FUNCTIONS:
+            SCHEDULE[func.__name__] = func
+            sql = getJobScheduleInsertStatement(jobId, func, 'TRANSFORM')
+            ctlDBCursor.execute(sql)
+    if runLoad:
+        for func in LOAD_FUNCTIONS:
+            SCHEDULE[func.__name__] = func
+            sql = getJobScheduleInsertStatement(jobId, func, 'LOAD')
+            ctlDBCursor.execute(sql)
+
     conf.CTL_DB_CONN.commit()
 
     # The job has now, as far as we're concerned, started, so it's crucial
@@ -114,39 +102,28 @@ def executeJob(runExtract=True, runTransform=True, runLoad=True,
 
     try:
 
-        if len(EXTRACT_SCHEDULE) > 0 and runExtract:
-            log.info("STAGE: EXTRACT")
-            for func in EXTRACT_SCHEDULE:
-                log.info("Executing " + func.__name__)
-                func()
-                log.info("Completed " + func.__name__)
-        if len(TRANSFORM_SCHEDULE) > 0 and runTransform:
-            log.info("STAGE: TRANSFORM")
-            for func in TRANSFORM_SCHEDULE:
-                log.info("Executing " + func.__name__)
-                func()
-                log.info("Completed " + func.__name__)
-        if len(LOAD_SCHEDULE) > 0 and runLoad:
-            log.info("STAGE: LOAD")
-            for func in LOAD_SCHEDULE:
-                log.info("Executing " + func.__name__)
-                func()
-                log.info("Completed " + func.__name__)
+        # Pull the job_schedule back out of the control DB
+        ctlDBCursor.execute("SELECT * FROM job_schedule WHERE " +
+                            "job_id = " + str(jobId))
+        js = ctlDBCursor.fetchall()
+        for i in range(len(js)):
+            logFunctionStart(js[i][0], js[i][1], js[i][2])
+            logStr = executeFunction(js[i][2])
+            logFunctionEnd(js[i][0], js[i][1], js[i][2], logStr)
+
+        updateJobLog(jobId, 'SUCCESSFUL')
+        print('\nBETL execution completed successfully\n\n')
+
     except Exception as e1:
         tb1 = traceback.format_exc()
         try:
-            e1Str = str(e1).replace("'", "").replace('"', '')
-            ctlDBCursor.execute("UPDATE job_log " +
-                                "SET " +
-                                "end_datetime = current_timestamp, " +
-                                "status = 'FINISHED WITH ERROR', " +
-                                "status_message = '" + e1Str + "' " +
-                                "WHERE job_id = " + str(jobId))
-            conf.CTL_DB_CONN.commit()
+            updateJobLog(jobId, 'FINISHED WITH ERROR', e1)
             log.critical("\n\n" +
                          "THE JOB FAILED (the job_log has been updated)\n\n" +
                          "THE error was >>> \n\n"
                          + tb1 + "\n")
+            print('\nBETL execution completed with errors\n\n')
+
         except Exception as e2:
             tb2 = traceback.format_exc()
             tb1 = tb1.replace("'", "")
@@ -160,7 +137,34 @@ def executeJob(runExtract=True, runTransform=True, runLoad=True,
                          + tb1 + "\n\n"
                          "The second error was >>> \n\n"
                          + tb2 + "\n")
+            print('\nBETL execution failed to complete\n\n')
+
     log.debug("END")
+
+
+def completePreviousJob():
+    # to do: firstly, check that the schedule the calling app has loaded
+    # matches the schedule saved in the DB. If it doesn't, abort.
+    return
+
+
+#
+# Update the job log
+#
+def updateJobLog(jobId, status, statusMessage=''):
+
+    log.debug("START")
+
+    ctlDBCursor = conf.CTL_DB_CONN.cursor()
+
+    statusMessage = str(statusMessage).replace("'", "").replace('"', '')
+    ctlDBCursor.execute("UPDATE job_log " +
+                        "SET " +
+                        "end_datetime = current_timestamp, " +
+                        "status = '" + status + "', " +
+                        "status_message = '" + statusMessage + "' " +
+                        "WHERE job_id = " + str(jobId))
+    conf.CTL_DB_CONN.commit()
 
 
 #
@@ -176,7 +180,63 @@ def getStatusOfLastExecution():
                         "(select max(job_id) from job_log)")
 
     results = ctlDBCursor.fetchall()
-    status = 'OK'
-    if len(results) > 0:
+    status = 'SUCCESSFUL'
+    if len(results) > 0:  # in case it's the first execution!
         status = results[0][0]
     return status
+
+
+def getJobScheduleInsertStatement(jobId, function, stage):
+
+    sql = "INSERT " +                                                         \
+          "INTO job_schedule (" +                                             \
+          "job_id, " +                                                        \
+          "function_name, " +                                                 \
+          "stage, " +                                                         \
+          "status, " +                                                        \
+          "start_datetime, " +                                                \
+          "end_datetime, " +                                                  \
+          "log) " +                                                           \
+          "VALUES (" +                                                        \
+          str(jobId) + ", " +                                                 \
+          "'" + function.__name__ + "', " +                                   \
+          "'" + stage + "', " +                                               \
+          "'PENDING', " +                                                     \
+          "NULL, " +                                                          \
+          "NULL, " +                                                          \
+          "NULL)"
+    return sql
+
+
+def logFunctionStart(jobId, sequence, functionName):
+    sql = "UPDATE job_schedule " +                                            \
+          "SET " +                                                            \
+          "status = 'RUNNING', " +                                            \
+          "start_datetime = current_timestamp " +                             \
+          "WHERE job_id = " + str(jobId) +                                    \
+          "AND   sequence = " + str(sequence)
+
+    ctlDBCursor = conf.CTL_DB_CONN.cursor()
+    ctlDBCursor.execute(sql)
+    conf.CTL_DB_CONN.commit()
+    log.info("Executing " + functionName)
+
+
+def executeFunction(functionName):
+    global SCHEDULE
+    return SCHEDULE[functionName]()
+
+
+def logFunctionEnd(jobId, sequence, functionName, logStr):
+    sql = "UPDATE job_schedule " +                                            \
+          "SET " +                                                            \
+          "status = 'SUCCESSFUL', " +                                         \
+          "end_datetime = current_timestamp, " +                              \
+          "log = '" + logStr.replace("'", "''") + "' " +                      \
+          "WHERE job_id = " + str(jobId) +                                    \
+          "AND   sequence = " + str(sequence)
+
+    ctlDBCursor = conf.CTL_DB_CONN.cursor()
+    ctlDBCursor.execute(sql)
+    conf.CTL_DB_CONN.commit()
+    log.info("Completed " + functionName)

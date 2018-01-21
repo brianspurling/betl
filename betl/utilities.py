@@ -352,14 +352,22 @@ def deleteTempoaryData():
 
 
 def describeDF(funcName, stepDescription, df, stepId):
-    print('\n')
-    print('******************************************************************')
-    print('\n')
-    print(funcName + ': Step ' + str(stepId))
-    print(stepDescription)
-    print('Shape: ' + str(df.shape))
-    print('\n')
-    pprint.pprint('Columns: ' + str(list(df.columns.values)))
+    op = ''
+
+    op += '\n'
+    op += '******************************************************************'
+    op += '\n\n'
+    op += funcName + ': Step ' + str(stepId) + ' - '
+    op += stepDescription + '\n\n'
+    op += 'Shape: ' + str(df.shape) + '\n'
+    op += '\n'
+    op += 'Columns: '
+    op += pprint.pformat(list(df.columns.values))
     if len(df.columns.values) < 4:
-        print('\n')
-        pprint.pprint(df.head())
+        op += '\n\n'
+        op += 'df.head >>> '
+        op += '\n\n'
+        op += pprint.pformat(df.head())
+
+    print(op)
+    return op

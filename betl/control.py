@@ -1,3 +1,7 @@
+# to do: reset serials in job_schedule on setup
+# to do: unify statuses across job_schedule and job_log
+# to do: try/catch should catch manual user exit (ctrl + x)
+
 # betl imports
 from . import schemas
 from . import conf
@@ -19,6 +23,9 @@ RUN_REBUILD_SRC = False
 RUN_REBUILD_STG = False
 RUN_REBUILD_TRG = False
 RUN_REBUILD_SUM = False
+RUN_EXTRACT = True
+RUN_TRANSFORM = True
+RUN_LOAD = True
 EXE_JOB = False
 
 
@@ -36,14 +43,14 @@ def run():
         text = input("\n\nThe last execution of the job is still running. " +
                      "Press any key to abort the new execution.")
         sys.exit()
-    elif lastRunStatus != 'OK' and EXE_JOB:
+    elif lastRunStatus != 'SUCCESSFUL' and EXE_JOB:
         text = input("\n\nThe last execution of the job failed to complete. " +
                      "It finished with status: " + lastRunStatus + ". It is " +
                      "strongly recommended you complete the execution before" +
                      " running a new load.\n\nTo ignore this warning and run" +
                      " a brand new load, enter 'ignore'\n")
         if text.lower() != 'ignore':
-            scheduler.completePreviousJob()
+            scheduler.completePreviousJob()  # to do!
             return
 
     if RUN_SETUP:
@@ -65,7 +72,8 @@ def run():
 
     if EXE_JOB:
         utils.deleteTempoaryData()
-        scheduler.executeJob()
+        # To do, what marks this as scheduled as oppsed to manual (last param)
+        scheduler.executeJob(RUN_EXTRACT, RUN_TRANSFORM, RUN_LOAD)
 
     log.debug("END")
 
@@ -244,6 +252,9 @@ def processArgs(args):
     global RUN_REBUILD_STG
     global RUN_REBUILD_TRG
     global RUN_REBUILD_SUM
+    global RUN_EXTRACT
+    global RUN_TRANSFORM
+    global RUN_LOAD
     global EXE_JOB
 
     showHelp = False
@@ -255,8 +266,6 @@ def processArgs(args):
     for arg in args:
         if arg == 'help':
             showHelp = True
-        elif arg == 'job':
-            EXE_JOB = True
         elif arg == 'bulk':
             bulk = True
             conf.BULK_OR_DELTA = 'BULK'
@@ -277,6 +286,14 @@ def processArgs(args):
             RUN_REBUILD_TRG = True
         elif arg == 'rebuildSum':
             RUN_REBUILD_SUM = True
+        elif arg == 'noextract':
+            RUN_EXTRACT = False
+        elif arg == 'notransform':
+            RUN_TRANSFORM = False
+        elif arg == 'noload':
+            RUN_LOAD = False
+        elif arg == 'job':
+            EXE_JOB = True
         else:
             if arg != sys.argv[0]:
                 unrecognisedArg = True
@@ -330,7 +347,7 @@ def processArgs(args):
             raise ValueError('Job must be either bulk or delta load')
         elif EXE_JOB and bulk:
             if not skipWarnings:
-                text = input("\nRunning a BULK load will completely wipe your" +
+                text = input("\nRunning BULK load will completely wipe your" +
                              "data warehouse's history.\nAll changes stored " +
                              "your deltas will be lost.\nSure? (Y or N)  ")
                 if text.lower() != 'y':
