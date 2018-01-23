@@ -42,8 +42,7 @@ def setupBetl():
                         "end_datetime timestamp without time zone, " +
                         "status text NOT NULL, " +
                         "status_message text, " +
-                        "bulk_or_delta text NOT NULL, " +
-                        "scheduled_or_manual text NOT NULL)")
+                        "bulk_or_delta text NOT NULL)")
 
     ctlDBCursor.execute("CREATE TABLE job_schedule (" +
                         "job_id integer NOT NULL, " +

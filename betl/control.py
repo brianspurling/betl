@@ -1,6 +1,12 @@
+# next: scheduler.128
 # to do: reset serials in job_schedule on setup
 # to do: unify statuses across job_schedule and job_log
 # to do: try/catch should catch manual user exit (ctrl + x)
+# to do: add permanent cli output for long-loads (e.g. spreadsheets, and dfs)
+#        make sure you catch the rerun-ignore case, where hitting enter seems
+#        to do nothing
+# to do: test that a rerun (which appears to work from the logs) works from a
+#        data pov
 
 # betl imports
 from . import schemas
@@ -10,6 +16,7 @@ from . import df_extract
 from . import df_transform
 from . import utilities as utils
 from . import setup
+from . import cli
 
 # 3rd Party imports
 import sys
@@ -27,6 +34,7 @@ RUN_EXTRACT = True
 RUN_TRANSFORM = True
 RUN_LOAD = True
 EXE_JOB = False
+RERUN_PREV_JOB = False
 
 
 #
@@ -36,22 +44,30 @@ def run():
 
     log.debug("START")
 
+    global RERUN_PREV_JOB
+
     initialiseDBConnections()
 
     lastRunStatus = scheduler.getStatusOfLastExecution()
-    if lastRunStatus == 'RUNNING' and EXE_JOB:
-        text = input("\n\nThe last execution of the job is still running. " +
-                     "Press any key to abort the new execution.")
+    if lastRunStatus['status'] == 'RUNNING' and EXE_JOB:
+        text = input(cli.LAST_EXE_STILL_RUNNING)
         sys.exit()
-    elif lastRunStatus != 'SUCCESSFUL' and EXE_JOB:
-        text = input("\n\nThe last execution of the job failed to complete. " +
-                     "It finished with status: " + lastRunStatus + ". It is " +
-                     "strongly recommended you complete the execution before" +
-                     " running a new load.\n\nTo ignore this warning and run" +
-                     " a brand new load, enter 'ignore'\n")
-        if text.lower() != 'ignore':
-            scheduler.completePreviousJob()  # to do!
-            return
+    elif lastRunStatus['status'] != 'SUCCESSFUL' and EXE_JOB:
+        text = input(cli.LAST_EXE_FAILED.format(
+            status=lastRunStatus['status']))
+        if text.lower() == 'ignore':
+            RERUN_PREV_JOB = False
+        else:
+            RERUN_PREV_JOB = True
+
+    if RERUN_PREV_JOB and (RUN_SETUP or
+                           RUN_REBUILD_ALL or
+                           RUN_REBUILD_SRC or
+                           RUN_REBUILD_STG or
+                           RUN_REBUILD_TRG or
+                           RUN_REBUILD_SUM):
+        text = input(cli.CANT_RERUN_AND_SETUP_OR_REBUILD)
+        sys.exit()
 
     if RUN_SETUP:
         setupBetl()
@@ -71,9 +87,17 @@ def run():
             rebuildPhysicalDataModel_sum()
 
     if EXE_JOB:
-        utils.deleteTempoaryData()
-        # To do, what marks this as scheduled as oppsed to manual (last param)
-        scheduler.executeJob(RUN_EXTRACT, RUN_TRANSFORM, RUN_LOAD)
+
+        scheduler.constructSchedule(RUN_EXTRACT, RUN_TRANSFORM, RUN_LOAD)
+
+        if RERUN_PREV_JOB:
+            jobId = lastRunStatus['jobId']
+        else:
+            utils.deleteTempoaryData()
+            jobId = scheduler.addJobToJobLog()
+            scheduler.writeScheduleToCntrlDb(jobId)
+
+        scheduler.executeJob(jobId)
 
     log.debug("END")
 
@@ -169,8 +193,7 @@ def rebuildPhysicalDataModels_src():
     if conf.BULK_OR_DELTA == 'BULK':
         schemas.SRC_LAYER.rebuildPhsyicalDataModel()
     elif conf.BULK_OR_DELTA == 'DELTA':
-        raise ValueError("You cannot rebuild the ETL database's data models " +
-                         "as part of a delta load. Fool.")
+        raise ValueError(cli.CANT_REBUILD_WITH_DELTA)
     log.debug("END")
 
 
@@ -182,8 +205,7 @@ def rebuildPhysicalDataModels_stg():
     if conf.BULK_OR_DELTA == 'BULK':
         schemas.STG_LAYER.rebuildPhsyicalDataModel()
     elif conf.BULK_OR_DELTA == 'DELTA':
-        raise ValueError("You cannot rebuild the ETL database's data models " +
-                         "as part of a delta load. Fool.")
+        raise ValueError(cli.CANT_REBUILD_WITH_DELTA)
     log.debug("END")
 
 
@@ -195,8 +217,7 @@ def rebuildPhysicalDataModel_trg():
     if conf.BULK_OR_DELTA == 'BULK':
         schemas.TRG_LAYER.rebuildPhsyicalDataModel()
     elif conf.BULK_OR_DELTA == 'DELTA':
-        raise ValueError("You cannot rebuild the TRG database's data models " +
-                         "as part of a delta load. Fool.")
+        raise ValueError(cli.CANT_REBUILD_WITH_DELTA)
     log.debug("END")
 
 
@@ -208,8 +229,7 @@ def rebuildPhysicalDataModel_sum():
     if conf.BULK_OR_DELTA == 'BULK':
         schemas.SUM_LAYER.rebuildPhsyicalDataModel()
     elif conf.BULK_OR_DELTA == 'DELTA':
-        raise ValueError("You cannot rebuild the TRG database's data models " +
-                         "as part of a delta load. Fool.")
+        raise ValueError(cli.CANT_REBUILD_WITH_DELTA)
     log.debug("END")
 
 
@@ -299,57 +319,19 @@ def processArgs(args):
                 unrecognisedArg = True
 
     if unrecognisedArg and not showHelp:
-        print("Argument " + arg + " not recognised. Try 'help'")
+        print(cli.ARG_NOT_RECOGNISED.format(arg))
         sys.exit()
     elif showHelp:
-        print("")
-        print("--------------------------------------------------------------")
-        print("")
-        print("******************")
-        print("* betl arguments *")
-        print("******************")
-        print("")
-        print("> [setup]")
-        print("  Reinstall betl - all config will be lost")
-        print("")
-        print("> [rebuildAll | rebuildSrc | rebuildStg | rebuildTrg |", end="")
-        print(" rebuildSum]")
-        print("  Reconstruct the physical data models - all data will be lost")
-        print("")
-        print("> bulk | delta")
-        print("  Specify whether we're running a bulk or delta (required)")
-        print("")
-        print("> [job]")
-        print("  Executes the job")
-        print("")
-        print("*********************")
-        print("* betl instructions *")
-        print("*********************")
-        print("")
-        print("- In your script, first call betl.processArgs(sys.argv)")
-        print("- Then pass config details to betl with betl.loadAppConfig({})")
-        print("  Refer to betl.conf.py for the configuration required")
-        print("- Add your bespoke data flows to the schedule with")
-        print("  betl.scheduleDataFlow(function,stage,pos)")
-        print("- If the SRC schema def is empty, betl will auto-populate")
-        print("  it from the source system(s)")
-        print("- You will then need to identify the natural keys manually, in")
-        print("  the spreadsheet")
-        print("- Use betl.useDefaultExtract() to use a standard extract:")
-        print("  (It will use full table comparisons on the NKs to get deltas")
-        print("")
-        print("--------------------------------------------------------------")
-        print("")
+        print(cli.HELP)
+
         sys.exit()
     else:
         # Check that bulk/delta set correctly
         if (EXE_JOB and ((bulk and delta) or ((not bulk) and (not delta)))):
-            raise ValueError('Job must be either bulk or delta load')
+            raise ValueError(cli.BULK_OR_DELTA_NOT_SET)
         elif EXE_JOB and bulk:
             if not skipWarnings:
-                text = input("\nRunning BULK load will completely wipe your" +
-                             "data warehouse's history.\nAll changes stored " +
-                             "your deltas will be lost.\nSure? (Y or N)  ")
+                text = input(cli.BULK_LOAD_WARNING)
                 if text.lower() != 'y':
                     log.info('Betl execution quit by user')
                     sys.exit()
@@ -358,9 +340,7 @@ def processArgs(args):
 
         if RUN_SETUP:
             if not skipWarnings:
-                text = input("\nRunning SETUP will completely wipe your " +
-                             "job's config.\nAll job logs will be lost.\n" +
-                             "Sure? (Y or N)  ")
+                text = input(cli.SETUP_WARNING)
                 if text.lower() != 'y':
                     log.info('Betl execution quit by user')
                     sys.exit()
