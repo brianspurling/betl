@@ -390,6 +390,10 @@ class SrcLayer():
                 conf.ETL_DB_CONN.commit()
                 counter += 1
 
+            # To do, we should check what other tables are lying around in
+            # there. The point of the spreadsheets is to be able to control
+            # the physical model - if removing / renaming a table leaves it
+            # sitting in the DB we're going to create a mess!
             except psycopg2.Error as e:
                 pprint.pprint(e)
                 # to do, need to catch if table didn't already exist

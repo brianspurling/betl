@@ -355,8 +355,6 @@ def describeDF(funcName, stepDescription, df, stepId):
     op = ''
 
     op += '\n'
-    op += '******************************************************************'
-    op += '\n\n'
     op += funcName + ': Step ' + str(stepId) + ' - '
     op += stepDescription + '\n\n'
     op += 'Shape: ' + str(df.shape) + '\n'
@@ -368,6 +366,9 @@ def describeDF(funcName, stepDescription, df, stepId):
         op += 'df.head >>> '
         op += '\n\n'
         op += pprint.pformat(df.head())
+    op += '\n'
+    op += '\n'
+    op += '******************************************************************'
 
     print(op)
     return op

@@ -79,11 +79,13 @@ def executeJob(jobId):
 
     js = getJobSchedule(jobId)
 
+    # To do: use the log_path to put these in the correct sub folder
+    logFile = open('log_' + str(jobId) + '.txt', 'w')
     # After we update the job_log the job has started, so it's crucial
     # we keep a catch-all around EVERYTHING (to ensure we update the job
     # status on-failure)
 
-    updateJobLog(jobId, 'RUNNING')
+    updateJobLog(jobId, 'RUNNING', '', logFile.name)
 
     try:
 
@@ -109,9 +111,10 @@ def executeJob(jobId):
                 lgStr = executeFunction(js[i][2])
                 updateJobSchedule(js[i][0], js[i][1], 'SUCCESSFUL', lgStr,
                                   False, True)
+                logFile.write(lgStr)
 
         updateJobLog(jobId, 'SUCCESSFUL')
-        print('\nBETL execution completed successfully\n\n')
+        print(cli.EXECUTION_SUCCESSFUL.format(logFile=logFile))
 
     except Exception as e1:
         tb1 = traceback.format_exc()
@@ -179,19 +182,23 @@ def logStartOfJobExecution():
 #
 # Update the job log
 #
-def updateJobLog(jobId, status, statusMessage=''):
+def updateJobLog(jobId, status, statusMessage='', logFile=None):
 
     log.debug("START")
 
     ctlDBCursor = conf.CTL_DB_CONN.cursor()
 
     statusMessage = str(statusMessage).replace("'", "").replace('"', '')
-    ctlDBCursor.execute("UPDATE job_log " +
-                        "SET " +
-                        "end_datetime = current_timestamp, " +
-                        "status = '" + status + "', " +
-                        "status_message = '" + statusMessage + "' " +
-                        "WHERE job_id = " + str(jobId))
+
+    sql = ("UPDATE job_log " +
+           "SET " +
+           "end_datetime = current_timestamp, " +
+           "status = '" + status + "', ")
+    if logFile is not None:
+        sql += ("log_file = '" + logFile + "', ")
+    sql += ("status_message = '" + statusMessage + "' " +
+            "WHERE job_id = " + str(jobId))
+    ctlDBCursor.execute(sql)
     conf.CTL_DB_CONN.commit()
 
 

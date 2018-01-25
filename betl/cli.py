@@ -21,7 +21,7 @@ CANT_REBUILD_WITH_DELTA = ("You cannot rebuild the ETL database's data " +
 
 BULK_OR_DELTA_NOT_SET = ("Job must be either bulk or delta load")
 
-BULK_LOAD_WARNING = ("\nRunning BULK load will completely wipe your" +
+BULK_LOAD_WARNING = ("\nRunning BULK load will completely wipe your " +
                      "data warehouse's history.\nAll changes stored " +
                      "your deltas will be lost.\nSure? (Y or N)  ")
 
@@ -32,6 +32,8 @@ SETUP_WARNING = ("\nRunning SETUP will completely wipe your " +
 INVALID_STAGE_FOR_SCHEDULE = ("You can only schedule functions in one of " +
                               "the three ETL stages: EXTRACT, TRANSFORM, LOAD")
 
+EXECUTION_SUCCESSFUL = ("\nBETL execution completed successfully. " +
+                        "See {logFile} for logs\n\n")
 HELP = ("\n" +
         "--------------------------------------------------------------\n" +
         "\n" +

@@ -22,10 +22,7 @@ def setupBetl():
     counter = 0
     for controlTable in controlTables:
         counter += 1
-        try:
-            ctlDBCursor.execute("DROP TABLE " + controlTable[2])
-        except psycopg2.Error as e:
-            pass
+        ctlDBCursor.execute("DROP TABLE " + controlTable[2] + " CASCADE")
 
     conf.CTL_DB_CONN.commit()
     log.info("Dropped " + str(counter) + ' tables')
@@ -42,7 +39,8 @@ def setupBetl():
                         "end_datetime timestamp without time zone, " +
                         "status text NOT NULL, " +
                         "status_message text, " +
-                        "bulk_or_delta text NOT NULL)")
+                        "bulk_or_delta text NOT NULL, " +
+                        "log_file text)")
 
     ctlDBCursor.execute("CREATE TABLE job_schedule (" +
                         "job_id integer NOT NULL, " +

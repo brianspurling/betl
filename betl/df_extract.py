@@ -97,7 +97,8 @@ def defaultExtract(srcTablesToExclude=[]):
                 # if_exists='replace' covers the truncate for us
                 srcDF.to_sql(tableName,
                              conf.ETL_DB_ENG,
-                             if_exists='replace')
+                             if_exists='replace',
+                             index=False)
 
                 time = str(datetime.time(datetime.now()))
                 log.info(tableName
@@ -165,7 +166,8 @@ def defaultExtract(srcTablesToExclude=[]):
                                            sourceSystemId=dataModelId,
                                            action='INSERT')
                     insertsDF.to_sql(tableName, conf.ETL_DB_ENG,
-                                     if_exists='append', index=False)
+                                     if_exists='append',
+                                     index=False)
                     stgDF = stgDF.append(insertsDF, ignore_index=True,
                                          verify_integrity=True)
                     time = str(datetime.time(datetime.now()))

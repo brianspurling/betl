@@ -42,6 +42,7 @@ def generateDMDate(writeToDimension='True'):
     if writeToDimension:
         df.to_sql('dm_date',
                   conf.TRG_DB_ENG,
-                  if_exists='replace')
+                  if_exists='replace',
+                  index=False)
 
     return logStr

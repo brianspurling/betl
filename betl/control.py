@@ -1,5 +1,8 @@
-# next: scheduler.128
 # to do: reset serials in job_schedule on setup
+# to do: pandas can change schemas on the fly, with every write to sql command
+#        Either this needs to be disabled somehow, or there should be a
+#        physical-to-logical schema comparison check run at start and end of
+#        job
 # to do: unify statuses across job_schedule and job_log
 # to do: try/catch should catch manual user exit (ctrl + x)
 # to do: add permanent cli output for long-loads (e.g. spreadsheets, and dfs)
@@ -281,7 +284,7 @@ def processArgs(args):
     skipWarnings = False
     bulk = False
     delta = False
-    unrecognisedArg = False
+    isUnrecognisedArg = False
 
     for arg in args:
         if arg == 'help':
@@ -316,10 +319,11 @@ def processArgs(args):
             EXE_JOB = True
         else:
             if arg != sys.argv[0]:
-                unrecognisedArg = True
+                isUnrecognisedArg = True
+                unrecognisedArg = arg
 
-    if unrecognisedArg and not showHelp:
-        print(cli.ARG_NOT_RECOGNISED.format(arg))
+    if isUnrecognisedArg and not showHelp:
+        print(cli.ARG_NOT_RECOGNISED.format(arg=unrecognisedArg))
         sys.exit()
     elif showHelp:
         print(cli.HELP)

@@ -12,6 +12,7 @@ LOG_LEVEL = logging.INFO
 # General
 DWH_ID = None
 TMP_DATA_PATH = None
+LOG_PATH = None
 
 # Connection details
 CTL_DB_CONN_DETAILS = None
@@ -66,6 +67,7 @@ def loadAppConfig(appConf):
     global MSD_FILE_NAME
 
     global TMP_DATA_PATH
+    global LOG_PATH
 
     DWH_ID = appConf['DWH_ID']
 
@@ -82,6 +84,7 @@ def loadAppConfig(appConf):
     MSD_FILE_NAME = appConf['MSD_FILE_NAME']
 
     TMP_DATA_PATH = appConf['TMP_DATA_PATH'].replace('/', '')
+    LOG_PATH = appConf['LOG_PATH']
 
 
 def setEarliestDate(earliestDate):
