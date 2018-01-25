@@ -1,14 +1,14 @@
-from datetime import date, timedelta
-import pandas as pd
-
 from .conf import EARLIEST_DATE_IN_DATA
 from .conf import LATEST_DATE_IN_DATA
 from . import conf
 
+from datetime import date, timedelta
+import pandas as pd
+
 
 def generateDMDate(writeToDimension='True'):
 
-    # to do: need to build up a logStr in this function, like bespoke funcs do
+    # to do #9
     logStr = ''
 
     startDate = EARLIEST_DATE_IN_DATA
@@ -36,9 +36,7 @@ def generateDMDate(writeToDimension='True'):
 
     df = pd.DataFrame(dmDateList)
 
-    # To do: this needs to be set up as bulk only. Delta would be additional
-    # dates, or maybe the ability to add new columns, but needs to be done
-    # without changing SKs
+    # to do #22
     if writeToDimension:
         df.to_sql('dm_date',
                   conf.TRG_DB_ENG,

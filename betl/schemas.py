@@ -92,7 +92,8 @@ class Column():
         if columnSchema['isAudit'].upper() == 'Y':
             self.isAudit = True
 
-        self.columnSchema = columnSchema  # to do: should i hold this as well?
+        # to do #14
+        self.columnSchema = columnSchema
 
     def getSqlCreateStatements(self):
         return self.columnName + ' ' + self.columnSchema['dataType']
@@ -227,8 +228,7 @@ class DataModel():
 # It also contains 1+ srcSystemConns (connection details for each source
 # system)
 #
-# To do: if possible, this needs to inherit from a base DataLayer class,
-#        which should be almost/completely? the same for STG and TRG and SUM
+# to do #15
 class SrcLayer():
 
     def __init__(self):
@@ -369,8 +369,7 @@ class SrcLayer():
             self.srcSystemConns[srcSysId] = Connection(conf.SOURCE_SYSTEM_CONNS
                                                        [srcSysId])
 
-        # To do, some kind of conditional on this and other places to make
-        # using MSD optional
+        # to do #16
         self.srcSystemConns['MSD'] = Connection(conf.SOURCE_SYSTEM_CONNS
                                                 ['MSD'])
         log.info("Loaded connections to " + str(len(self.srcSystemIds)) +
@@ -390,16 +389,9 @@ class SrcLayer():
                 conf.ETL_DB_CONN.commit()
                 counter += 1
 
-            # To do, we should check what other tables are lying around in
-            # there. The point of the spreadsheets is to be able to control
-            # the physical model - if removing / renaming a table leaves it
-            # sitting in the DB we're going to create a mess!
             except psycopg2.Error as e:
                 pprint.pprint(e)
-                # to do, need to catch if table didn't already exist
-                # (expected exception), and raise everything else
-                # If it didn't exist, I think we need to commit
-                # otherwise no other commands will work
+                # to do #17
                 conf.ETL_DB_CONN.commit()
                 pass
 
@@ -472,7 +464,7 @@ class SrcLayer():
                      "connecting  and pulling list of columns")
 
             # Get the schema from the files
-            # To do: what's the max this can be? any downsides?
+            # to do #18
             csv.field_size_limit(1131072)
             for filename in self.srcSystemConns[dataModelId].files:
                 with open(filename + '.csv', "r") as srcFile:
@@ -486,6 +478,7 @@ class SrcLayer():
                     csvColumns = next(csvReader)
 
                 for csvColumn in csvColumns:
+                    # to do #19
                     schema.append([dataModelId,
                                    srcSysType,
                                    'src_' + dataModelId + '_'
@@ -494,10 +487,6 @@ class SrcLayer():
                                    'YES',
                                    'character varying',
                                    128])
-                    # To do: can't just stick type as 128 chars! What's the
-                    # better type here, to capture string of any length from
-                    # CSV? Of course, I would expect to alter them in
-                    # spreadsheet during dev
 
                 # Add on our metadata columns (these are columns we wont
                 # find in the source system, but we want to add to all tables
@@ -737,10 +726,7 @@ class StgLayer():
 
             except psycopg2.Error as e:
                 pprint.pprint(e)
-                # to do, need to catch if table didn't already exist
-                # (expected exception), and raise everything else
-                # If it didn't exist, I think we need to commit
-                # otherwise no other commands will work
+                # to do #20
                 conf.ETL_DB_CONN.commit()
 
                 pass
@@ -897,10 +883,7 @@ class TrgLayer():
 
             except psycopg2.Error as e:
                 pprint.pprint(e)
-                # to do, need to catch if table didn't already exist
-                # (expected exception), and raise everything else
-                # If it didn't exist, I think we need to commit
-                # otherwise no other commands will work
+                # to do #20
                 conf.TRG_DB_CONN.commit()
                 pass
 
@@ -1056,10 +1039,7 @@ class SumLayer():
 
             except psycopg2.Error as e:
                 pprint.pprint(e)
-                # to do, need to catch if table didn't already exist
-                # (expected exception), and raise everything else
-                # If it didn't exist, I think we need to commit
-                # otherwise no other commands will work
+                # to do #20
                 conf.TRG_DB_CONN.commit()
                 pass
 

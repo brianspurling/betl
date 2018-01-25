@@ -135,6 +135,7 @@ def getTrgDBEngine(reload=False):
 #
 # Returns the connection to the ETL Schema document, which is a Google sheet
 #
+# to do #21
 def getEtlSchemaConnection(reload=False):
 
     log.debug("START")
@@ -163,7 +164,7 @@ def getEtlSchemaConnection(reload=False):
 #
 # Returns the connection to the TRG Schema document, which is a Google sheet
 #
-# To do: remove duplication with previous function
+# to do #21
 def getTrgSchemaConnection(reload=False):
 
     log.debug("START")
@@ -242,8 +243,6 @@ def getSchemaWorksheets(database, etlDataLayer=None):
             if worksheet.title.find('TRG.SUM.') > -1:
                 worksheets.append(worksheet)
     else:
-        # this needs to do something differnet for other layers, e.g. TRG
-        # will have DM_ and FT_ worksheets
         raise ValueError('Invalid combination of database and etlDataLayer: ' +
                          database + ' - ' + etlDataLayer)
 

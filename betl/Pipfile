@@ -7,8 +7,9 @@ name = "pypi"
 
 [packages]
 
-django = "*"
-"psycopg2" = "*"
+gspread = "*"
+"oauth2client" = "*"
+sqlalchemy = "*"
 
 
 [dev-packages]

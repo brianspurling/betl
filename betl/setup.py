@@ -1,6 +1,5 @@
-from . import utilities as utils
 from . import conf
-import psycopg2
+from . import utilities as utils
 
 log = utils.setUpLogger('CONTRL', __name__)
 
@@ -29,9 +28,7 @@ def setupBetl():
 
     # Recreate the control tables
 
-    # To do: I shouldn't have used job_id like this. A job will be a
-    # predefined sequence of functions. A job_run (or something like that) is
-    # what job_id below is really referring to
+    # to do #4
     ctlDBCursor.execute("CREATE TABLE job_log (" +
                         "job_id serial primary key, " +
                         "start_datetime timestamp without " +

@@ -1,16 +1,3 @@
-# to do: reset serials in job_schedule on setup
-# to do: pandas can change schemas on the fly, with every write to sql command
-#        Either this needs to be disabled somehow, or there should be a
-#        physical-to-logical schema comparison check run at start and end of
-#        job
-# to do: unify statuses across job_schedule and job_log
-# to do: try/catch should catch manual user exit (ctrl + x)
-# to do: add permanent cli output for long-loads (e.g. spreadsheets, and dfs)
-#        make sure you catch the rerun-ignore case, where hitting enter seems
-#        to do nothing
-# to do: test that a rerun (which appears to work from the logs) works from a
-#        data pov
-
 # betl imports
 from . import schemas
 from . import conf

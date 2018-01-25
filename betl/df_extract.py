@@ -1,9 +1,9 @@
-import pandas as pd
-from datetime import datetime
-
 from . import utilities as utils
 from . import schemas
 from . import conf
+
+import pandas as pd
+from datetime import datetime
 
 log = utils.setUpLogger('EXTRCT', __name__)
 
@@ -14,11 +14,10 @@ log = utils.setUpLogger('EXTRCT', __name__)
 #
 def defaultExtract(srcTablesToExclude=[]):
 
-    # to do: need to build up a logStr in this function, like bespoke funcs do
+    # to do #9
     logStr = ''
     srcTablesToExclude = conf.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT
 
-    # To do: stop "index" cols appearing at the start of every src table
     log.debug("START")
 
     for dataModelId in schemas.SRC_LAYER.dataModels:
@@ -185,8 +184,7 @@ def defaultExtract(srcTablesToExclude=[]):
                 deletesDF = deltaDF.loc[deltaDF['_merge'] == 'right_only',
                                         deletecolNameList]
                 deletesDF.columns = colNameList
-                # to do: I don't like just losing these. Do we flag them?
-                # Or push them out to another table?
+                # to do #10
 
                 # Apply deletes, to DB and DF
                 if not deletesDF.empty:

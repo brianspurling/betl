@@ -62,9 +62,7 @@ def constructSchedule(runExtract, runTransform, runLoad):
 def executeFunction(functionName):
     global SCHEDULE
     log.info("Executing " + functionName)
-    # To do: it is possible here, on a re-run, that the calling application
-    # will no longer be passing in the same functions as we have saved in
-    # job_schedule, therefore SCHEDULE[functionName] will return a key error s
+    # to do #11
     returnVal = SCHEDULE[functionName]['func']()
     log.info("Completed " + functionName)
     return returnVal
@@ -79,7 +77,7 @@ def executeJob(jobId):
 
     js = getJobSchedule(jobId)
 
-    # To do: use the log_path to put these in the correct sub folder
+    # to do #12
     logFile = open('log_' + str(jobId) + '.txt', 'w')
     # After we update the job_log the job has started, so it's crucial
     # we keep a catch-all around EVERYTHING (to ensure we update the job
@@ -94,20 +92,12 @@ def executeJob(jobId):
             # re-running a failed job, we only want to pick up functions that
             # come after the point of failure
 
-            # To do: this only works if we know we will always fail a function,
-            # or else finish it successfully. To improve on this, we will have
-            # to consider what happens if function A runs sucessfully, B
-            # fails but doesn't kill execution, C completes succesffully, then
-            # D kills execution. TBH though, I cant see why you would ever
-            # want this. If a function can't complete, you can't continue. End
-            # of
+
             if js[i][4] != 'SUCCESSFUL':
 
                 updateJobSchedule(js[i][0], js[i][1], 'RUNNING', '',
                                   True, False)
-                # To do: catch errors closer to the funciton call, and update
-                # the job_schedule row for that function so status isn't left
-                # as "running"
+                # to do #13
                 lgStr = executeFunction(js[i][2])
                 updateJobSchedule(js[i][0], js[i][1], 'SUCCESSFUL', lgStr,
                                   False, True)
