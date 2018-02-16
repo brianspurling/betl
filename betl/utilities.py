@@ -14,6 +14,7 @@ import os
 import tempfile
 import shutil
 import pprint
+import pandas as pd
 
 
 def setUpLogger(moduleCode, name):
@@ -257,6 +258,30 @@ def getMsdWorksheets():
     return conf.MSD_CONN.worksheets()
 
 
+def readFromEtlDB(tableName):
+    conn = getEtlDBConnection()
+    df = pd.read_sql('SELECT * FROM ' + tableName, con=conn)
+
+    # We never want audit cols to come into transform dataframes
+    # TODO: I should be more confident that if there's one there's all!
+    if 'audit_source_system' in df.columns:
+        df.drop(['audit_source_system'], axis=1, inplace=True)
+    if 'audit_bulk_load_date' in df.columns:
+        df.drop(['audit_bulk_load_date'], axis=1, inplace=True)
+    if 'audit_latest_delta_load_date' in df.columns:
+        df.drop(['audit_latest_delta_load_date'], axis=1, inplace=True)
+    if 'audit_latest_delta_load_operation' in df.columns:
+        df.drop(['audit_latest_delta_load_operation'], axis=1, inplace=True)
+
+    return df
+
+
+def readFromSrcDB(tableName, conn):
+    df = pd.read_sql('SELECT * FROM ' + tableName, con=conn)
+
+    return df
+
+
 #
 # Functions to set the audit columns on the dataframes, prior to loading
 # into persistent storage
@@ -264,15 +289,14 @@ def getMsdWorksheets():
 def setAuditCols(df, sourceSystemId, action):
 
     log.debug("START")
-
     if action == 'BULK':
         return setAuditCols_bulk(df, sourceSystemId)
     elif action == 'INSERT':
-        return setAuditCols_bulk(df, sourceSystemId)
+        return setAuditCols_insert(df, sourceSystemId)
     elif action == 'UPDATE':
-        return setAuditCols_bulk(df, sourceSystemId)
+        return setAuditCols_update(df, sourceSystemId)
     elif action == 'DELETE':
-        return setAuditCols_bulk(df)
+        return setAuditCols_delete(df)
     else:
         raise ValueError("Incorrect parameter action passed to setAuditCols")
 
@@ -333,7 +357,7 @@ def setAuditCols_delete(df):
 def deleteTempoaryData():
     log.debug("START")
 
-    path = conf.TMP_DATA_PATH
+    path = conf.TMP_DATA_PATH.replace('/', '')
 
     if (os.path.exists(path)):
         # `tempfile.mktemp` Returns an absolute pathname of a file that

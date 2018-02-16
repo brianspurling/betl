@@ -6,6 +6,8 @@ import psycopg2
 import pprint
 import csv
 
+import sys
+
 ###########
 # Globals #
 ###########
@@ -85,18 +87,31 @@ class Column():
         self.columnName = columnSchema['columnName']
         self.dataType = columnSchema['dataType']
         self.isNK = False
-        self.isAudit = False
 
         if columnSchema['isNK'].upper() == 'Y':
             self.isNK = True
-        if columnSchema['isAudit'].upper() == 'Y':
-            self.isAudit = True
 
         # to do #14
         self.columnSchema = columnSchema
 
     def getSqlCreateStatements(self):
-        return self.columnName + ' ' + self.columnSchema['dataType']
+        columnCreateStatement = ''
+        if (self.columnSchema['columnType'] == 'Primary key'):
+            columnCreateStatement = self.columnName + ' SERIAL UNIQUE'
+        else:
+            columnCreateStatement = self.columnName + ' ' +                   \
+                self.columnSchema['dataType']
+
+        return columnCreateStatement
+
+    def getSqlResetPrimaryKeySequences(self, tableName):
+        columnResetStatement = None
+        if (self.columnSchema['columnType'] == 'Primary key'):
+            seqName = tableName + '_' + self.columnName + '_' + 'key'
+            columnResetStatement = 'ALTER SEQUENCE ' + seqName +              \
+                'RESTART WITH 1'
+
+        return columnResetStatement
 
     def __str__(self):
         return '      ' + ', '.join('{} = {}'.format(k, v) for k, v in
@@ -122,7 +137,7 @@ class Table():
         self.columns = []
 
         self.colNameList = []
-        self.colNameList_withoutAudit = []
+        self.colNameList = []
         self.nkList = []
         self.nonNkList = []
 
@@ -135,8 +150,7 @@ class Table():
             else:
                 self.nonNkList.append(column['columnName'])
 
-            if column['isAudit'].upper() != 'Y':
-                self.colNameList_withoutAudit.append(column['columnName'])
+            self.colNameList.append(column['columnName'])
 
             self.columns.append(Column(column))
 
@@ -144,10 +158,11 @@ class Table():
 
         tableCreateStatement = 'CREATE TABLE ' + self.tableName + ' ('
 
-        columns = []
+        colsCreateStatements = []
         for columnObject in self.columns:
-            columns.append(columnObject.getSqlCreateStatements())
-        tableCreateStatement += ', '.join(columns)
+            colsCreateStatements.append(columnObject.getSqlCreateStatements())
+
+        tableCreateStatement += ', '.join(colsCreateStatements)
 
         tableCreateStatement += ')'
 
@@ -158,6 +173,24 @@ class Table():
         tableDropStatement = 'DROP TABLE ' + self.tableName
 
         return tableDropStatement
+
+    def getSqlTruncateStatements(self):
+
+        tableTruncateStatement = 'TRUNCATE ' + self.tableName +               \
+            ' RESTART IDENTITY'
+
+        return tableTruncateStatement
+
+    def getSqlResetPrimaryKeySequences(self):
+
+        colsResetStatements = []
+        for columnObject in self.columns:
+            colResetStatement = columnObject.getSqlResetPrimaryKeySequences(
+                tableName=self.tableShortName)
+            if colResetStatement is not None:
+                colsResetStatements.append(colResetStatement)
+
+        return colsResetStatements
 
     def __str__(self):
         columnsStr = '\n' + '    ' + self.tableName + '\n'
@@ -189,19 +222,35 @@ class DataModel():
 
     def getSqlCreateStatements(self):
 
-        dataModelCreateStatements = []
+        tableCreateStatements = []
         for tableName in self.tables:
-            dataModelCreateStatements.append(self.tables[tableName]
-                                             .getSqlCreateStatements())
-        return dataModelCreateStatements
+            tableCreateStatements.append(self.tables[tableName]
+                                         .getSqlCreateStatements())
+        return tableCreateStatements
 
     def getSqlDropStatements(self):
 
-        dataModelDropStatements = []
+        tableDropStatements = []
         for tableName in self.tables:
-            dataModelDropStatements.append(self.tables[tableName]
-                                           .getSqlDropStatements())
-        return dataModelDropStatements
+            tableDropStatements.append(self.tables[tableName]
+                                       .getSqlDropStatements())
+        return tableDropStatements
+
+    def getSqlTruncateStatements(self):
+
+        tableTruncateStatements = []
+        for tableName in self.tables:
+            tableTruncateStatements.append(self.tables[tableName]
+                                           .getSqlTruncateStatements())
+        return tableTruncateStatements
+
+    def getSqlResetPrimaryKeySequences(self):
+
+        tableResetStatements = []
+        for tableName in self.tables:
+            tableResetStatements.append(self.tables[tableName]
+                                        .getSqlResetPrimaryKeySequences())
+        return tableResetStatements
 
     def __str__(self):
         tablesStr = '\n' + '  ** ' + self.dataModelName + ' **' + '\n'
@@ -309,8 +358,7 @@ class SrcLayer():
                 colums = tmp_tableSchemas[schemaRow['Table Name'].lower()]
                 colums.append({'columnName': schemaRow['Column Name'],
                                'dataType':   schemaRow['data_type'],
-                               'isNK':       schemaRow['natural_key'],
-                               'isAudit':    schemaRow['audit_column']})
+                               'isNK':       schemaRow['natural_key']})
 
         # Next, the MSD: We're going to add one more dataModel, which will
         # include all manual source data from the MSD spreadsheet
@@ -345,8 +393,7 @@ class SrcLayer():
                 colums = tmp_tableSchemas[msdWorksheet.title]
                 colums.append({'columnName': columnNames[i],
                                'dataType':   dataTypes[i],
-                               'isNK':       isNKs[i],
-                               'isAudit':    'N'})
+                               'isNK':       isNKs[i]})
 
         # We have all the schema data now, so create the DataModel() object.
         # This is the object we "leave behind" in this class - the full schema
@@ -419,44 +466,14 @@ class SrcLayer():
                                 "WHERE c.table_schema = 'public'")
             srcColumns = srcDbCursor.fetchall()
 
-            counter = 0
-            prevTableName = ''
-            currentTableName = ''
             for row in srcColumns:
                 currentTableName = row[2]
-
-                if currentTableName != prevTableName and counter != 0:
-
-                    # if we've added the last column of a table, before
-                    # moving on, add in the audit columns
-                    # These are columns we wont find in the source system, but
-                    # we want to add to all tables in our ETL.STAGING.SRC data
-                    # layer)
-                    if prevTableName != '':
-                        # I.e. if we haven't just started# our first table
-                        auditCols = getAuditColumns(dataModelId,
-                                                    srcSysType,
-                                                    'src_' + dataModelId
-                                                    + '_' + prevTableName)
-                        schema.extend(auditCols)
 
                 newCol = [dataModelId,
                           self.srcSystemConns[dataModelId].type,
                           'src_' + dataModelId + '_' + currentTableName,
                           row[3], row[6], row[7], row[8]]
                 schema.append(newCol)
-
-                counter += 1
-                prevTableName = currentTableName
-
-            # Put the audit columns onto the last table
-            # (not done in the loop above)
-            auditCols = getAuditColumns(dataModelId,
-                                        srcSysType,
-                                        'src_' + dataModelId
-                                        + '_' + currentTableName)
-
-            schema.extend(auditCols)
 
         elif self.srcSystemConns[dataModelId].type == 'FILESYSTEM':
 
@@ -487,14 +504,6 @@ class SrcLayer():
                                    'YES',
                                    'character varying',
                                    128])
-
-                # Add on our metadata columns (these are columns we wont
-                # find in the source system, but we want to add to all tables
-                # in our ETL.STAGING.SRC data layer)
-                schema.extend(getAuditColumns(dataModelId,
-                                              srcSysType,
-                                              'src_' + dataModelId + '_'
-                                              + filename))
 
         else:
             raise ValueError("Failed to rebuild SRC Layer: Source system " +
@@ -696,8 +705,7 @@ class StgLayer():
                 columns.append({'columnName': columnRow['Column Name'],
                                 'dataType':   columnRow['Data Type'],
                                 'columnType': columnRow['Column Type'],
-                                'isNK':       'N',
-                                'isAudit':    'N'})
+                                'isNK':       'N'})
 
         # We have all the schema data now, so create the DataModel() object.
         # This is the object we "leave behind" in this class - the full schema
@@ -853,8 +861,7 @@ class TrgLayer():
                 columns.append({'columnName': columnRow['Column Name'],
                                 'dataType':   columnRow['Data Type'],
                                 'columnType': columnRow['Column Type'],
-                                'isNK':       'N',
-                                'isAudit':    'N'})
+                                'isNK':       'N'})
 
         # We have all the schema data now, so create the DataModel() object.
         # This is the object we "leave behind" in this class - the full schema
@@ -878,6 +885,28 @@ class TrgLayer():
         for dropStatement in dropStatements:
             try:
                 trgDbCursor.execute(dropStatement)
+                conf.TRG_DB_CONN.commit()
+                counter += 1
+
+            except psycopg2.Error as e:
+                pprint.pprint(e)
+                # to do #20
+                conf.TRG_DB_CONN.commit()
+                pass
+
+        log.info("Dropped " + str(counter) + ' tables')
+
+    def truncatePhysicalDataModel(self):
+
+        log.debug("START")
+
+        truncateStatements = self.getSqlTruncateStatements()
+
+        trgDbCursor = conf.TRG_DB_CONN.cursor()
+        counter = 0
+        for truncateStatement in truncateStatements:
+            try:
+                trgDbCursor.execute(truncateStatement)
                 conf.TRG_DB_CONN.commit()
                 counter += 1
 
@@ -917,6 +946,27 @@ class TrgLayer():
 
         log.info("Created " + str(counter) + ' tables')
 
+    def resetPrimaryKeySequences(self):
+
+        log.info("START (trg)")
+
+        resetStatements = self.getSqlResetPrimaryKeySequences()
+
+        sys.exit()
+        trgDbCursor = conf.TRG_DB_CONN.cursor()
+        counter = 0
+        for resetStatement in resetStatements:
+            try:
+                trgDbCursor.execute(resetStatement)
+                conf.TRG_DB_CONN.commit()
+                counter += 1
+
+            except psycopg2.Error as e:
+                pprint.pprint(e)
+                pass
+
+        log.info("Reset " + str(counter) + ' primary key sequences')
+
     def getSqlCreateStatements(self):
         log.debug("START")
         dataLayerCreateStatements = []
@@ -934,6 +984,24 @@ class TrgLayer():
                 self.dataModels[dataModelId].getSqlDropStatements())
 
         return dataLayerDropStatements
+
+    def getSqlTruncateStatements(self):
+        log.debug("START")
+        dataLayerTruncateStatements = []
+        for dataModelId in self.dataModels:
+            dataLayerTruncateStatements.extend(
+                self.dataModels[dataModelId].getSqlTruncateStatements())
+
+        return dataLayerTruncateStatements
+
+    def getSqlResetPrimaryKeySequences(self):
+        log.debug("START")
+        dataLayerResetStatements = []
+        for dataModelId in self.dataModels:
+            dataLayerResetStatements.extend(
+                self.dataModels[dataModelId].getSqlResetPrimaryKeySequences())
+
+        return dataLayerResetStatements
 
     def __str__(self):
         dataModelStr = '\n' + '\n' + '*** Data Layer: Staging ***' + '\n'
@@ -1009,8 +1077,7 @@ class SumLayer():
                 columns.append({'columnName': columnRow['Column Name'],
                                 'dataType':   columnRow['Data Type'],
                                 'columnType': columnRow['Column Type'],
-                                'isNK':       'N',
-                                'isAudit':    'N'})
+                                'isNK':       'N'})
 
         # We have all the schema data now, so create the DataModel() object.
         # This is the object we "leave behind" in this class - the full schema
@@ -1097,29 +1164,6 @@ class SumLayer():
             dataModelStr += str(self.dataModels[dataModelId])
 
         return dataModelStr
-
-
-def getAuditColumns(dataModelId, dataModelType, tableName):
-    log.debug("START")
-    schema = []
-    schema.append([dataModelId,
-                   dataModelType,
-                   tableName,
-                   'audit_source_system', 'NO', 'text', ''])
-    schema.append([dataModelId,
-                   dataModelType,
-                   tableName,
-                   'audit_bulk_load_date', 'NO', 'date', ''])
-    schema.append([dataModelId,
-                   dataModelType,
-                   tableName,
-                   'audit_latest_delta_load_date', 'YES', 'date', ''])
-    schema.append([dataModelId,
-                   dataModelType,
-                   tableName,
-                   'audit_latest_delta_load_operation', 'YES', 'text', ''])
-    log.debug("END")
-    return schema
 
 
 def getSrcLayerSchema():

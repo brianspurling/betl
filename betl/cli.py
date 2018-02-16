@@ -54,6 +54,15 @@ HELP = ("\n" +
         "> [job]\n" +
         "  Executes the job\n" +
         "\n" +
+        "> [noextract] | [notransform] | [noload]\n" +
+        "  Skip the extract stage\n" +
+        "\n" +
+        "> [retaintmpdata]\n" +
+        "  Don't remove temp data from previous jobs before executing\n" +
+        "\n" +
+        "> [nowarnings]\n" +
+        "  Turn off warnings - only recommended during development\n" +
+        "\n" +
         "*********************\n" +
         "* betl instructions *\n" +
         "*********************\n" +

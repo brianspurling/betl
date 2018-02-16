@@ -78,7 +78,7 @@ def executeJob(jobId):
     js = getJobSchedule(jobId)
 
     # to do #12
-    logFile = open('log_' + str(jobId) + '.txt', 'w')
+    logFile = open('logs/log_' + str(jobId) + '.txt', 'w')
     # After we update the job_log the job has started, so it's crucial
     # we keep a catch-all around EVERYTHING (to ensure we update the job
     # status on-failure)
@@ -91,7 +91,6 @@ def executeJob(jobId):
             # Check status of function in job_schedule (because if we are
             # re-running a failed job, we only want to pick up functions that
             # come after the point of failure
-
 
             if js[i][4] != 'SUCCESSFUL':
 

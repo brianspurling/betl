@@ -4,6 +4,7 @@ from . import conf
 from . import scheduler
 from . import df_extract
 from . import df_transform
+from . import df_load
 from . import utilities as utils
 from . import setup
 from . import cli
@@ -23,6 +24,7 @@ RUN_REBUILD_SUM = False
 RUN_EXTRACT = True
 RUN_TRANSFORM = True
 RUN_LOAD = True
+DELETE_TMP_DATA = True
 EXE_JOB = False
 RERUN_PREV_JOB = False
 
@@ -83,7 +85,8 @@ def run():
         if RERUN_PREV_JOB:
             jobId = lastRunStatus['jobId']
         else:
-            utils.deleteTempoaryData()
+            if DELETE_TMP_DATA:
+                utils.deleteTempoaryData()
             jobId = scheduler.addJobToJobLog()
             scheduler.writeScheduleToCntrlDb(jobId)
 
@@ -226,6 +229,9 @@ def rebuildPhysicalDataModel_sum():
 #
 # Stick betl's default extraction data flow at the start of the schedule
 #
+# TODO: probably don't want to force this to position 0, more confusing this
+# way than giving users full control based on the order in which they call
+# these functions. Load, after all, can't be forced to the end.
 def addDefaultExtractToSchedule(srcTablesToExclude=[]):
     log.debug("START")
 
@@ -234,6 +240,19 @@ def addDefaultExtractToSchedule(srcTablesToExclude=[]):
     scheduler.scheduleDataFlow(function=df_extract.defaultExtract,
                                etlStage='EXTRACT',
                                pos=0)
+    log.debug("END")
+
+
+#
+# Stick betl's default load data flow at the end of the schedule
+#
+def addDefaultLoadToSchedule(nonDefaultStagingTables={}):
+    log.debug("START")
+
+    conf.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD = nonDefaultStagingTables
+
+    scheduler.scheduleDataFlow(function=df_load.defaultLoad,
+                               etlStage='LOAD')
     log.debug("END")
 
 
@@ -265,6 +284,7 @@ def processArgs(args):
     global RUN_EXTRACT
     global RUN_TRANSFORM
     global RUN_LOAD
+    global DELETE_TMP_DATA
     global EXE_JOB
 
     showHelp = False
@@ -302,6 +322,8 @@ def processArgs(args):
             RUN_TRANSFORM = False
         elif arg == 'noload':
             RUN_LOAD = False
+        elif arg == 'retaintmpdata':
+            DELETE_TMP_DATA = False
         elif arg == 'job':
             EXE_JOB = True
         else:

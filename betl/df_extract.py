@@ -1,7 +1,7 @@
 from . import utilities as utils
 from . import schemas
 from . import conf
-
+import pprint
 import pandas as pd
 from datetime import datetime
 
@@ -12,7 +12,7 @@ log = utils.setUpLogger('EXTRCT', __name__)
 # A default extraction process. Bulk is obvious and as you would expect
 # Delta does full-table comparisons to identify deltas
 #
-def defaultExtract(srcTablesToExclude=[]):
+def defaultExtract():
 
     # to do #9
     logStr = ''
@@ -21,10 +21,7 @@ def defaultExtract(srcTablesToExclude=[]):
     log.debug("START")
 
     for dataModelId in schemas.SRC_LAYER.dataModels:
-
-        for tableName in schemas.SRC_LAYER.dataModels[dataModelId]            \
-                         .tables:
-
+        for tableName in schemas.SRC_LAYER.dataModels[dataModelId].tables:
             # The app might want to take care of some tables itself, rather
             # than using the default. These will have been passed in, so if
             # this table is one of them let's skip
@@ -37,10 +34,10 @@ def defaultExtract(srcTablesToExclude=[]):
 
             colNameList = schemas.SRC_LAYER.dataModels[dataModelId]           \
                 .tables[tableName].colNameList
-            colNameList_withoutAudit = schemas.SRC_LAYER                      \
+            colNameList = schemas.SRC_LAYER                                   \
                 .dataModels[dataModelId]                                      \
                 .tables[tableName]                                            \
-                .colNameList_withoutAudit
+                .colNameList
             nkList = schemas.SRC_LAYER.dataModels[dataModelId]                \
                 .tables[tableName].nkList
             nonNkList = schemas.SRC_LAYER.dataModels[dataModelId]             \
@@ -52,8 +49,7 @@ def defaultExtract(srcTablesToExclude=[]):
             srcSysType = schemas.SRC_LAYER.srcSystemConns[dataModelId].type
             if srcSysType == 'POSTGRES':
                 srcConn = schemas.SRC_LAYER.srcSystemConns[dataModelId].conn
-                srcDF = pd.read_sql('SELECT * FROM '
-                                    + tableShortName, con=srcConn)
+                srcDF = utils.readFromSrcDB(tableShortName, srcConn)
 
             elif srcSysType == 'FILESYSTEM':
                 fullTableName = tableShortName + '.csv',
@@ -66,7 +62,6 @@ def defaultExtract(srcTablesToExclude=[]):
                                     .files[tableShortName]['quotechar'])
 
             elif srcSysType == 'SPREADSHEET':
-
                 data = schemas.SRC_LAYER                                      \
                     .srcSystemConns[dataModelId]                              \
                     .worksheets[tableName].get_all_values()
@@ -88,7 +83,7 @@ def defaultExtract(srcTablesToExclude=[]):
                                        sourceSystemId=dataModelId,
                                        action='BULK')
 
-                # Bulk load the SRC table
+                # Bulk write the SRC table
                 time = str(datetime.time(datetime.now()))
                 log.info('bulk writing ' + tableName
                          + ' to SRC (start: ' + time + ')')
@@ -110,8 +105,10 @@ def defaultExtract(srcTablesToExclude=[]):
                                      'key defined, so we cannot run a delta ' +
                                      'load. Aborting.')
 
-                # We identify the deltas by comparing src and stg tables using
-                # merge(). After each merge we get _src and _stg columns.
+                # We identify the deltas by comparing the source system table
+                # to our SRC layer in the ETL database, using
+                # merge(). After each merge we get _src and _stg columns. TODO
+                # wrong language here in these suffixes.
                 # We need to be able to easily strip back to the columns we
                 # want, which depends whether we're keeping left_only (inserts)
                 # or right_only (deletes)
@@ -124,22 +121,19 @@ def defaultExtract(srcTablesToExclude=[]):
                     .tables[tableName].columns
 
                 for column in columns:
-                        if column.isNK:
-                            insertcolNameList.append(column.columnName)
-                            updatecolNameList.append(column.columnName)
-                            deletecolNameList.append(column.columnName)
-                        elif column.columnName.find('audit_') == 0:
-                            insertcolNameList.append(column.columnName)
-                            deletecolNameList.append(column.columnName)
-                        else:
-                            insertcolNameList.append(column.columnName +
-                                                     '_src')
-                            updatecolNameList.append(column.columnName)
-                            deletecolNameList.append(column.columnName +
-                                                     '_stg')
+                    if column.isNK:
+                        insertcolNameList.append(column.columnName)
+                        updatecolNameList.append(column.columnName)
+                        deletecolNameList.append(column.columnName)
+                    elif column.columnName.find('audit_') == 0:
+                        insertcolNameList.append(column.columnName)
+                        deletecolNameList.append(column.columnName)
+                    else:
+                        insertcolNameList.append(column.columnName + '_src')
+                        updatecolNameList.append(column.columnName)
+                        deletecolNameList.append(column.columnName + '_stg')
 
-                stgDF = pd.read_sql('SELECT * FROM ' + tableName,
-                                    con=conf.ETL_DB_CONN)
+                stgDF = utils.readFromEtlDB(tableName)
 
                 deltaDF = pd.merge(left=srcDF, right=stgDF, how='outer',
                                    suffixes=('_src', '_stg'), on=nkList,
@@ -228,13 +222,13 @@ def defaultExtract(srcTablesToExclude=[]):
                 # This works because we've already applied inserts and deletes
                 # to the dfs (they would show up again, otherwise)
 
-                srcDF_withoutAudit = srcDF[colNameList_withoutAudit]
-                stgDF_withoutAudit = stgDF[colNameList_withoutAudit]
+                srcDF = srcDF[colNameList]
+                stgDF = stgDF[colNameList]
 
                 # Compare the two dataframes again, this time across all rows,
                 # to pick up edits
-                deltaDF = pd.merge(left=srcDF_withoutAudit,
-                                   right=stgDF_withoutAudit,
+                deltaDF = pd.merge(left=srcDF,
+                                   right=stgDF,
                                    how='outer',
                                    suffixes=('_src', '_stg'),
                                    indicator=True)
@@ -242,7 +236,7 @@ def defaultExtract(srcTablesToExclude=[]):
                 # Pull out the updates and tidy
                 updatesDF = deltaDF.loc[deltaDF['_merge'] == 'left_only',
                                         updatecolNameList]
-                updatesDF.columns = colNameList_withoutAudit
+                updatesDF.columns = colNameList
 
                 # Apply updates, to DB and DF
                 if not updatesDF.empty:
@@ -292,4 +286,4 @@ def defaultExtract(srcTablesToExclude=[]):
                 else:
                     log.info('No updates found for ' + tableName)
 
-        return logStr
+    return logStr

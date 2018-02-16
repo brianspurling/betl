@@ -9,15 +9,19 @@ import pandas as pd
 def generateDMDate(writeToDimension='True'):
 
     # to do #9
+    # TODO # 51
     logStr = ''
 
     startDate = EARLIEST_DATE_IN_DATA
     endDate = LATEST_DATE_IN_DATA
 
     dmDateList = []
-
+    counter = 0
     while startDate <= endDate:
-        dateInfo = {'dateYYYYMMDD': startDate.strftime('%Y%m%d'),
+        counter += 1
+
+        dateInfo = {'date_id': counter,
+                    'dateYYYYMMDD': startDate.strftime('%Y%m%d'),
                     'calDate': startDate.strftime('%Y-%m-%d'),
                     'calDay': startDate.day,
                     'calMonth': startDate.month,

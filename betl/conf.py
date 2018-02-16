@@ -44,6 +44,7 @@ TRG_DB_ENG = None
 
 # Job execution parameters
 SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT = []
+TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD = {}
 
 # These dictate the start/end dates of dm_date. They can be overridden at
 # any point in the application's ETL process, providing the generateDMDate
@@ -83,7 +84,7 @@ def loadAppConfig(appConf):
     TRG_DB_SCHEMA_FILE_NAME = appConf['TRG_DB_SCHEMA_FILE_NAME']
     MSD_FILE_NAME = appConf['MSD_FILE_NAME']
 
-    TMP_DATA_PATH = appConf['TMP_DATA_PATH'].replace('/', '')
+    TMP_DATA_PATH = appConf['TMP_DATA_PATH']
     LOG_PATH = appConf['LOG_PATH']
 
 

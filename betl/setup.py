@@ -52,4 +52,6 @@ def setupBetl():
 
     conf.CTL_DB_CONN.commit()
 
+    # TODO: #45 - archive old log files. see utils.deleteTempoaryData perhaps?
+
     log.info("Created new control tables")
