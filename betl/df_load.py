@@ -1,10 +1,10 @@
-from . import utilities as utils
+from . import logger
 from . import schemas
 from . import conf
 
 import pandas as pd
 
-log = utils.setUpLogger('EXTRCT', __name__)
+log = logger.setUpLogger('EXTRCT', __name__)
 
 
 #
@@ -15,9 +15,6 @@ log = utils.setUpLogger('EXTRCT', __name__)
 # nonDefaultStagingTables a key,value pair of <dimension name>,<staging csv>
 #
 def defaultLoad():
-
-    logStr = ''
-
     nonDefaultStagingTables = conf.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
     # If it's a bulk load, clear out all the target tables (which also
@@ -26,26 +23,33 @@ def defaultLoad():
         schemas.TRG_LAYER.truncatePhysicalDataModel()
 
     # TODO: move all this looping crap into the schemas, like the seq resets
+    # TODO: this is fine for dimensions, but we need to pick out the
+    # facts and handle them differently - i.e. with SK lookups
+    # So let's get these functions embedded into schemas, but with
+    # conditions on fact/dim delta/bulk, and then bulid fact/bulk.
+    #   - I need the dim PKs in memory... for bulk, perhaps we generate
+    #     in python then write to DB. Messy. Otherwise, I think we need to
+    #     write the dims then read them back out :(
+    #   - Add to google sheet (TRG DB Schema) the name of the dim for each FK
+    #   - Load dim, load fact.
+    #   - For each fact column, if it's a FK, lookup what its dim is from
+    #     GSheet, join to dim's natural key column (some of these are missing
+    #     in GSheet), then write dim's ID col to fact["fk_" + <col name>]
     for dataModelId in schemas.TRG_LAYER.dataModels:
         for tableName in schemas.TRG_LAYER.dataModels[dataModelId].tables:
             if tableName not in nonDefaultStagingTables:
                 if conf.BULK_OR_DELTA == 'BULK':
-                    logStr += bulkLoadTable(tableName)
+                    bulkLoadTable(tableName)
                 elif conf.BULK_OR_DELTA == 'DELTA':
-                    logStr += bulkLoadTable(tableName)
-
-    return logStr
+                    bulkLoadTable(tableName)
 
 
 def bulkLoadTable(tableName):
-    funcName = 'bulkLoadTable'
-    logStr = ''
-
     eng = conf.TRG_DB_ENG
 
-    a = 'Get data from staging csv: ' + tableName + '.csv'
+    logger.logStepStart('Get data from staging csv: ' + tableName + '.csv', 1)
     df = pd.read_csv(conf.TMP_DATA_PATH + tableName + '.csv')
-    logStr += utils.describeDF(funcName, a, df, 1)
+    logger.logStepEnd(df)
 
     # We can append rows, because, as we're running a bulk load, we will
     # have just cleared out the TRG model and created. This way, append
@@ -54,12 +58,7 @@ def bulkLoadTable(tableName):
               if_exists='append',
               index=False)
 
-    return logStr
-
 
 def deltaLoadTable(tableName):
-    logStr = ''
 
     raise ValueError('DELTA load functions not yet written')
-
-    return logStr

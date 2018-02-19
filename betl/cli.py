@@ -57,8 +57,8 @@ HELP = ("\n" +
         "> [noextract] | [notransform] | [noload]\n" +
         "  Skip the extract stage\n" +
         "\n" +
-        "> [retaintmpdata]\n" +
-        "  Don't remove temp data from previous jobs before executing\n" +
+        "> [cleartmpdata]\n" +
+        "  Clear all temp data from previous jobs before executing\n" +
         "\n" +
         "> [nowarnings]\n" +
         "  Turn off warnings - only recommended during development\n" +

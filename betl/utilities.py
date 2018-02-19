@@ -1,6 +1,7 @@
 from . import conf
+from . import logger
 
-import logging as logging
+import inspect
 
 import gspread
 from gspread import SpreadsheetNotFound
@@ -13,21 +14,10 @@ from sqlalchemy import create_engine
 import os
 import tempfile
 import shutil
-import pprint
 import pandas as pd
 
 
-def setUpLogger(moduleCode, name):
-    logger = logging.getLogger(name)
-    syslog = logging.StreamHandler()
-    formatter = logging.Formatter('%(module_code)s.%(funcName)s: %(message)s')
-    syslog.setFormatter(formatter)
-    logger.setLevel(conf.LOG_LEVEL)
-    logger.addHandler(syslog)
-    return logging.LoggerAdapter(logger, {'module_code': moduleCode})
-
-
-log = setUpLogger(' UTILS', __name__)
+log = logger.setUpLogger(' UTILS', __name__)
 
 
 #
@@ -260,6 +250,12 @@ def getMsdWorksheets():
 
 def readFromEtlDB(tableName):
     conn = getEtlDBConnection()
+
+    callingFuncName = inspect.stack()[1][3]
+
+    logger.logStepStart('Reading data ' + tableName + ' in ETL DB',
+                        callingFuncName=callingFuncName)
+
     df = pd.read_sql('SELECT * FROM ' + tableName, con=conn)
 
     # We never want audit cols to come into transform dataframes
@@ -273,11 +269,22 @@ def readFromEtlDB(tableName):
     if 'audit_latest_delta_load_operation' in df.columns:
         df.drop(['audit_latest_delta_load_operation'], axis=1, inplace=True)
 
+    logger.logStepEnd(df)
+
     return df
 
 
-def readFromSrcDB(tableName, conn):
+def readFromSrcDB(tableName, conn, dataModelId):
+
+    callingFuncName = inspect.stack()[1][3]
+
+    logger.logStepStart('Reading data ' +
+                        tableName +
+                        ' in source DB ' +
+                        dataModelId,
+                        callingFuncName=callingFuncName)
     df = pd.read_sql('SELECT * FROM ' + tableName, con=conn)
+    logger.logStepEnd(df)
 
     return df
 
@@ -374,24 +381,70 @@ def deleteTempoaryData():
     log.debug("END")
 
 
-def describeDF(funcName, stepDescription, df, stepId):
-    op = ''
+def openFileForAppend(filename):
+    return open(
+        conf.TMP_DATA_PATH +
+        conf.STAGE + '/' +
+        filename +
+        '.csv',
+        'a'
+    )
 
-    op += '\n'
-    op += funcName + ': Step ' + str(stepId) + ' - '
-    op += stepDescription + '\n\n'
-    op += 'Shape: ' + str(df.shape) + '\n'
-    op += '\n'
-    op += 'Columns: '
-    op += pprint.pformat(list(df.columns.values))
-    if len(df.columns.values) < 4:
-        op += '\n\n'
-        op += 'df.head >>> '
-        op += '\n\n'
-        op += pprint.pformat(df.head())
-    op += '\n'
-    op += '\n'
-    op += '******************************************************************'
 
-    print(op)
-    return op
+def writeToCsv(df, file_or_filename):
+
+    callingFuncName = inspect.stack()[1][3]
+
+    path = ''
+    _file = None
+    headers = True
+    if type(file_or_filename) is str:
+        conf.TMP_FILE_SUBDIR_MAPPING[file_or_filename] = conf.STAGE
+        path = (conf.TMP_DATA_PATH + conf.STAGE + '/' +
+                file_or_filename + '.csv')
+        if not os.path.exists(conf.TMP_DATA_PATH + conf.STAGE + '/'):
+            os.makedirs(conf.TMP_DATA_PATH + conf.STAGE + '/')
+        _file = open(path, 'w')
+    else:
+        path = file_or_filename.name
+        _file = file_or_filename
+        headers = False
+
+    logger.logStepStart('Writing data to CSV: ' + path,
+                        callingFuncName=callingFuncName)
+    df.to_csv(_file, header=headers, index=False)
+    logger.logStepEnd(df)
+
+
+def readFromCsv(file_or_filename,
+                sep=None,
+                quotechar=None,
+                pathOverride=False):
+
+    callingFuncName = inspect.stack()[1][3]
+    _sep = sep if sep is not None else ','
+    _quotechar = quotechar if quotechar is not None else '"'
+    path = ''
+    _file = None
+
+    if type(file_or_filename) is str:
+        if (not pathOverride):
+            if file_or_filename not in conf.TMP_FILE_SUBDIR_MAPPING:
+                conf.rebuildTmeFileSubdirMapping()
+            path = (conf.TMP_DATA_PATH +
+                    conf.TMP_FILE_SUBDIR_MAPPING[file_or_filename] + '/' +
+                    file_or_filename + '.csv')
+        else:
+            path = file_or_filename
+        _file = open(path)
+    else:
+        path = file_or_filename.name
+        _file = file_or_filename
+
+    logger.logStepStart('Reading data from CSV: ' + path,
+                        callingFuncName=callingFuncName)
+    df = pd.read_csv(_file,
+                     sep=_sep,
+                     quotechar=_quotechar)
+    logger.logStepEnd(df)
+    return df

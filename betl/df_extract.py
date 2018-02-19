@@ -1,11 +1,11 @@
 from . import utilities as utils
+from . import logger
 from . import schemas
 from . import conf
-import pprint
 import pandas as pd
 from datetime import datetime
 
-log = utils.setUpLogger('EXTRCT', __name__)
+log = logger.setUpLogger('EXTRCT', __name__)
 
 
 #
@@ -15,7 +15,6 @@ log = utils.setUpLogger('EXTRCT', __name__)
 def defaultExtract():
 
     # to do #9
-    logStr = ''
     srcTablesToExclude = conf.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT
 
     log.debug("START")
@@ -49,17 +48,22 @@ def defaultExtract():
             srcSysType = schemas.SRC_LAYER.srcSystemConns[dataModelId].type
             if srcSysType == 'POSTGRES':
                 srcConn = schemas.SRC_LAYER.srcSystemConns[dataModelId].conn
-                srcDF = utils.readFromSrcDB(tableShortName, srcConn)
+                srcDF = utils.readFromSrcDB(
+                    tableShortName,
+                    srcConn,
+                    dataModelId)
 
             elif srcSysType == 'FILESYSTEM':
                 fullTableName = tableShortName + '.csv',
-                srcDF = pd.read_csv(filepath_or_buffer=fullTableName,
-                                    sep=schemas.SRC_LAYER
-                                    .srcSystemConns[dataModelId]
-                                    .files[tableShortName]['delimiter'],
-                                    quotechar=schemas.SRC_LAYER
-                                    .srcSystemConns[dataModelId]
-                                    .files[tableShortName]['quotechar'])
+                srcDF = utils.readFromCsv(
+                    file_or_filename=fullTableName,
+                    pathOverride=True,
+                    sep=schemas.SRC_LAYER
+                    .srcSystemConns[dataModelId]
+                    .files[tableShortName]['delimiter'],
+                    quotechar=schemas.SRC_LAYER
+                    .srcSystemConns[dataModelId]
+                    .files[tableShortName]['quotechar'])
 
             elif srcSysType == 'SPREADSHEET':
                 data = schemas.SRC_LAYER                                      \
@@ -87,12 +91,7 @@ def defaultExtract():
                 time = str(datetime.time(datetime.now()))
                 log.info('bulk writing ' + tableName
                          + ' to SRC (start: ' + time + ')')
-
-                # if_exists='replace' covers the truncate for us
-                srcDF.to_sql(tableName,
-                             conf.ETL_DB_ENG,
-                             if_exists='replace',
-                             index=False)
+                utils.writeToCsv(srcDF, tableName)
 
                 time = str(datetime.time(datetime.now()))
                 log.info(tableName
@@ -158,9 +157,8 @@ def defaultExtract():
                         utils.setAuditCols(df=insertsDF,
                                            sourceSystemId=dataModelId,
                                            action='INSERT')
-                    insertsDF.to_sql(tableName, conf.ETL_DB_ENG,
-                                     if_exists='append',
-                                     index=False)
+                    csvFile = utils.openFileForAppend(tableName)
+                    utils.writeToCsv(insertsDF, csvFile)
                     stgDF = stgDF.append(insertsDF, ignore_index=True,
                                          verify_integrity=True)
                     time = str(datetime.time(datetime.now()))
@@ -285,5 +283,3 @@ def defaultExtract():
                     log.info('Updates applied (end: ' + time + ')')
                 else:
                     log.info('No updates found for ' + tableName)
-
-    return logStr

@@ -1,7 +1,7 @@
 from . import conf
-from . import utilities as utils
+from . import logger
 
-log = utils.setUpLogger('CONTRL', __name__)
+log = logger.setUpLogger('CONTRL', __name__)
 
 
 def setupBetl():
@@ -42,7 +42,7 @@ def setupBetl():
     ctlDBCursor.execute("CREATE TABLE job_schedule (" +
                         "job_id integer NOT NULL, " +
                         "sequence serial NOT NULL, "
-                        "function_name text NOT NULL, " +
+                        "dataflow_name text NOT NULL, " +
                         "stage text NOT NULL, " +
                         "status text NOT NULL, " +
                         "start_datetime timestamp without time zone, " +

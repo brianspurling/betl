@@ -8,11 +8,12 @@ from . import df_load
 from . import utilities as utils
 from . import setup
 from . import cli
+from . import logger
 
 # 3rd Party imports
 import sys
 
-log = utils.setUpLogger('CONTRL', __name__)
+log = logger.setUpLogger('CONTRL', __name__)
 
 # Global variables
 RUN_SETUP = False
@@ -24,9 +25,10 @@ RUN_REBUILD_SUM = False
 RUN_EXTRACT = True
 RUN_TRANSFORM = True
 RUN_LOAD = True
-DELETE_TMP_DATA = True
+DELETE_TMP_DATA = False
 EXE_JOB = False
 RERUN_PREV_JOB = False
+SKIP_WARNINGS = False
 
 
 #
@@ -40,17 +42,18 @@ def run():
 
     initialiseDBConnections()
 
-    lastRunStatus = scheduler.getStatusOfLastExecution()
-    if lastRunStatus['status'] == 'RUNNING' and EXE_JOB:
-        text = input(cli.LAST_EXE_STILL_RUNNING)
-        sys.exit()
-    elif lastRunStatus['status'] != 'SUCCESSFUL' and EXE_JOB:
-        text = input(cli.LAST_EXE_FAILED.format(
-            status=lastRunStatus['status']))
-        if text.lower() == 'ignore':
-            RERUN_PREV_JOB = False
-        else:
-            RERUN_PREV_JOB = True
+    if not SKIP_WARNINGS:
+        lastRunStatus = scheduler.getStatusOfLastExecution()
+        if lastRunStatus['status'] == 'RUNNING' and EXE_JOB:
+            text = input(cli.LAST_EXE_STILL_RUNNING)
+            sys.exit()
+        elif lastRunStatus['status'] != 'SUCCESSFUL' and EXE_JOB:
+            text = input(cli.LAST_EXE_FAILED.format(
+                status=lastRunStatus['status']))
+            if text.lower() == 'ignore':
+                RERUN_PREV_JOB = False
+            else:
+                RERUN_PREV_JOB = True
 
     if RERUN_PREV_JOB and (RUN_SETUP or
                            RUN_REBUILD_ALL or
@@ -237,7 +240,7 @@ def addDefaultExtractToSchedule(srcTablesToExclude=[]):
 
     conf.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT = srcTablesToExclude
 
-    scheduler.scheduleDataFlow(function=df_extract.defaultExtract,
+    scheduler.scheduleDataFlow(dataflow=df_extract.defaultExtract,
                                etlStage='EXTRACT',
                                pos=0)
     log.debug("END")
@@ -251,7 +254,7 @@ def addDefaultLoadToSchedule(nonDefaultStagingTables={}):
 
     conf.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD = nonDefaultStagingTables
 
-    scheduler.scheduleDataFlow(function=df_load.defaultLoad,
+    scheduler.scheduleDataFlow(dataflow=df_load.defaultLoad,
                                etlStage='LOAD')
     log.debug("END")
 
@@ -261,7 +264,7 @@ def addDefaultLoadToSchedule(nonDefaultStagingTables={}):
 #
 def addDMDateToSchedule():
     log.debug("START")
-    scheduler.scheduleDataFlow(function=df_transform.generateDMDate,
+    scheduler.scheduleDataFlow(dataflow=df_transform.generateDMDate,
                                etlStage='EXTRACT',
                                pos=0)
     log.debug("END")
@@ -304,6 +307,7 @@ def processArgs(args):
             conf.BULK_OR_DELTA = 'DELTA'
         elif arg == 'nowarnings':
             skipWarnings = True
+            SKIP_WARNINGS = True
         elif arg == 'setup':
             RUN_SETUP = True
         elif arg == 'rebuildAll':
@@ -322,8 +326,8 @@ def processArgs(args):
             RUN_TRANSFORM = False
         elif arg == 'noload':
             RUN_LOAD = False
-        elif arg == 'retaintmpdata':
-            DELETE_TMP_DATA = False
+        elif arg == 'cleartmpdata':
+            DELETE_TMP_DATA = True
         elif arg == 'job':
             EXE_JOB = True
         else:

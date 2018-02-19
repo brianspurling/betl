@@ -1,44 +1,44 @@
-from . import utilities as utils
 from . import conf
 from . import cli
+from . import logger
 
 import traceback
 
-log = utils.setUpLogger('SCHDLR', __name__)
+log = logger.setUpLogger('SCHDLR', __name__)
 
 # Globals
-EXTRACT_FUNCTIONS = []
-TRANSFORM_FUNCTIONS = []
-LOAD_FUNCTIONS = []
+EXTRACT_DATAFLOWS = []
+TRANSFORM_DATAFLOWS = []
+LOAD_DATAFLOWS = []
 SCHEDULE = {}
 
 
 #
-# Call this from your app to insert your custom functions into the schedule
+# Call this from your app to insert your custom dataflows into the schedule
 #
-def scheduleDataFlow(function, etlStage, pos=None):
+def scheduleDataFlow(dataflow, etlStage, pos=None):
 
-    global EXTRACT_FUNCTIONS
-    global TRANSFORM_FUNCTIONS
-    global LOAD_FUNCTIONS
+    global EXTRACT_DATAFLOWS
+    global TRANSFORM_DATAFLOWS
+    global LOAD_DATAFLOWS
 
     if etlStage == 'EXTRACT':
-        schedule = EXTRACT_FUNCTIONS
+        schedule = EXTRACT_DATAFLOWS
     elif etlStage == 'TRANSFORM':
-        schedule = TRANSFORM_FUNCTIONS
+        schedule = TRANSFORM_DATAFLOWS
     elif etlStage == 'LOAD':
-        schedule = LOAD_FUNCTIONS
+        schedule = LOAD_DATAFLOWS
     else:
         raise ValueError(cli.INVALID_STAGE_FOR_SCHEDULE)
 
     if pos is None:
-        schedule.append(function)
+        schedule.append(dataflow)
     else:
-        schedule.insert(pos, function)
+        schedule.insert(pos, dataflow)
 
 
 #
-# The calling application should have scheduled 1+ functions, which we
+# The calling application should have scheduled 1+ dataflows, which we
 # have stored in our global _SCHEDULE vars. Now that we're excuting the job,
 # and we know which stages we want to run, we're going to put the entire
 # schedule into a single global var for convenience
@@ -46,30 +46,38 @@ def scheduleDataFlow(function, etlStage, pos=None):
 def constructSchedule(runExtract, runTransform, runLoad):
 
     if runExtract:
-        for func in EXTRACT_FUNCTIONS:
-            SCHEDULE[func.__name__] = {'func': func, 'stage': 'EXTRACT'}
+        for dataflow in EXTRACT_DATAFLOWS:
+            SCHEDULE[dataflow.__name__] = {
+                'dataflow': dataflow,
+                'stage': 'EXTRACT'}
     if runTransform:
-        for func in TRANSFORM_FUNCTIONS:
-            SCHEDULE[func.__name__] = {'func': func, 'stage': 'TRANSFORM'}
+        for dataflow in TRANSFORM_DATAFLOWS:
+            SCHEDULE[dataflow.__name__] = {
+                'dataflow': dataflow,
+                'stage': 'TRANSFORM'}
     if runLoad:
-        for func in LOAD_FUNCTIONS:
-            SCHEDULE[func.__name__] = {'func': func, 'stage': 'LOAD'}
+        for dataflow in LOAD_DATAFLOWS:
+            SCHEDULE[dataflow.__name__] = {
+                'dataflow': dataflow,
+                'stage': 'LOAD'}
 
 
 #
-# The function that executes each dataflows in the schedule
+# The dataflow that executes each dataflow in the schedule
 #
-def executeFunction(functionName):
+def executeFunction(dataflowName):
     global SCHEDULE
-    log.info("Executing " + functionName)
-    # to do #11
-    returnVal = SCHEDULE[functionName]['func']()
-    log.info("Completed " + functionName)
-    return returnVal
+    log.debug("Executing " + dataflowName)
+
+    # We set the conf.STAGE object so that, during execution of the dataflow,
+    # we know which stage we're in
+    conf.STAGE = SCHEDULE[dataflowName]['stage']
+    SCHEDULE[dataflowName]['dataflow']()  # to do #11
+    log.debug("Completed " + dataflowName)
 
 
 #
-# Run the ETL job, excuting each of the functions stored in the schedule
+# Run the ETL job, excuting each of the dataflows stored in the schedule
 #
 def executeJob(jobId):
 
@@ -77,42 +85,73 @@ def executeJob(jobId):
 
     js = getJobSchedule(jobId)
 
-    # to do #12
-    logFile = open('logs/log_' + str(jobId) + '.txt', 'w')
+    logger.createJobLogFile(jobId)
+
     # After we update the job_log the job has started, so it's crucial
     # we keep a catch-all around EVERYTHING (to ensure we update the job
     # status on-failure)
 
-    updateJobLog(jobId, 'RUNNING', '', logFile.name)
+    updateJobLog(jobId, 'RUNNING', '')
 
     try:
 
         for i in range(len(js)):
-            # Check status of function in job_schedule (because if we are
-            # re-running a failed job, we only want to pick up functions that
+            # Check status of dataflow in job_schedule (because if we are
+            # re-running a failed job, we only want to pick up dataflows that
             # come after the point of failure
 
             if js[i][4] != 'SUCCESSFUL':
+                updateJobSchedule(
+                    jobId=js[i][0],
+                    seq=js[i][1],
+                    status='RUNNING',
+                    logStr='',
+                    setStartDateTime=True,
+                    setEndDateTime=False)
 
-                updateJobSchedule(js[i][0], js[i][1], 'RUNNING', '',
-                                  True, False)
-                # to do #13
-                lgStr = executeFunction(js[i][2])
-                updateJobSchedule(js[i][0], js[i][1], 'SUCCESSFUL', lgStr,
-                                  False, True)
-                logFile.write(lgStr)
+                ########################
+                # EXECUTE THE DATAFLOW #
+                ########################
 
-        updateJobLog(jobId, 'SUCCESSFUL')
-        print(cli.EXECUTION_SUCCESSFUL.format(logFile=logFile))
+                executeFunction(js[i][2])  # to do #13
+
+                #########################
+                #########################
+                #########################
+
+                updateJobSchedule(
+                    jobId=js[i][0],
+                    seq=js[i][1],
+                    status='SUCCESSFUL',
+                    logStr='',
+                    setStartDateTime=False,
+                    setEndDateTime=True)
+
+        updateJobLog(jobId, 'SUCCESSFUL', '')
+        logStr = ("\n\n" +
+                  "THE JOB COMPLETED SUCCESSFULLY " +
+                  "(the job_log has been updated)\n\n")
+        logger.appendLogToFile(logStr)
+
+        print(cli.EXECUTION_SUCCESSFUL.format(logFile=logger.getLogFileName()))
 
     except Exception as e1:
         tb1 = traceback.format_exc()
         try:
-            updateJobLog(jobId, 'FINISHED WITH ERROR', e1)
-            log.critical("\n\n" +
-                         "THE JOB FAILED (the job_log has been updated)\n\n" +
-                         "THE error was >>> \n\n"
-                         + tb1 + "\n")
+            updateJobSchedule(
+                jobId=js[i][0],
+                seq=js[i][1],
+                status='FINISHED WITH ERROR',
+                logStr=tb1,
+                setStartDateTime=False,
+                setEndDateTime=True)
+            updateJobLog(jobId, 'FINISHED WITH ERROR', tb1)
+            logStr = ("\n\n" +
+                      "THE JOB FAILED (the job_log has been updated)\n\n" +
+                      "THE error was >>> \n\n"
+                      + tb1 + "\n")
+            log.critical(logStr)
+            logger.appendLogToFile(logStr)  # Need to test output
             print('\nBETL execution completed with errors\n\n')
 
         except Exception as e2:
@@ -121,13 +160,16 @@ def executeJob(jobId):
             tb1 = tb1.replace('"', '')
             tb2 = tb2.replace("'", "")
             tb2 = tb2.replace('"', '')
-            log.critical("\n\n" +
-                         "THE JOB FAILED, AND THEN FAILED TO WRITE TO THE " +
-                         "JOB_LOG\n\n" +
-                         "THE first error was >>> \n\n"
-                         + tb1 + "\n\n"
-                         "The second error was >>> \n\n"
-                         + tb2 + "\n")
+            logStr = ("\n\n" +
+                      "THE JOB FAILED, AND THEN FAILED TO WRITE TO THE " +
+                      "JOB_LOG\n\n" +
+                      "THE first error was >>> \n\n"
+                      + tb1 + "\n\n"
+                      "The second error was >>> \n\n"
+                      + tb2 + "\n")
+            log.critical(logStr)
+            logger.appendLogToFile(logStr)
+
             print('\nBETL execution failed to complete\n\n')
 
     log.debug("END")
@@ -169,29 +211,6 @@ def logStartOfJobExecution():
 
 
 #
-# Update the job log
-#
-def updateJobLog(jobId, status, statusMessage='', logFile=None):
-
-    log.debug("START")
-
-    ctlDBCursor = conf.CTL_DB_CONN.cursor()
-
-    statusMessage = str(statusMessage).replace("'", "").replace('"', '')
-
-    sql = ("UPDATE job_log " +
-           "SET " +
-           "end_datetime = current_timestamp, " +
-           "status = '" + status + "', ")
-    if logFile is not None:
-        sql += ("log_file = '" + logFile + "', ")
-    sql += ("status_message = '" + statusMessage + "' " +
-            "WHERE job_id = " + str(jobId))
-    ctlDBCursor.execute(sql)
-    conf.CTL_DB_CONN.commit()
-
-
-#
 # Check what happened last time.
 #
 def getStatusOfLastExecution():
@@ -222,19 +241,19 @@ def getStatusOfLastExecution():
 #
 def writeScheduleToCntrlDb(jobId):
     for dataFlow in SCHEDULE:
-        addDataflowToJobSchedule(jobId, SCHEDULE[dataFlow]['func'],
+        addDataflowToJobSchedule(jobId, SCHEDULE[dataFlow]['dataflow'],
                                  SCHEDULE[dataFlow]['stage'])
 
 
 #
 # Insert a new row, pending execution
 #
-def addDataflowToJobSchedule(jobId, function, stage):
+def addDataflowToJobSchedule(jobId, dataflow, stage):
     ctlDBCursor = conf.CTL_DB_CONN.cursor()
     sql = "INSERT " +                                                         \
           "INTO job_schedule (" +                                             \
           "job_id, " +                                                        \
-          "function_name, " +                                                 \
+          "dataflow_name, " +                                                 \
           "stage, " +                                                         \
           "status, " +                                                        \
           "start_datetime, " +                                                \
@@ -242,7 +261,7 @@ def addDataflowToJobSchedule(jobId, function, stage):
           "log) " +                                                           \
           "VALUES (" +                                                        \
           str(jobId) + ", " +                                                 \
-          "'" + function.__name__ + "', " +                                   \
+          "'" + dataflow.__name__ + "', " +                                   \
           "'" + stage + "', " +                                               \
           "'PENDING', " +                                                     \
           "NULL, " +                                                          \
@@ -259,7 +278,7 @@ def getJobSchedule(jobId):
     ctlDBCursor = conf.CTL_DB_CONN.cursor()
     ctlDBCursor.execute("SELECT job_id, " +
                         "       sequence, " +
-                        "       function_name, " +
+                        "       dataflow_name, " +
                         "       stage, " +
                         "       status, " +
                         "       start_datetime, " +
@@ -291,5 +310,27 @@ def updateJobSchedule(jobId, seq, status, logStr='',
            "AND   sequence = " + str(seq)
 
     ctlDBCursor = conf.CTL_DB_CONN.cursor()
+    ctlDBCursor.execute(sql)
+    conf.CTL_DB_CONN.commit()
+
+
+#
+# Update the job log
+#
+def updateJobLog(jobId, status, statusMessage=''):
+
+    log.debug("START")
+
+    ctlDBCursor = conf.CTL_DB_CONN.cursor()
+
+    statusMessage = str(statusMessage).replace("'", "").replace('"', '')
+
+    sql = ("UPDATE job_log " +
+           "SET " +
+           "end_datetime = current_timestamp, " +
+           "status = '" + status + "', " +
+           "log_file = '" + logger.getLogFileName() + "', " +
+           "status_message = '" + statusMessage + "' " +
+           "WHERE job_id = " + str(jobId))
     ctlDBCursor.execute(sql)
     conf.CTL_DB_CONN.commit()

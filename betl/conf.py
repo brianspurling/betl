@@ -1,5 +1,6 @@
 import logging as logging
 import datetime
+import os
 
 # Global variables
 BULK_OR_DELTA = None
@@ -12,6 +13,7 @@ LOG_LEVEL = logging.INFO
 # General
 DWH_ID = None
 TMP_DATA_PATH = None
+STAGE = None  # Tells us whether we're on Extract, Transform or Load
 LOG_PATH = None
 
 # Connection details
@@ -45,6 +47,7 @@ TRG_DB_ENG = None
 # Job execution parameters
 SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT = []
 TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD = {}
+TMP_FILE_SUBDIR_MAPPING = {}
 
 # These dictate the start/end dates of dm_date. They can be overridden at
 # any point in the application's ETL process, providing the generateDMDate
@@ -106,3 +109,12 @@ def getEtlDBEng():
 def isBulkOrDelta():
     global BULK_OR_DELTA
     return BULK_OR_DELTA
+
+
+def rebuildTmeFileSubdirMapping():
+    global TMP_FILE_SUBDIR_MAPPING
+    global TMP_DATA_PATH
+    for path, subdirs, files in os.walk(TMP_DATA_PATH):
+        for name in files:
+            TMP_FILE_SUBDIR_MAPPING[name.replace('.csv', '')] = path.replace(
+                TMP_DATA_PATH, '')

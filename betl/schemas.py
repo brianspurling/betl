@@ -1,5 +1,6 @@
 from . import conf
 from . import utilities as utils
+from . import logger
 
 import psycopg2
 
@@ -24,7 +25,7 @@ SUM_LAYER = None
 # Logging #
 ###########
 
-log = utils.setUpLogger('SCHEMA', __name__)
+log = logger.setUpLogger('SCHEMA', __name__)
 
 
 ###########

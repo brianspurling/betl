@@ -10,7 +10,6 @@ def generateDMDate(writeToDimension='True'):
 
     # to do #9
     # TODO # 51
-    logStr = ''
 
     startDate = EARLIEST_DATE_IN_DATA
     endDate = LATEST_DATE_IN_DATA
@@ -41,10 +40,9 @@ def generateDMDate(writeToDimension='True'):
     df = pd.DataFrame(dmDateList)
 
     # to do #22
+    # to do #57
     if writeToDimension:
         df.to_sql('dm_date',
                   conf.TRG_DB_ENG,
                   if_exists='replace',
                   index=False)
-
-    return logStr
