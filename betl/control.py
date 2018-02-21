@@ -40,9 +40,13 @@ def run():
 
     global RERUN_PREV_JOB
 
+    logger.logExecutionStartFinish('START')
+
     initialiseDBConnections()
 
     if not SKIP_WARNINGS:
+        print('\n\n', end='')
+        print('Checking status of last execution: ', end='')
         lastRunStatus = scheduler.getStatusOfLastExecution()
         if lastRunStatus['status'] == 'RUNNING' and EXE_JOB:
             text = input(cli.LAST_EXE_STILL_RUNNING)
@@ -54,6 +58,8 @@ def run():
                 RERUN_PREV_JOB = False
             else:
                 RERUN_PREV_JOB = True
+        print(lastRunStatus['status'])
+        print('\n', end='')
 
     if RERUN_PREV_JOB and (RUN_SETUP or
                            RUN_REBUILD_ALL or
@@ -104,17 +110,41 @@ def run():
 def initialiseDBConnections():
     log.debug("START")
 
-    utils.getCtlDBConnection()
+    print('\n', end='')
+    print('Initialising DB and Google Sheet connections', end='')
+    print('\n\n', end='')
 
+    print('  - Connecting to CTL DB... ', end='')
+    sys.stdout.flush()
+    utils.getCtlDBConnection()
+    print('Done!')
+
+    print('  - Connecting to ETL DB... ', end='')
+    sys.stdout.flush()
     utils.getEtlDBConnection()
     utils.getEtlDBEngine()
+    print('Done!')
 
+    print('  - Connecting to TRG DB... ', end='')
+    sys.stdout.flush()
     utils.getTrgDBConnection()
     utils.getTrgDBEngine()
+    print('Done!')
 
-    utils.getEtlSchemaConnection()
-    utils.getTrgSchemaConnection()
+    print('  - Connecting to MSD SS... ', end='')
+    sys.stdout.flush()
     utils.getMsdConnection()
+    print('Done!')
+
+    print('  - Connecting to ETL SS... ', end='')
+    sys.stdout.flush()
+    utils.getEtlSchemaConnection()
+    print('Done!')
+
+    print('  - Connecting to TRG SS... ', end='')
+    sys.stdout.flush()
+    utils.getTrgSchemaConnection()
+    print('Done!')
 
     log.debug("END")
 
@@ -137,10 +167,37 @@ def setupBetl():
 #
 def loadLogicalDataModels():
     log.debug("START")
-    loadLogicalDataModels_src()
-    loadLogicalDataModels_stg()
-    loadLogicalDataModels_trg()
-    loadLogicalDataModels_sum()
+    # TODO: Can't use logger.logStepStat here because we don't have the log
+    # file set up (it needs the job ID). Maybe when I sort out jobLog
+    # semantics, I can also move the log to the outisde of the whole execution
+    # (execution ID, rather than job ID?). I think the job log should capture
+    # everything, becuase an auto run could easily fail here.
+    print('\n', end='')
+    print('Loading the logical data models', end='')
+    print('\n\n', end='')
+
+    if RUN_REBUILD_ALL or RUN_REBUILD_SRC or RUN_EXTRACT or RERUN_PREV_JOB:
+        print('  - Loading SRC layer... ', end='')
+        sys.stdout.flush()
+        loadLogicalDataModels_src()
+        print('Done!')
+
+    if RUN_REBUILD_ALL or RUN_REBUILD_STG or RUN_TRANSFORM or RERUN_PREV_JOB:
+        print('  - Loading STG layer... ', end='')
+        sys.stdout.flush()
+        loadLogicalDataModels_stg()
+        print('Done!')
+
+    if RUN_REBUILD_ALL or RUN_REBUILD_TRG or RUN_LOAD or RERUN_PREV_JOB:
+        print('  - Loading TRG layer... ', end='')
+        sys.stdout.flush()
+        loadLogicalDataModels_trg()
+        print('Done!')
+
+        print('  - Loading SUM layer... ', end='')
+        sys.stdout.flush()
+        loadLogicalDataModels_sum()
+        print('Done!')
 
     log.debug("END")
 
@@ -265,8 +322,12 @@ def addDefaultLoadToSchedule(nonDefaultStagingTables={}):
 def addDMDateToSchedule():
     log.debug("START")
     scheduler.scheduleDataFlow(dataflow=df_transform.generateDMDate,
-                               etlStage='EXTRACT',
+                               etlStage='TRANSFORM',
                                pos=0)
+    if (conf.RUN_DM_LOAD):
+        scheduler.scheduleDataFlow(dataflow=df_load.loadDMDate,
+                                   etlStage='LOAD',
+                                   pos=0)
     log.debug("END")
 
 
@@ -295,7 +356,8 @@ def processArgs(args):
     bulk = False
     delta = False
     isUnrecognisedArg = False
-
+    # TODO: some of these are local and passed in, some are global and in conf
+    # Messy. Let's put them all in conf
     for arg in args:
         if arg == 'help':
             showHelp = True
@@ -310,15 +372,15 @@ def processArgs(args):
             SKIP_WARNINGS = True
         elif arg == 'setup':
             RUN_SETUP = True
-        elif arg == 'rebuildAll':
+        elif arg == 'rebuildall':
             RUN_REBUILD_ALL = True
-        elif arg == 'rebuildSrc':
+        elif arg == 'rebuildsrc':
             RUN_REBUILD_SRC = True
-        elif arg == 'rebuildStg':
+        elif arg == 'rebuildstg':
             RUN_REBUILD_STG = True
-        elif arg == 'rebuildTrg':
+        elif arg == 'rebuildtrg':
             RUN_REBUILD_TRG = True
-        elif arg == 'rebuildSum':
+        elif arg == 'rebuildsum':
             RUN_REBUILD_SUM = True
         elif arg == 'noextract':
             RUN_EXTRACT = False
@@ -326,6 +388,10 @@ def processArgs(args):
             RUN_TRANSFORM = False
         elif arg == 'noload':
             RUN_LOAD = False
+        elif arg == 'nodmload':
+            conf.RUN_DM_LOAD = False
+        elif arg == 'noftload':
+            conf.RUN_FT_LOAD = False
         elif arg == 'cleartmpdata':
             DELETE_TMP_DATA = True
         elif arg == 'job':

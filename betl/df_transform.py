@@ -1,12 +1,12 @@
 from .conf import EARLIEST_DATE_IN_DATA
 from .conf import LATEST_DATE_IN_DATA
-from . import conf
+from . import utilities as utils
 
 from datetime import date, timedelta
 import pandas as pd
 
 
-def generateDMDate(writeToDimension='True'):
+def generateDMDate():
 
     # to do #9
     # TODO # 51
@@ -15,11 +15,9 @@ def generateDMDate(writeToDimension='True'):
     endDate = LATEST_DATE_IN_DATA
 
     dmDateList = []
-    counter = 0
     while startDate <= endDate:
-        counter += 1
 
-        dateInfo = {'date_id': counter,
+        dateInfo = {'date_id': startDate.strftime('%Y%m%d'),
                     'dateYYYYMMDD': startDate.strftime('%Y%m%d'),
                     'calDate': startDate.strftime('%Y-%m-%d'),
                     'calDay': startDate.day,
@@ -39,10 +37,6 @@ def generateDMDate(writeToDimension='True'):
 
     df = pd.DataFrame(dmDateList)
 
-    # to do #22
-    # to do #57
-    if writeToDimension:
-        df.to_sql('dm_date',
-                  conf.TRG_DB_ENG,
-                  if_exists='replace',
-                  index=False)
+    utils.writeToCsv(df, 'trg_dm_date')
+
+    del df

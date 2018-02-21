@@ -85,6 +85,8 @@ def executeJob(jobId):
 
     js = getJobSchedule(jobId)
 
+    logger.logStartOfJobExecution(jobId)
+
     logger.createJobLogFile(jobId)
 
     # After we update the job_log the job has started, so it's crucial
@@ -133,7 +135,7 @@ def executeJob(jobId):
                   "(the job_log has been updated)\n\n")
         logger.appendLogToFile(logStr)
 
-        print(cli.EXECUTION_SUCCESSFUL.format(logFile=logger.getLogFileName()))
+        logger.logExecutionStartFinish('FINISH')
 
     except Exception as e1:
         tb1 = traceback.format_exc()
@@ -204,10 +206,6 @@ def addJobToJobLog():
     ctlDBCursor.execute("SELECT MAX(job_id) FROM job_log")
 
     return ctlDBCursor.fetchall()[0][0]
-
-
-def logStartOfJobExecution():
-    return
 
 
 #

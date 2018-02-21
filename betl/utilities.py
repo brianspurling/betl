@@ -1,6 +1,5 @@
 from . import conf
 from . import logger
-
 import inspect
 
 import gspread
@@ -74,11 +73,11 @@ def getDBConnection(connId):
     dbs = dbServerCursor.fetchall()
 
     if(len(dbs) == 0):
-        log.info("the " + connId + " database does not exist, creating")
+        log.debug("the " + connId + " database does not exist, creating")
         dbServerCursor.execute('CREATE DATABASE '
                                + conf.DWH_ID + '_'
                                + connId)
-        log.info("an empty " + connId + " database has been created")
+        log.debug("an empty " + connId + " database has been created")
 
     # Reconstruct the connection string, this time with the DB name
     dbConnectionString = 'host='                                          \
@@ -88,7 +87,7 @@ def getDBConnection(connId):
         + ' password=' + connDetails['PASSWORD']
     connection = psycopg2.connect(dbConnectionString)
 
-    log.info("Connected to " + connId + " DB")
+    log.debug("Connected to " + connId + " DB")
 
     return connection
 
@@ -147,7 +146,7 @@ def getEtlSchemaConnection(reload=False):
                       'auth file (client_email)')
             raise
 
-    log.info("Connected to ETL DB Schema Google Sheet")
+    log.debug("Connected to ETL DB Schema Google Sheet")
 
     return conf.ETL_DB_SCHEMA_CONN
 
@@ -167,7 +166,7 @@ def getTrgSchemaConnection(reload=False):
                 [conf.GOOGLE_SHEETS_API_URL]))
         conf.TRG_DB_SCHEMA_CONN = client.open(conf.TRG_DB_SCHEMA_FILE_NAME)
 
-    log.info("Connected to TRG DB Schema Google Sheet")
+    log.debug("Connected to TRG DB Schema Google Sheet")
 
     return conf.TRG_DB_SCHEMA_CONN
 
@@ -188,7 +187,7 @@ def getMsdConnection(reload=False):
                 [conf.GOOGLE_SHEETS_API_URL]))
         conf.MSD_CONN = client.open(conf.MSD_FILE_NAME)
 
-    log.info("Connected to Manual Source Data Google Sheet")
+    log.debug("Connected to Manual Source Data Google Sheet")
 
     return conf.MSD_CONN
 
@@ -253,7 +252,7 @@ def readFromEtlDB(tableName):
 
     callingFuncName = inspect.stack()[1][3]
 
-    logger.logStepStart('Reading data ' + tableName + ' in ETL DB',
+    logger.logStepStart('Reading data ' + tableName + ' from ETL DB',
                         callingFuncName=callingFuncName)
 
     df = pd.read_sql('SELECT * FROM ' + tableName, con=conn)
@@ -268,6 +267,41 @@ def readFromEtlDB(tableName):
         df.drop(['audit_latest_delta_load_date'], axis=1, inplace=True)
     if 'audit_latest_delta_load_operation' in df.columns:
         df.drop(['audit_latest_delta_load_operation'], axis=1, inplace=True)
+
+    logger.logStepEnd(df)
+
+    return df
+
+
+def writeToTrgDB(df, tableName, if_exists):
+
+    callingFuncName = inspect.stack()[1][3]
+
+    logger.logStepStart('Writing data to ' + tableName + ' in TRG DB',
+                        callingFuncName=callingFuncName)
+
+    df.to_sql(tableName,
+              conf.TRG_DB_ENG,
+              if_exists=if_exists,
+              index=False)
+
+    logger.logStepEnd(df)
+
+    return df
+
+
+def readFromTrgDB(tableName, columnList):
+    conn = getTrgDBConnection()
+
+    callingFuncName = inspect.stack()[1][3]
+
+    logger.logStepStart('Reading data ' + tableName + ' from TRG DB',
+                        callingFuncName=callingFuncName)
+    newColList = []
+    for col in columnList:
+        newColList.append('"' + col + '"')
+    cols = ",".join(newColList)
+    df = pd.read_sql('SELECT ' + cols + ' FROM ' + tableName, con=conn)
 
     logger.logStepEnd(df)
 
@@ -416,6 +450,8 @@ def writeToCsv(df, file_or_filename):
     logger.logStepEnd(df)
 
 
+# TODO: create a custom error for missing temp file and raise here instead of
+# KeyError
 def readFromCsv(file_or_filename,
                 sep=None,
                 quotechar=None,
@@ -424,27 +460,99 @@ def readFromCsv(file_or_filename,
     callingFuncName = inspect.stack()[1][3]
     _sep = sep if sep is not None else ','
     _quotechar = quotechar if quotechar is not None else '"'
-    path = ''
-    _file = None
+    filePath = ''
 
     if type(file_or_filename) is str:
         if (not pathOverride):
             if file_or_filename not in conf.TMP_FILE_SUBDIR_MAPPING:
                 conf.rebuildTmeFileSubdirMapping()
-            path = (conf.TMP_DATA_PATH +
-                    conf.TMP_FILE_SUBDIR_MAPPING[file_or_filename] + '/' +
-                    file_or_filename + '.csv')
+            filePath = (conf.TMP_DATA_PATH +
+                        conf.TMP_FILE_SUBDIR_MAPPING[file_or_filename] + '/' +
+                        file_or_filename + '.csv')
         else:
-            path = file_or_filename
-        _file = open(path)
+            filePath = file_or_filename
     else:
-        path = file_or_filename.name
-        _file = file_or_filename
+        filePath = file_or_filename.name
 
-    logger.logStepStart('Reading data from CSV: ' + path,
+    headersDf = pd.read_csv(filePath, sep=_sep, quotechar=_quotechar, nrows=1)
+    headerList = headersDf.columns.values
+    dtype = {}
+    for header in headerList:
+        dtype[header] = str
+    logger.logStepStart('Reading data from CSV: ' + filePath,
                         callingFuncName=callingFuncName)
-    df = pd.read_csv(_file,
+    df = pd.read_csv(filePath,
                      sep=_sep,
-                     quotechar=_quotechar)
+                     quotechar=_quotechar,
+                     dtype=dtype)
+
+    # We never want audit cols to come into transform dataframes
+    # TODO: This code is repeated from readFromEtlDB
+    if 'audit_source_system' in df.columns:
+        df.drop(['audit_source_system'], axis=1, inplace=True)
+    if 'audit_bulk_load_date' in df.columns:
+        df.drop(['audit_bulk_load_date'], axis=1, inplace=True)
+    if 'audit_latest_delta_load_date' in df.columns:
+        df.drop(['audit_latest_delta_load_date'], axis=1, inplace=True)
+    if 'audit_latest_delta_load_operation' in df.columns:
+        df.drop(['audit_latest_delta_load_operation'], axis=1, inplace=True)
+
     logger.logStepEnd(df)
     return df
+
+
+def retrieveSksFromDimension(tableName, nkColList, pk):
+    colList = [pk] + nkColList
+    df_sk = readFromTrgDB(tableName, colList)
+
+    # Rename the dims ID column to PK
+    logger.logStepStart(tableName + ': ' +
+                        "Rename PK col, concat NKs into single col, " +
+                        "drop old NK cols", 1)
+    df_sk.rename(index=str,
+                 columns={
+                    pk: 'pk'},
+                 inplace=True)
+
+    df_sk['nk'] = ''
+    underscore = ''
+    cnt = 2
+    for col in df_sk.columns.values:
+        if col == 'pk':
+            continue
+        if col == 'nk':
+            continue
+        else:
+            logger.logStepStart(tableName + ': ' +
+                                "concat " + col + ' to the nk col', cnt)
+            df_sk['nk'] = df_sk['nk'] + underscore + df_sk[col].map(str)
+
+            underscore = '_'
+            cnt += 1
+
+            logger.logStepStart(tableName + ': ' +
+                                "Drop column " + col, cnt)
+            df_sk.drop(col, axis=1, inplace=True)
+
+            cnt += 1
+
+    logger.logStepEnd(df_sk)
+
+    writeToCsv(df_sk, 'sk_' + tableName)
+
+
+def mergeFactWithSks(df, col):
+    logger.logStepStart('Merging SK with fact for column ' + col.columnName)
+    nkColName = col.columnName.replace('fk_', 'nk_')
+    df_sk = col.getSKlookup()
+    df_sk.rename(index=str,
+                 columns={
+                    'pk': col.columnName,
+                    'nk': nkColName},
+                 inplace=True)
+    df_merged = pd.merge(df, df_sk, on=nkColName, how='left')
+    df_merged.drop(nkColName, axis=1, inplace=True)
+    logger.logStepEnd(df_merged)
+    return df_merged
+
+    del df_sk

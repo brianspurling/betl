@@ -32,8 +32,6 @@ SETUP_WARNING = ("\nRunning SETUP will completely wipe your " +
 INVALID_STAGE_FOR_SCHEDULE = ("You can only schedule functions in one of " +
                               "the three ETL stages: EXTRACT, TRANSFORM, LOAD")
 
-EXECUTION_SUCCESSFUL = ("\nBETL execution completed successfully. " +
-                        "See {logFile} for logs\n\n")
 HELP = ("\n" +
         "--------------------------------------------------------------\n" +
         "\n" +
@@ -44,7 +42,7 @@ HELP = ("\n" +
         "> [setup]\n" +
         "  Reinstall betl - all config will be lost\n" +
         "\n" +
-        "> [rebuildAll | rebuildSrc | rebuildStg | rebuildTrg | " +
+        "> [rebuildall | rebuildsrc | rebuildstg | rebuildtrg | " +
         "rebuildSum]\n" +
         "  Reconstruct the physical data models - all data will be lost\n" +
         "\n" +
@@ -56,6 +54,9 @@ HELP = ("\n" +
         "\n" +
         "> [noextract] | [notransform] | [noload]\n" +
         "  Skip the extract stage\n" +
+        "\n" +
+        "> [nodmload] | [noftload]\n" +
+        "  Don't load the dimensions / fact tables\n" +
         "\n" +
         "> [cleartmpdata]\n" +
         "  Clear all temp data from previous jobs before executing\n" +

@@ -48,6 +48,8 @@ TRG_DB_ENG = None
 SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT = []
 TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD = {}
 TMP_FILE_SUBDIR_MAPPING = {}
+RUN_DM_LOAD = True
+RUN_FT_LOAD = True
 
 # These dictate the start/end dates of dm_date. They can be overridden at
 # any point in the application's ETL process, providing the generateDMDate

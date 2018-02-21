@@ -88,7 +88,10 @@ class Column():
         self.columnName = columnSchema['columnName']
         self.dataType = columnSchema['dataType']
         self.isNK = False
-
+        self.isFK = False
+        self.fkDimension = columnSchema['fkDimension']
+        if (self.fkDimension != 'N/A'):
+            self.isFK = True
         if columnSchema['isNK'].upper() == 'Y':
             self.isNK = True
 
@@ -114,6 +117,9 @@ class Column():
 
         return columnResetStatement
 
+    def getSKlookup(self):
+        return utils.readFromCsv('sk_' + self.fkDimension)
+
     def __str__(self):
         return '      ' + ', '.join('{} = {}'.format(k, v) for k, v in
                                     self.columnSchema.items()) + '\n'
@@ -138,9 +144,10 @@ class Table():
         self.columns = []
 
         self.colNameList = []
-        self.colNameList = []
+        self.colNameList_withoutPk = []
         self.nkList = []
         self.nonNkList = []
+        self.pk = ''
 
         for column in tableSchema:
 
@@ -151,6 +158,10 @@ class Table():
             else:
                 self.nonNkList.append(column['columnName'])
 
+            if column['isPK'].upper() == 'Y':
+                self.pk = column['columnName']
+            else:
+                self.colNameList_withoutPk.append(column['columnName'])
             self.colNameList.append(column['columnName'])
 
             self.columns.append(Column(column))
@@ -192,6 +203,85 @@ class Table():
                 colsResetStatements.append(colResetStatement)
 
         return colsResetStatements
+
+    def load(self):
+        if conf.BULK_OR_DELTA == 'BULK':
+            self.bulkLoad()
+        elif conf.BULK_OR_DELTA == 'DELTA':
+            self.deltaLoad()
+
+    def bulkLoad(self):
+        ftOrDm = self.isFactOrDim()
+        if (ftOrDm == 'DIMENSION'):
+            self.bulkLoadDimension()
+        elif (ftOrDm == 'FACT'):
+            self.bulkLoadFact()
+
+        # pprint.pprint(self.tableName)
+        # pprint.pprint(self.tableShortName)
+        # pprint.pprint(self.columns)
+        # pprint.pprint(self.colNameList)
+        # pprint.pprint(self.colNameList)
+        # pprint.pprint(self.nkList)
+        # pprint.pprint(self.nonNkList)
+        # print('*********')
+
+    def bulkLoadDimension(self):
+        # We assume that the final step in the TRANSFORM stage created a
+        # csv file trg_<tableName>.csv
+        # TODO: put in a decent feedback to developer if they didn't create
+        # the right table. Start by raising custom error inside readFromCsv
+
+        df = utils.readFromCsv('trg_' + self.tableName)
+
+        # We can append rows, because, as we're running a bulk load, we will
+        # have just cleared out the TRG model and created. This way, append
+        # guarantees we error if we don't load all the required columns
+        utils.writeToTrgDB(df,
+                           self.tableName,
+                           if_exists='append')
+        del df
+
+        # We will need the SKs we just created to write the facts later, so
+        # pull the pk/nks back out
+
+        utils.retrieveSksFromDimension(self.tableName, self.nkList, self.pk)
+
+    def bulkLoadFact(self):
+        df_ft = utils.readFromCsv('trg_' + self.tableName)
+        for col in self.columns:
+            if (col.isFK):
+                df_ft = utils.mergeFactWithSks(df_ft, col)
+
+        df_ft = df_ft[self.colNameList_withoutPk]
+        # We can append rows, because, as we're running a bulk load, we will
+        # have just cleared out the TRG model and created. This way, append
+        # guarantees we error if we don't load all the required columns
+        utils.writeToTrgDB(df_ft,
+                           self.tableName,
+                           if_exists='append')
+
+    def deltaLoad(self):
+        ftOrDm = self.isFactOrDim()
+        if (ftOrDm == 'DIMENSION'):
+            self.deltaLoadDimension()
+        elif (ftOrDm == 'FACT'):
+            self.deltaLoadFact()
+
+    def deltaLoadDimension(self):
+        raise ValueError("Code not yet written for delta dimension loads")
+
+    def deltaLoadFact(self):
+        raise ValueError("Code not yet written for delta fact loads")
+
+    def isFactOrDim(self):
+        if 'ft_' in self.tableName:
+            return 'FACT'
+        elif 'dm_' in self.tableName:
+            return 'DIMENSION'
+        else:
+            raise ValueError("Can't determine table type for " +
+                             self.tableName)
 
     def __str__(self):
         columnsStr = '\n' + '    ' + self.tableName + '\n'
@@ -237,12 +327,18 @@ class DataModel():
                                        .getSqlDropStatements())
         return tableDropStatements
 
-    def getSqlTruncateStatements(self):
+    def getSqlTruncateStatements(self, truncDims, truncFacts):
 
         tableTruncateStatements = []
+
         for tableName in self.tables:
-            tableTruncateStatements.append(self.tables[tableName]
-                                           .getSqlTruncateStatements())
+            if ((self.tables[tableName].isFactOrDim() == 'DIMENSION'
+                    and truncDims)
+                    or
+                    (self.tables[tableName].isFactOrDim() == 'FACT'
+                     and truncFacts)):
+                tableTruncateStatements.append(self.tables[tableName]
+                                               .getSqlTruncateStatements())
         return tableTruncateStatements
 
     def getSqlResetPrimaryKeySequences(self):
@@ -252,6 +348,20 @@ class DataModel():
             tableResetStatements.append(self.tables[tableName]
                                         .getSqlResetPrimaryKeySequences())
         return tableResetStatements
+
+    def load(self):
+        nonDefaultStagingTables = conf.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+        # We must load the dimensions before the facts!
+        loadSequence = []
+        if (conf.RUN_DM_LOAD):
+            loadSequence.append('DIMENSION')
+        if (conf.RUN_FT_LOAD):
+            loadSequence.append('FACT')
+        for tableType in loadSequence:
+            for tableName in self.tables:
+                if (self.tables[tableName].isFactOrDim() == tableType):
+                    if tableName not in nonDefaultStagingTables:
+                        self.tables[tableName].load()
 
     def __str__(self):
         tablesStr = '\n' + '  ** ' + self.dataModelName + ' **' + '\n'
@@ -356,10 +466,18 @@ class SrcLayer():
 
                 # And add the current column to this table's list of columns.
                 # Each list item is a dictionary of column metadata
+                # TODO: stop using isNK in ETL spreadsheet - use consisent
+                # "columnType" so it mathces other layers
+                columnType = 'Source value'
+                if schemaRow['natural_key'] == 'Y':
+                    columnType = 'Natural key'
                 colums = tmp_tableSchemas[schemaRow['Table Name'].lower()]
                 colums.append({'columnName': schemaRow['Column Name'],
                                'dataType':   schemaRow['data_type'],
-                               'isNK':       schemaRow['natural_key']})
+                               'columnType': columnType,
+                               'fkDimension': 'N/A',
+                               'isNK':       schemaRow['natural_key'],
+                               'isPK':       'N/A'})
 
         # Next, the MSD: We're going to add one more dataModel, which will
         # include all manual source data from the MSD spreadsheet
@@ -391,10 +509,16 @@ class SrcLayer():
                 # Add the current column to this table's list of columns.
                 # Each list item is a dictionary of column metadata indexed by
                 # column name
+                columnType = 'Attribute'
+                if (isNKs[i] == 'Y'):
+                    columnType = 'Natural key'
                 colums = tmp_tableSchemas[msdWorksheet.title]
                 colums.append({'columnName': columnNames[i],
                                'dataType':   dataTypes[i],
-                               'isNK':       isNKs[i]})
+                               'fkDimension': 'N/A',
+                               'columnType': columnType,
+                               'isNK':       isNKs[i],
+                               'isPK':       'N/A'})
 
         # We have all the schema data now, so create the DataModel() object.
         # This is the object we "leave behind" in this class - the full schema
@@ -404,8 +528,8 @@ class SrcLayer():
                     DataModel(tmp_dataModels[i]['dataModelName'],
                               tmp_dataModels[i]['tableSchemas'])
 
-            log.info("Loaded schema for data model: " +
-                     tmp_dataModels[i]['dataModelName'])
+            log.debug("Loaded schema for data model: " +
+                      tmp_dataModels[i]['dataModelName'])
 
     def loadSrcSysDBConnections(self):
 
@@ -420,8 +544,8 @@ class SrcLayer():
         # to do #16
         self.srcSystemConns['MSD'] = Connection(conf.SOURCE_SYSTEM_CONNS
                                                 ['MSD'])
-        log.info("Loaded connections to " + str(len(self.srcSystemIds)) +
-                 " source systems")
+        log.debug("Loaded connections to " + str(len(self.srcSystemIds)) +
+                  " source systems")
 
     def dropPhysicalDataModel(self):
 
@@ -443,7 +567,7 @@ class SrcLayer():
                 conf.ETL_DB_CONN.commit()
                 pass
 
-        log.info("Dropped " + str(counter) + ' tables')
+        log.debug("Dropped " + str(counter) + ' tables')
 
     def autoPopulateSrcLayerSchemasInSpreadsheet(self, dataModelId):
 
@@ -458,8 +582,8 @@ class SrcLayer():
 
         if self.srcSystemConns[dataModelId].type == 'POSTGRES':
 
-            log.info("Source system type is POSTGRES: connecting and " +
-                     "pulling list of tables and columns")
+            log.debug("Source system type is POSTGRES: connecting and " +
+                      "pulling list of tables and columns")
 
             # Get the schema from Postgres
             srcDbCursor = self.srcSystemConns[dataModelId].connection.cursor()
@@ -478,8 +602,8 @@ class SrcLayer():
 
         elif self.srcSystemConns[dataModelId].type == 'FILESYSTEM':
 
-            log.info("Source system type is FILESYSTEM (aka CSV): " +
-                     "connecting  and pulling list of columns")
+            log.debug("Source system type is FILESYSTEM (aka CSV): " +
+                      "connecting  and pulling list of columns")
 
             # Get the schema from the files
             # to do #18
@@ -542,15 +666,15 @@ class SrcLayer():
 
         self.dataModels[dataModelId].schemaWS.update_cells(cell_list)
 
-        log.info("SRC schema updated in worksheet: " + schemaWS.title)
+        log.debug("SRC schema updated in worksheet: " + schemaWS.title)
 
     def rebuildPhsyicalDataModel(self):
 
-        log.info("START (src)")
+        log.debug("START (src)")
 
         # First, we need to drop every source table (prefixed SRC_)  - we
         # are clearing out and starting again
-        log.info("Dropping all SRC tables")
+        log.debug("Dropping all SRC tables")
         self.dropPhysicalDataModel()
 
         haveWeChangedSchemaSS = False
@@ -565,11 +689,11 @@ class SrcLayer():
                 break
 
             if (self.dataModels[dataModelId].isSchemaDefined):
-                log.info("the schema worksheet for source system <" +
-                         dataModelId + "> " + "is already populated")
+                log.debug("the schema worksheet for source system <" +
+                          dataModelId + "> " + "is already populated")
             else:
-                log.info("the schema worksheet for source system <" +
-                         dataModelId + "> " + "is NOT yet populated")
+                log.debug("the schema worksheet for source system <" +
+                          dataModelId + "> " + "is NOT yet populated")
                 haveWeChangedSchemaSS = True
                 self.autoPopulateSrcLayerSchemasInSpreadsheet(dataModelId)
 
@@ -577,7 +701,7 @@ class SrcLayer():
             # Finally, having just updated the spreadsheet, we do a complete
             # reload of the Data Layers, so our Data Layer objects are all
             # up to date
-            log.info("Reloading the schema from the spreadsheet")
+            log.debug("Reloading the schema from the spreadsheet")
             self.loadSchemaFromSpreadsheet()
 
         #
@@ -587,7 +711,7 @@ class SrcLayer():
         # SRC staging tables and recreate
         #
 
-        log.info("Recreating all SRC tables")
+        log.debug("Recreating all SRC tables")
         createStatements = self.getSqlCreateStatements()
 
         # Then create the tables
@@ -604,7 +728,7 @@ class SrcLayer():
                 pprint.pprint(e)
                 pass
 
-        log.info("Created " + str(counter) + ' tables')
+        log.debug("Created " + str(counter) + ' tables')
 
     def getSqlCreateStatements(self):
         log.debug("START")
@@ -646,6 +770,8 @@ class StgLayer():
 
         # Now populate dataModels with the schema from the SS
         self.loadSchemaFromSpreadsheet()
+
+        log.debug("Done")
 
     #
     # The ETL DB Schema spreadsheet contains a worksheet per table for all
@@ -706,7 +832,9 @@ class StgLayer():
                 columns.append({'columnName': columnRow['Column Name'],
                                 'dataType':   columnRow['Data Type'],
                                 'columnType': columnRow['Column Type'],
-                                'isNK':       'N'})
+                                'fkDimension': 'N/A',
+                                'isNK':       'N',
+                                'isPK':       'N/A'})
 
         # We have all the schema data now, so create the DataModel() object.
         # This is the object we "leave behind" in this class - the full schema
@@ -716,8 +844,8 @@ class StgLayer():
                     DataModel(tmp_dataModels[i]['dataModelName'],
                               tmp_dataModels[i]['tableSchemas'])
 
-            log.info("Loaded schema for data model: " +
-                     tmp_dataModels[i]['dataModelName'])
+        log.debug("Loaded schema for data model: " +
+                  tmp_dataModels[i]['dataModelName'])
 
     def dropPhysicalDataModel(self):
 
@@ -740,20 +868,20 @@ class StgLayer():
 
                 pass
 
-        log.info("Dropped " + str(counter) + ' tables')
+        log.debug("Dropped " + str(counter) + ' tables')
 
     def rebuildPhsyicalDataModel(self):
 
-        log.info("START (stg)")
+        log.debug("START (stg)")
 
         # First, we need to drop every staging table  - we
         # are clearing out and starting again
-        log.info("Dropping all STG tables")
+        log.debug("Dropping all STG tables")
         self.dropPhysicalDataModel()
 
         # Then create the tables
 
-        log.info("Recreating all STG tables")
+        log.debug("Recreating all STG tables")
         createStatements = self.getSqlCreateStatements()
 
         etlDbCursor = conf.ETL_DB_CONN.cursor()
@@ -768,7 +896,7 @@ class StgLayer():
                 pprint.pprint(e)
                 pass
 
-        log.info("Created " + str(counter) + ' tables')
+        log.debug("Created " + str(counter) + ' tables')
 
     def getSqlCreateStatements(self):
         log.debug("START")
@@ -809,6 +937,8 @@ class TrgLayer():
 
         # Now populate dataModels with the schema from the SS
         self.loadSchemaFromSpreadsheet()
+
+        log.debug("Done")
 
     #
     # The TRG DB Schema spreadsheet contains a worksheet per table for all
@@ -859,10 +989,23 @@ class TrgLayer():
             for columnRow in tableSchema_allRows:
                 # Each list item is a dictionary of column metadata
                 columns = tmp_tableSchemas[tableName]
+                isNk = 'N'
+                isPk = 'N'
+                if (columnRow['Column Type'] == 'Natural key'):
+                    isNk = 'Y'
+                if (columnRow['Column Type'] == 'Primary key'):
+                    isPk = 'Y'
+                fkDimension = 'N/A'
+                if ('FK Dimension' in columnRow):
+                    fkDimension = columnRow['FK Dimension']
+                    if (fkDimension == ''):
+                        fkDimension = 'N/A'
                 columns.append({'columnName': columnRow['Column Name'],
                                 'dataType':   columnRow['Data Type'],
                                 'columnType': columnRow['Column Type'],
-                                'isNK':       'N'})
+                                'fkDimension': fkDimension,
+                                'isNK':       isNk,
+                                'isPK':       isPk})
 
         # We have all the schema data now, so create the DataModel() object.
         # This is the object we "leave behind" in this class - the full schema
@@ -872,8 +1015,8 @@ class TrgLayer():
                     DataModel(tmp_dataModels[i]['dataModelName'],
                               tmp_dataModels[i]['tableSchemas'])
 
-            log.info("Loaded schema for data model: " +
-                     tmp_dataModels[i]['dataModelName'])
+            log.debug("Loaded schema for data model: " +
+                      tmp_dataModels[i]['dataModelName'])
 
     def dropPhysicalDataModel(self):
 
@@ -895,13 +1038,15 @@ class TrgLayer():
                 conf.TRG_DB_CONN.commit()
                 pass
 
-        log.info("Dropped " + str(counter) + ' tables')
+        log.debug("Dropped " + str(counter) + ' tables')
 
-    def truncatePhysicalDataModel(self):
+    def truncatePhysicalDataModel(self, truncDims=True, truncFacts=True):
 
         log.debug("START")
 
-        truncateStatements = self.getSqlTruncateStatements()
+        truncateStatements = self.getSqlTruncateStatements(
+            truncDims=truncDims,
+            truncFacts=truncFacts)
 
         trgDbCursor = conf.TRG_DB_CONN.cursor()
         counter = 0
@@ -917,20 +1062,20 @@ class TrgLayer():
                 conf.TRG_DB_CONN.commit()
                 pass
 
-        log.info("Dropped " + str(counter) + ' tables')
+        log.debug("Dropped " + str(counter) + ' tables')
 
     def rebuildPhsyicalDataModel(self):
 
-        log.info("START (trg)")
+        log.debug("START (trg)")
 
         # First, we need to drop every staging table  - we
         # are clearing out and starting again
-        log.info("Dropping all TRG tables")
+        log.debug("Dropping all TRG tables")
         self.dropPhysicalDataModel()
 
         # Then create the tables
 
-        log.info("Recreating all TRG tables")
+        log.debug("Recreating all TRG tables")
         createStatements = self.getSqlCreateStatements()
 
         trgDbCursor = conf.TRG_DB_CONN.cursor()
@@ -945,11 +1090,11 @@ class TrgLayer():
                 pprint.pprint(e)
                 pass
 
-        log.info("Created " + str(counter) + ' tables')
+        log.debug("Created " + str(counter) + ' tables')
 
     def resetPrimaryKeySequences(self):
 
-        log.info("START (trg)")
+        log.debug("START (trg)")
 
         resetStatements = self.getSqlResetPrimaryKeySequences()
 
@@ -966,7 +1111,7 @@ class TrgLayer():
                 pprint.pprint(e)
                 pass
 
-        log.info("Reset " + str(counter) + ' primary key sequences')
+        log.debug("Reset " + str(counter) + ' primary key sequences')
 
     def getSqlCreateStatements(self):
         log.debug("START")
@@ -986,12 +1131,14 @@ class TrgLayer():
 
         return dataLayerDropStatements
 
-    def getSqlTruncateStatements(self):
+    def getSqlTruncateStatements(self, truncDims, truncFacts):
         log.debug("START")
         dataLayerTruncateStatements = []
         for dataModelId in self.dataModels:
             dataLayerTruncateStatements.extend(
-                self.dataModels[dataModelId].getSqlTruncateStatements())
+                self.dataModels[dataModelId].getSqlTruncateStatements(
+                    truncDims=truncDims,
+                    truncFacts=truncFacts))
 
         return dataLayerTruncateStatements
 
@@ -1003,6 +1150,11 @@ class TrgLayer():
                 self.dataModels[dataModelId].getSqlResetPrimaryKeySequences())
 
         return dataLayerResetStatements
+
+    def load(self):
+        log.debug("START")
+        for dataModelId in self.dataModels:
+            self.dataModels[dataModelId].load()
 
     def __str__(self):
         dataModelStr = '\n' + '\n' + '*** Data Layer: Staging ***' + '\n'
@@ -1025,6 +1177,8 @@ class SumLayer():
 
         # Now populate dataModels with the schema from the SS
         self.loadSchemaFromSpreadsheet()
+
+        log.debug("Done")
 
     #
     # The TRG DB Schema spreadsheet contains a worksheet per table for all
@@ -1073,12 +1227,25 @@ class SumLayer():
 
             # And add the columns to this table's list of columns.
             for columnRow in tableSchema_allRows:
+                isNk = 'N'
+                isPk = 'N'
+                if (columnRow['Column Type'] == 'Natural key'):
+                    isNk = 'Y'
+                if (columnRow['Column Type'] == 'Primary key'):
+                    isPk = 'Y'
+                fkDimension = 'N/A'
+                if ('FK Dimension' in columnRow):
+                    fkDimension = columnRow['FK Dimension']
+                    if (fkDimension == ''):
+                        fkDimension = 'N/A'
                 # Each list item is a dictionary of column metadata
                 columns = tmp_tableSchemas[tableName]
                 columns.append({'columnName': columnRow['Column Name'],
                                 'dataType':   columnRow['Data Type'],
                                 'columnType': columnRow['Column Type'],
-                                'isNK':       'N'})
+                                'fkDimension': fkDimension,
+                                'isNK':       isNk,
+                                'isPK':       isPk})
 
         # We have all the schema data now, so create the DataModel() object.
         # This is the object we "leave behind" in this class - the full schema
@@ -1088,8 +1255,8 @@ class SumLayer():
                     DataModel(tmp_dataModels[i]['dataModelName'],
                               tmp_dataModels[i]['tableSchemas'])
 
-            log.info("Loaded schema for data model: " +
-                     tmp_dataModels[i]['dataModelName'])
+            log.debug("Loaded schema for data model: " +
+                      tmp_dataModels[i]['dataModelName'])
 
     def dropPhysicalDataModel(self):
 
@@ -1111,20 +1278,20 @@ class SumLayer():
                 conf.TRG_DB_CONN.commit()
                 pass
 
-        log.info("Dropped " + str(counter) + ' tables')
+        log.debug("Dropped " + str(counter) + ' tables')
 
     def rebuildPhsyicalDataModel(self):
 
-        log.info("START (SUM)")
+        log.debug("START (SUM)")
 
         # First, we need to drop every staging table  - we
         # are clearing out and starting again
-        log.info("Dropping all SUM tables")
+        log.debug("Dropping all SUM tables")
         self.dropPhysicalDataModel()
 
         # Then create the tables
 
-        log.info("Recreating all SUM tables")
+        log.debug("Recreating all SUM tables")
         createStatements = self.getSqlCreateStatements()
 
         trgDbCursor = conf.TRG_DB_CONN.cursor()
@@ -1139,7 +1306,7 @@ class SumLayer():
                 pprint.pprint(e)
                 pass
 
-        log.info("Created " + str(counter) + ' tables')
+        log.debug("Created " + str(counter) + ' tables')
 
     def getSqlCreateStatements(self):
         log.debug("START")

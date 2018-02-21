@@ -25,7 +25,7 @@ def defaultExtract():
             # than using the default. These will have been passed in, so if
             # this table is one of them let's skip
             if tableName in srcTablesToExclude:
-                log.info("Skipping default extract for " + tableName)
+                log.debug("Skipping default extract for " + tableName)
                 continue
 
             tableShortName = schemas.SRC_LAYER.dataModels[dataModelId]        \
@@ -76,10 +76,6 @@ def defaultExtract():
                                  + srcSysType
                                  + '> connection type not supported')
 
-            log.info('Extracted ' + str(srcDF.shape)
-                     + ' from source system ' + dataModelId
-                     + ', table = ' + tableShortName)
-
             if conf.BULK_OR_DELTA == 'BULK':
 
                 srcDF =                                                       \
@@ -89,13 +85,9 @@ def defaultExtract():
 
                 # Bulk write the SRC table
                 time = str(datetime.time(datetime.now()))
-                log.info('bulk writing ' + tableName
-                         + ' to SRC (start: ' + time + ')')
                 utils.writeToCsv(srcDF, tableName)
 
                 time = str(datetime.time(datetime.now()))
-                log.info(tableName
-                         + ' written to SRC (end: ' + time + ')')
 
             elif conf.BULK_OR_DELTA == 'DELTA':
 
@@ -150,9 +142,6 @@ def defaultExtract():
                 # Apply inserts, to DB and DF
                 if not insertsDF.empty:
                     time = str(datetime.time(datetime.now()))
-                    log.info('Applying ' + str(insertsDF.shape)
-                             + ' inserts to ' + tableName
-                             + ' (start: ' + time + ')')
                     insertsDF =                                               \
                         utils.setAuditCols(df=insertsDF,
                                            sourceSystemId=dataModelId,
@@ -162,11 +151,8 @@ def defaultExtract():
                     stgDF = stgDF.append(insertsDF, ignore_index=True,
                                          verify_integrity=True)
                     time = str(datetime.time(datetime.now()))
-                    log.info('Inserts applied ' + str(insertsDF.shape)
-                             + ' inserts to ' + tableName
-                             + ' (end: ' + time + ')')
                 else:
-                    log.info('No inserts found for ' + tableName)
+                    pass
 
                 ###########
                 # DELETES #
@@ -181,8 +167,6 @@ def defaultExtract():
                 # Apply deletes, to DB and DF
                 if not deletesDF.empty:
                     time = str(datetime.time(datetime.now()))
-                    log.info('Applying ' + str(deletesDF.shape) + ' deletes to'
-                             + ' ' + tableName + ' (start: ' + time + ')')
                     deletesDF = utils.setAuditCols(df=deletesDF,
                                                    sourceSystemId=dataModelId,
                                                    action='DELETE')
@@ -204,11 +188,10 @@ def defaultExtract():
                                             + nkWhereClause)
                     conf.ETL_DB_CONN.commit()
                     time = str(datetime.time(datetime.now()))
-                    log.info('Deletes applied (end: ' + time + ')')
                     stgDF = pd.concat([stgDF, deletesDF])                 \
                         .drop_duplicates(keep=False)
                 else:
-                    log.info('No deletes found for ' + tableName)
+                    pass
 
                 ###########
                 # UPDATES #
@@ -239,8 +222,6 @@ def defaultExtract():
                 # Apply updates, to DB and DF
                 if not updatesDF.empty:
                     time = str(datetime.time(datetime.now()))
-                    log.info('Applying ' + str(updatesDF.shape) + ' updates to'
-                             + ' ' + tableName + ' (start: ' + time + ')')
                     updatesDF = utils.setAuditCols(df=updatesDF,
                                                    sourceSystemId=dataModelId,
                                                    action='UPDATE')
@@ -280,6 +261,5 @@ def defaultExtract():
                                             + nkWhereClause)
                     conf.ETL_DB_CONN.commit()
                     time = str(datetime.time(datetime.now()))
-                    log.info('Updates applied (end: ' + time + ')')
                 else:
-                    log.info('No updates found for ' + tableName)
+                    pass
