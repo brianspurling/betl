@@ -1,10 +1,4 @@
-from . import logger
-from . import schemas
-from . import conf
-from . import utilities as utils
-import pandas as pd
-
-log = logger.setUpLogger('EXTRCT', __name__)
+from . import api
 
 
 #
@@ -14,34 +8,91 @@ log = logger.setUpLogger('EXTRCT', __name__)
 # called dm_a_dimension.csv. If that isn't the case, pass in to
 # nonDefaultStagingTables a key,value pair of <dimension name>,<staging csv>
 #
-def defaultLoad():
+def defaultLoad(scheduler):
+
+    trgLayer = scheduler.logicalDataModels['TRG']
 
     # If it's a bulk load, clear out all the target tables (which also
-    # restarts the PK sequences
-    if conf.BULK_OR_DELTA == 'BULK':
-        schemas.TRG_LAYER.truncatePhysicalDataModel(
-            truncDims=conf.RUN_DM_LOAD,
-            truncFacts=conf.RUN_FT_LOAD)
+    # restarts the SK sequences
+    if scheduler.bulkOrDelta == 'BULK':
 
-    schemas.TRG_LAYER.load()
+        trgLayer.truncatePhysicalDataModel(
+            truncDims=scheduler.conf.exe.RUN_DM_LOAD,
+            truncFacts=scheduler.conf.exe.RUN_FT_LOAD)
+
+    # We must load the dimensions before the facts!
+    loadSequence = []
+    if (scheduler.conf.exe.RUN_DM_LOAD):
+        loadSequence.append('DIMENSION')
+    if (scheduler.conf.exe.RUN_FT_LOAD):
+        loadSequence.append('FACT')
+
+    trgTables = trgLayer.dataModels['TRG'].tables
+    nonDefaultStagingTables = \
+        scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+
+    for tableType in loadSequence:
+        for tableName in trgTables:
+            if (trgTables[tableName].getTableType() == tableType):
+                if tableName not in nonDefaultStagingTables:
+                    loadTable(table=trgTables[tableName],
+                              bulkOrDelta=scheduler.bulkOrDelta)
 
 
-def deltaLoadTable(tableName):
+def loadTable(table, bulkOrDelta):
 
-    raise ValueError('DELTA load functions not yet written')
+    tableType = table.getTableType()
+
+    if bulkOrDelta == 'BULK' and tableType == 'DIMENSION':
+        bulkLoadDimension(table=table)
+    elif bulkOrDelta == 'BULK' and tableType == 'FACT':
+        bulkLoadFact(table=table)
+    elif bulkOrDelta == 'BULK' and tableType == 'DIMENSION':
+        bulkLoadDimension(table=table)
+    elif bulkOrDelta == 'DELTA' and tableType == 'FACT':
+        deltaLoadFact(table=table)
 
 
-def loadDMDate():
+def bulkLoadDimension(table):
 
-    # to do #22
-    # to do #57
-    df = utils.readFromCsv('trg_dm_date')
-    # TODO: because I read from csv as text, and because
-    # there's no schema for dm_date, I'm getting text IDs etc
-    # There's more than just the ID to change, but that's all i needed
-    # to test the star joins. Integrating delta loads might sort this out
-    # anyway
-    df['date_id'] = pd.to_numeric(df.date_id, errors='coerce')
-    utils.writeToTrgDB(df, 'dm_date', if_exists='replace')
-    utils.retrieveSksFromDimension('dm_date', ['dateYYYYMMDD'], 'date_id')
+    # We assume that the final step in the TRANSFORM stage created a
+    # csv file trg_<tableName>.csv
+    # TODO: put in a decent feedback to developer if they didn't create
+    # the right table. Start by raising custom error inside readDataFromCsv
+    df = api.readDataFromCsv('trg_' + table.tableName)
+
+    # We can append rows, because, as we're running a bulk load, we will
+    # have just cleared out the TRG model and created. This way, append
+    # guarantees we error if we don't load all the required columns
+    api.writeDataToTrgDB(df, table.tableName, if_exists='append')
+
     del df
+
+    # We will need the SKs we just created to write the facts later, so
+    # pull the sk/nks back out (this func writes them to a csv file)
+    api.getSKMapping(table.tableName,
+                     table.colNames_NKs,
+                     table.surrogateKeyColName)
+
+
+def bulkLoadFact(table):
+    df_ft = api.readDataFromCsv('trg_' + table.tableName)
+    for column in table.columns:
+        if column.isFK:
+            df_ft = api.mergeFactWithSks(df_ft, column)
+
+    # Order the df's columns - the df doesn't hold the SK
+    df_ft = df_ft[table.colNames_withoutSK]
+
+    # We can append rows, because, as we're running a bulk load, we will
+    # have just cleared out the TRG model and created. This way, append
+    # guarantees we error if we don't load all the required columns
+    api.writeDataToTrgDB(df_ft, table.tableName, if_exists='append')
+
+
+def deltaLoadDimension(self):
+    raise ValueError("Code not yet written for delta dimension loads")
+
+
+def deltaLoadFact(self):
+    raise ValueError("Code not yet written for delta fact loads")

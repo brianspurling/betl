@@ -1,18 +1,17 @@
-from .conf import EARLIEST_DATE_IN_DATA
-from .conf import LATEST_DATE_IN_DATA
-from . import utilities as utils
-
-from datetime import date, timedelta
 import pandas as pd
+from datetime import date, timedelta
+
+# from . import logger
+from . import api
 
 
-def generateDMDate():
+def transformDMDate(scheduler):
 
     # to do #9
     # TODO # 51
 
-    startDate = EARLIEST_DATE_IN_DATA
-    endDate = LATEST_DATE_IN_DATA
+    startDate = scheduler.conf.state.EARLIEST_DATE_IN_DATA
+    endDate = scheduler.conf.state.LATEST_DATE_IN_DATA
 
     dmDateList = []
     while startDate <= endDate:
@@ -37,6 +36,24 @@ def generateDMDate():
 
     df = pd.DataFrame(dmDateList)
 
-    utils.writeToCsv(df, 'trg_dm_date')
+    api.writeDataToCsv(df, 'trg_dm_date')
 
+    del df
+
+
+def loadDMDate(scheduler):
+
+    # devLog = logger.getDevLog(__name__)
+
+    # to do #22
+    # to do #57
+    df = api.readDataFromCsv('trg_dm_date')
+    # TODO: because I read from csv as text, and because
+    # there's no schema for dm_date, I'm getting text IDs etc
+    # There's more than just the ID to change, but that's all i needed
+    # to test the star joins. Integrating delta loads might sort this out
+    # anyway
+    df['date_id'] = pd.to_numeric(df.date_id, errors='coerce')
+    api.writeDataToTrgDB(df, 'dm_date', if_exists='replace')
+    api.getSKMapping('dm_date', ['dateYYYYMMDD'], 'date_id')
     del df

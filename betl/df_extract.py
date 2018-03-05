@@ -1,95 +1,52 @@
-from . import utilities as utils
-from . import logger
-from . import schemas
-from . import conf
+from . import logger as logger
 import pandas as pd
-from datetime import datetime
-
-log = logger.setUpLogger('EXTRCT', __name__)
+from . import api  # d TODO as betl?
 
 
 #
 # A default extraction process. Bulk is obvious and as you would expect
 # Delta does full-table comparisons to identify deltas
 #
-def defaultExtract():
+def defaultExtract(scheduler):
+
+    devLog = logger.getDevLog(__name__)
 
     # to do #9
-    srcTablesToExclude = conf.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT
+    srcTablesToExclude = scheduler.srcTablesToExcludeFromExtract
+    srcLayer = scheduler.logicalDataModels['SRC']
 
-    log.debug("START")
+    devLog.info("START")
 
-    for dataModelId in schemas.SRC_LAYER.dataModels:
-        for tableName in schemas.SRC_LAYER.dataModels[dataModelId].tables:
+    for dmID in srcLayer.dataModels:
+        for tableName in srcLayer.dataModels[dmID].tables:
             # The app might want to take care of some tables itself, rather
             # than using the default. These will have been passed in, so if
             # this table is one of them let's skip
             if tableName in srcTablesToExclude:
-                log.debug("Skipping default extract for " + tableName)
+                devLog.info("Skipping default extract for " + tableName)
                 continue
 
-            tableShortName = schemas.SRC_LAYER.dataModels[dataModelId]        \
-                .tables[tableName].tableShortName
+            colNameList = \
+                srcLayer.dataModels[dmID].tables[tableName].colNames
+            nkList = \
+                srcLayer.dataModels[dmID].tables[tableName].colNames_NKs
+            nonNkList = \
+                srcLayer.dataModels[dmID].tables[tableName].colNames_withoutNKs
+            srcDF = scheduler.dataIO.readDataFromSrcSys(
+                srcSysID=dmID,
+                file_name_or_table_name=tableName)
 
-            colNameList = schemas.SRC_LAYER.dataModels[dataModelId]           \
-                .tables[tableName].colNameList
-            colNameList = schemas.SRC_LAYER                                   \
-                .dataModels[dataModelId]                                      \
-                .tables[tableName]                                            \
-                .colNameList
-            nkList = schemas.SRC_LAYER.dataModels[dataModelId]                \
-                .tables[tableName].nkList
-            nonNkList = schemas.SRC_LAYER.dataModels[dataModelId]             \
-                .tables[tableName].nonNkList
-
-            # This is what we're going to read our data into
-            srcDF = pd.DataFrame()
-
-            srcSysType = schemas.SRC_LAYER.srcSystemConns[dataModelId].type
-            if srcSysType == 'POSTGRES':
-                srcConn = schemas.SRC_LAYER.srcSystemConns[dataModelId].conn
-                srcDF = utils.readFromSrcDB(
-                    tableShortName,
-                    srcConn,
-                    dataModelId)
-
-            elif srcSysType == 'FILESYSTEM':
-                fullTableName = tableShortName + '.csv',
-                srcDF = utils.readFromCsv(
-                    file_or_filename=fullTableName,
-                    pathOverride=True,
-                    sep=schemas.SRC_LAYER
-                    .srcSystemConns[dataModelId]
-                    .files[tableShortName]['delimiter'],
-                    quotechar=schemas.SRC_LAYER
-                    .srcSystemConns[dataModelId]
-                    .files[tableShortName]['quotechar'])
-
-            elif srcSysType == 'SPREADSHEET':
-                data = schemas.SRC_LAYER                                      \
-                    .srcSystemConns[dataModelId]                              \
-                    .worksheets[tableName].get_all_values()
-                srcDF = pd.DataFrame(data[3:], columns=data[0])
-
-            else:
-                raise ValueError('Extract for source systems type <'
-                                 + srcSysType
-                                 + '> connection type not supported')
-
-            if conf.BULK_OR_DELTA == 'BULK':
+            if scheduler.bulkOrDelta == 'BULK':
 
                 srcDF =                                                       \
-                    utils.setAuditCols(df=srcDF,
-                                       sourceSystemId=dataModelId,
-                                       action='BULK')
+                    api.setAuditCols(df=srcDF,
+                                     srcSysID=dmID,
+                                     action='BULK')
 
                 # Bulk write the SRC table
-                time = str(datetime.time(datetime.now()))
-                utils.writeToCsv(srcDF, tableName)
+                api.writeDataToCsv(srcDF, tableName)
 
-                time = str(datetime.time(datetime.now()))
-
-            elif conf.BULK_OR_DELTA == 'DELTA':
+            elif scheduler.bulkOrDelta == 'DELTA':
 
                 if len(nkList) == 0:
                     raise ValueError(tableName + ' does not have a natural ' +
@@ -108,7 +65,7 @@ def defaultExtract():
                 updatecolNameList = []
                 deletecolNameList = []
 
-                columns = schemas.SRC_LAYER.dataModels[dataModelId]     \
+                columns = srcLayer.dataModels[dmID]     \
                     .tables[tableName].columns
 
                 for column in columns:
@@ -124,7 +81,7 @@ def defaultExtract():
                         updatecolNameList.append(column.columnName)
                         deletecolNameList.append(column.columnName + '_stg')
 
-                stgDF = utils.readFromEtlDB(tableName)
+                stgDF = api.readDataFromEtlDB(tableName)
 
                 deltaDF = pd.merge(left=srcDF, right=stgDF, how='outer',
                                    suffixes=('_src', '_stg'), on=nkList,
@@ -141,16 +98,14 @@ def defaultExtract():
 
                 # Apply inserts, to DB and DF
                 if not insertsDF.empty:
-                    time = str(datetime.time(datetime.now()))
                     insertsDF =                                               \
-                        utils.setAuditCols(df=insertsDF,
-                                           sourceSystemId=dataModelId,
-                                           action='INSERT')
-                    csvFile = utils.openFileForAppend(tableName)
-                    utils.writeToCsv(insertsDF, csvFile)
+                        scheduler.dataIO.setAuditCols(df=insertsDF,
+                                                      sourceSystemId=dmID,
+                                                      action='INSERT')
+                    # TODO Check this logic
+                    api.writeDataToCsv(insertsDF, tableName, 'a')
                     stgDF = stgDF.append(insertsDF, ignore_index=True,
                                          verify_integrity=True)
-                    time = str(datetime.time(datetime.now()))
                 else:
                     pass
 
@@ -166,11 +121,13 @@ def defaultExtract():
 
                 # Apply deletes, to DB and DF
                 if not deletesDF.empty:
-                    time = str(datetime.time(datetime.now()))
-                    deletesDF = utils.setAuditCols(df=deletesDF,
-                                                   sourceSystemId=dataModelId,
-                                                   action='DELETE')
-                    etlDbCursor = conf.ETL_DB_CONN.cursor()
+                    deletesDF = scheduler.dataIO.setAuditCols(
+                        df=deletesDF,
+                        sourceSystemId=dmID,
+                        action='DELETE')
+                    # TODO can't fix this now, but  think it should
+                    # be pushed into the schemas, which have the db conn
+                    etlDbCursor = scheduler.dataIO.ETL_DB_CONN.cursor()
                     for index, row in deletesDF.iterrows():
 
                         nkWhereClause = 'WHERE'
@@ -186,8 +143,7 @@ def defaultExtract():
 
                         etlDbCursor.execute("DELETE FROM src_ipa_addresses "
                                             + nkWhereClause)
-                    conf.ETL_DB_CONN.commit()
-                    time = str(datetime.time(datetime.now()))
+                    scheduler.dataIO.ETL_DB_CONN.commit()
                     stgDF = pd.concat([stgDF, deletesDF])                 \
                         .drop_duplicates(keep=False)
                 else:
@@ -221,11 +177,10 @@ def defaultExtract():
 
                 # Apply updates, to DB and DF
                 if not updatesDF.empty:
-                    time = str(datetime.time(datetime.now()))
-                    updatesDF = utils.setAuditCols(df=updatesDF,
-                                                   sourceSystemId=dataModelId,
-                                                   action='UPDATE')
-                    etlDbCursor = conf.ETL_DB_CONN.cursor()
+                    updatesDF = api.setAuditCols(df=updatesDF,
+                                                 sourceSystemId=dmID,
+                                                 action='UPDATE')
+                    etlDbCursor = scheduler.conf.ETL_DB_CONN.cursor()
                     for index, row in updatesDF.iterrows():
 
                         nkWhereClause = 'WHERE'
@@ -259,7 +214,6 @@ def defaultExtract():
                         etlDbCursor.execute("UPDATE src_ipa_addresses "
                                             + nonNkSetClause + " "
                                             + nkWhereClause)
-                    conf.ETL_DB_CONN.commit()
-                    time = str(datetime.time(datetime.now()))
+                    scheduler.conf.app.DWH_DATABASES['ETL'].commit()
                 else:
                     pass

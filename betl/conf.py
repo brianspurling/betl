@@ -1,122 +1,155 @@
-import logging as logging
 import datetime
-import os
+from configobj import ConfigObj
+from .datastore import PostgresDatastore
+from .datastore import SpreadsheetDatastore
+from .datastore import FileDatastore
 
-# Global variables
-BULK_OR_DELTA = None
-LOG_LEVEL = logging.INFO
 
 #
-# App-specific settings, assigned by the calling application
+# The ExeConf object holds our runtime configuration
+# and (for the time being) our global state
 #
+class Conf():
 
-# General
-DWH_ID = None
-TMP_DATA_PATH = None
-STAGE = None  # Tells us whether we're on Extract, Transform or Load
-LOG_PATH = None
+    def __init__(self, appConfigFile, runTimeParams, scheduleConfig):
 
-# Connection details
-CTL_DB_CONN_DETAILS = None
-ETL_DB_CONN_DETAILS = None
-TRG_DB_CONN_DETAILS = None
-SOURCE_SYSTEM_CONNS = None
-
-# Google Sheets API
-GOOGLE_SHEETS_API_URL = None
-GOOGLE_SHEETS_API_KEY_FILE = None
-
-ETL_DB_SCHEMA_FILE_NAME = None  # ETL database schema spreadsheet
-TRG_DB_SCHEMA_FILE_NAME = None  # TRG database schema spreadsheet
-MSD_FILE_NAME = None  # Manual source data spreadsheet
-
-# Connection objects (these are set by functions in utils, called by control)
-
-# Spreadsheets
-ETL_DB_SCHEMA_CONN = None
-TRG_DB_SCHEMA_CONN = None
-MSD_CONN = None  # Manual source data spreadsheet
-
-# Databases
-CTL_DB_CONN = None
-ETL_DB_CONN = None
-ETL_DB_ENG = None
-TRG_DB_CONN = None
-TRG_DB_ENG = None
-
-# Job execution parameters
-SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT = []
-TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD = {}
-TMP_FILE_SUBDIR_MAPPING = {}
-RUN_DM_LOAD = True
-RUN_FT_LOAD = True
-
-# These dictate the start/end dates of dm_date. They can be overridden at
-# any point in the application's ETL process, providing the generateDMDate
-# function is added to the schedule _after_ the functions in which they're set
-EARLIEST_DATE_IN_DATA = datetime.date(1900, 1, 1)
-LATEST_DATE_IN_DATA = datetime.date.today() + datetime.timedelta(days=365)
+        self.app = App(ConfigObj(appConfigFile))
+        self.exe = Exe(runTimeParams)
+        self.state = State()
+        self.schedule = Schedule(scheduleConfig)
 
 
-def loadAppConfig(appConf):
-    global DWH_ID
+class App():
 
-    global CTL_DB_CONN_DETAILS
-    global ETL_DB_CONN_DETAILS
-    global TRG_DB_CONN_DETAILS
-    global SOURCE_SYSTEM_CONNS
+    def __init__(self, configObj):
 
-    global GOOGLE_SHEETS_API_URL
-    global GOOGLE_SHEETS_API_KEY_FILE
-    global ETL_DB_SCHEMA_FILE_NAME
-    global TRG_DB_SCHEMA_FILE_NAME
-    global MSD_FILE_NAME
+        self.DWH_ID = configObj['DWH_ID']
+        self.TMP_DATA_PATH = configObj['TMP_DATA_PATH']
+        self.LOG_PATH = configObj['LOG_PATH']
 
-    global TMP_DATA_PATH
-    global LOG_PATH
+        apiUrl = configObj['schema_descriptions']['GOOGLE_SHEETS_API_URL']
+        apiKey = configObj['schema_descriptions']['GOOGLE_SHEETS_API_KEY_FILE']
 
-    DWH_ID = appConf['DWH_ID']
+        self.SCHEMA_DESCRIPTION_GSHEETS = {}
+        self.SCHEMA_DESCRIPTION_GSHEETS['ETL'] = \
+            SpreadsheetDatastore(
+                ssID='ETL',
+                apiUrl=apiUrl,
+                apiKey=apiKey,
+                filename=configObj['schema_descriptions']['ETL_FILENAME'])
+        self.SCHEMA_DESCRIPTION_GSHEETS['TRG'] = \
+            SpreadsheetDatastore(
+                ssID='TRG',
+                apiUrl=apiUrl,
+                apiKey=apiKey,
+                filename=configObj['schema_descriptions']['TRG_FILENAME'])
 
-    CTL_DB_CONN_DETAILS = appConf['CTL_DB_CONN']
-    ETL_DB_CONN_DETAILS = appConf['ETL_DB_CONN']
-    TRG_DB_CONN_DETAILS = appConf['TRG_DB_CONN']
-    SOURCE_SYSTEM_CONNS = appConf['SOURCE_SYSTEM_CONNS']
+        self.DWH_DATABASES = {}
+        for dbID in configObj['dbs']:
+            dbConfigObj = configObj['dbs'][dbID]
+            self.DWH_DATABASES[dbID] = \
+                PostgresDatastore(
+                    dbID=dbID,
+                    host=dbConfigObj['HOST'],
+                    dbName=dbConfigObj['DBNAME'],
+                    user=dbConfigObj['USER'],
+                    password=dbConfigObj['PASSWORD'])
 
-    GOOGLE_SHEETS_API_URL = appConf['GOOGLE_SHEETS_API_URL']
-    GOOGLE_SHEETS_API_KEY_FILE = appConf['GOOGLE_SHEETS_API_KEY_FILE']
+        self.SRC_SYSTEMS = {}
+        for srcSysID in configObj['src_sys']:
 
-    ETL_DB_SCHEMA_FILE_NAME = appConf['ETL_DB_SCHEMA_FILE_NAME']
-    TRG_DB_SCHEMA_FILE_NAME = appConf['TRG_DB_SCHEMA_FILE_NAME']
-    MSD_FILE_NAME = appConf['MSD_FILE_NAME']
+            cnfgObj = configObj['src_sys'][srcSysID]
 
-    TMP_DATA_PATH = appConf['TMP_DATA_PATH']
-    LOG_PATH = appConf['LOG_PATH']
+            if cnfgObj['TYPE'] == 'POSTGRES':
+                self.SRC_SYSTEMS[srcSysID] = \
+                    PostgresDatastore(
+                        dbID=srcSysID,
+                        host=cnfgObj['HOST'],
+                        dbName=cnfgObj['DBNAME'],
+                        user=cnfgObj['USER'],
+                        password=cnfgObj['PASSWORD'])
+
+            elif cnfgObj['TYPE'] == 'FILESYSTEM':
+                self.SRC_SYSTEMS[srcSysID] = \
+                    FileDatastore(
+                        fileSysID=srcSysID,
+                        path=cnfgObj['PATH'],
+                        fileExt=cnfgObj['FILE_EXT'],
+                        delim=cnfgObj['DELIMITER'],
+                        quotechar=cnfgObj['QUOTECHAR'])
+
+            elif cnfgObj['TYPE'] == 'SPREADSHEET':
+                apiUrl = cnfgObj['GOOGLE_SHEETS_API_URL']
+                apiKey = cnfgObj['GOOGLE_SHEETS_API_KEY_FILE']
+                self.SRC_SYSTEMS[srcSysID] = \
+                    SpreadsheetDatastore(
+                        ssID=srcSysID,
+                        apiUrl=apiUrl,
+                        apiKey=apiKey,
+                        filename=cnfgObj['FILENAME'])
 
 
-def setEarliestDate(earliestDate):
-    global EARLIEST_DATE_IN_DATA
-    EARLIEST_DATE_IN_DATA = earliestDate
+class Exe():
+
+    def __init__(self, params):
+
+        self.LOG_LEVEL = params['LOG_LEVEL']
+
+        self.SKIP_WARNINGS = params['SKIP_WARNINGS']
+
+        self.BULK_OR_DELTA = params['BULK_OR_DELTA']
+
+        self.RUN_SETUP = params['RUN_SETUP']
+
+        self.RUN_REBUILD_ALL = params['RUN_REBUILD_ALL']
+        self.RUN_REBUILD_SRC = params['RUN_REBUILD_SRC']
+        self.RUN_REBUILD_STG = params['RUN_REBUILD_STG']
+        self.RUN_REBUILD_TRG = params['RUN_REBUILD_TRG']
+        self.RUN_REBUILD_SUM = params['RUN_REBUILD_SUM']
+
+        self.RUN_EXTRACT = params['RUN_EXTRACT']
+        self.RUN_TRANSFORM = params['RUN_TRANSFORM']
+        self.RUN_LOAD = params['RUN_LOAD']
+        self.RUN_DM_LOAD = params['RUN_DM_LOAD']
+        self.RUN_FT_LOAD = params['RUN_FT_LOAD']
+
+        self.DELETE_TMP_DATA = params['DELETE_TMP_DATA']
+
+        self.RUN_DATAFLOWS = params['RUN_DATAFLOWS']
 
 
-def setLatestDate(latestDate):
-    global LATEST_DATE_IN_DATA
-    LATEST_DATE_IN_DATA = latestDate
+class State():
+
+    def __init__(self):
+        self.EXEC_ID = None
+        self.RERUN_PREV_JOB = False
+        self.STAGE = None  # Global state for which stage (E,T,L) we're on
+
+        # These dictate the start/end dates of dm_date. They can be overridden
+        # at any point in the application's ETL process, providing the
+        # generateDMDate function is added to the schedule _after_ the
+        # functions in which they're set
+        self.EARLIEST_DATE_IN_DATA = datetime.date(1900, 1, 1)
+        self.LATEST_DATE_IN_DATA = (datetime.date.today() +
+                                    datetime.timedelta(days=365))
+
+    def setStage(self, stage):
+        self.STAGE = stage
+
+    def setExecID(self, execID):
+        self.EXEC_ID = execID
 
 
-def getEtlDBEng():
-    global ETL_DB_ENG
-    return ETL_DB_ENG
+class Schedule():
 
-
-def isBulkOrDelta():
-    global BULK_OR_DELTA
-    return BULK_OR_DELTA
-
-
-def rebuildTmeFileSubdirMapping():
-    global TMP_FILE_SUBDIR_MAPPING
-    global TMP_DATA_PATH
-    for path, subdirs, files in os.walk(TMP_DATA_PATH):
-        for name in files:
-            TMP_FILE_SUBDIR_MAPPING[name.replace('.csv', '')] = path.replace(
-                TMP_DATA_PATH, '')
+    def __init__(self, scheduleConfig):
+        self.DEFAULT_EXTRACT = scheduleConfig['DEFAULT_EXTRACT']
+        self.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT = \
+            scheduleConfig['SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT']
+        self.DEFAULT_LOAD = scheduleConfig['DEFAULT_LOAD']
+        self.DEFAULT_DM_DATE = scheduleConfig['DEFAULT_DM_DATE']
+        self.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD = \
+            scheduleConfig['TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD']
+        self.EXTRACT_DFS = scheduleConfig['EXTRACT_DFS']
+        self.TRANSFORM_DFS = scheduleConfig['TRANSFORM_DFS']
+        self.LOAD_DFS = scheduleConfig['LOAD_DFS']
