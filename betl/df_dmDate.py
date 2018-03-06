@@ -7,6 +7,9 @@ from . import api
 
 def getSchemaDescription():
 
+    # TODO: Surely some should be date types?! Don't forget to fis default
+    # rows too
+
     # This schema description reflects the same meta data structure that
     # we find in the schema spreadsheets.
     tableSchema = {
@@ -84,6 +87,36 @@ def transformDMDate(scheduler):
         dmDateList.append(dateInfo)
 
         startDate = startDate + timedelta(1)
+
+    dateInfo = {'date_id': -1,
+                'date_yyyymmdd': None,
+                'cal_date': 'MISSING',
+                'cal_day': None,
+                'cal_month': None,
+                'cal_year': None,
+                'day_of_week_sunday_0_monday_1': None,
+                'day_of_week_sunday_1_monday_2': None,
+                'day_of_week_sunday_6_monday_0': None,
+                'day_of_week_sunday_7_monday_1': None,
+                'day_number': None,
+                'week_number': None}
+
+    dmDateList.append(dateInfo)
+
+    dateInfo = {'date_id': -2,
+                'date_yyyymmdd': None,
+                'cal_date': 'UNRECOGNISED',
+                'cal_day': None,
+                'cal_month': None,
+                'cal_year': None,
+                'day_of_week_sunday_0_monday_1': None,
+                'day_of_week_sunday_1_monday_2': None,
+                'day_of_week_sunday_6_monday_0': None,
+                'day_of_week_sunday_7_monday_1': None,
+                'day_number': None,
+                'week_number': None}
+
+    dmDateList.append(dateInfo)
 
     df = pd.DataFrame(dmDateList)
 

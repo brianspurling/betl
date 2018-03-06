@@ -370,8 +370,15 @@ class DataIO():
 
         self.jobLog.info(logger.logStepStart(
             'Merging SK with fact for column ' + col.columnName))
-        print(df.shape)
+
         df_merged = pd.merge(df, df_sk, on=nkColName, how='left')
+        self.jobLog.info(logger.logStepEnd(df_merged))
+
+        self.jobLog.info(logger.logStepStart(
+            'Assigning all missing rows to default -1 row'))
+
+        df_merged.loc[df_merged[col.columnName] is None, col.columnName] = -1
+
         self.jobLog.info(logger.logStepEnd(df_merged))
 
         self.jobLog.info(logger.logStepStart(

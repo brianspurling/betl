@@ -1,5 +1,7 @@
 from . import api
 from . import logger
+import pandas as pd
+import numpy as np
 
 JOB_LOG = logger.getJobLog()
 
@@ -30,6 +32,17 @@ def defaultLoad(scheduler):
                     logger.logStepStart('Dropping indexes for ' + tableName))
                 trgTables[tableName].dropIndexes()
 
+    # We'll need the default rows for a bulk load, so let's just hit the
+    # spreadsheet once
+    defaultRows = {}
+    if scheduler.bulkOrDelta == 'BULK':
+        worksheets = scheduler.conf.app.DEFAULT_ROW_SRC.worksheets
+        # Our defaultRows SS should contain a tab per dimension, each with 1+
+        # default rows defined. IDs are defined too - should all be negative
+        for wsTitle in worksheets:
+            # The worksheet name should be the table name
+            defaultRows[wsTitle] = worksheets[wsTitle].get_all_records()
+
     # We must load the dimensions before the facts!
     loadSequence = []
     if (scheduler.conf.exe.RUN_DM_LOAD):
@@ -42,24 +55,26 @@ def defaultLoad(scheduler):
             if (trgTables[tableName].getTableType() == tableType):
                 if tableName not in nonDefaultStagingTables:
                     loadTable(table=trgTables[tableName],
-                              bulkOrDelta=scheduler.bulkOrDelta)
+                              bulkOrDelta=scheduler.bulkOrDelta,
+                              defaultRows=defaultRows,
+                              dataIO=scheduler.dataIO)
 
 
-def loadTable(table, bulkOrDelta):
+def loadTable(table, bulkOrDelta, defaultRows, dataIO):
 
     tableType = table.getTableType()
 
     if bulkOrDelta == 'BULK' and tableType == 'DIMENSION':
-        bulkLoadDimension(table=table)
+        bulkLoadDimension(table=table, defaultRows=defaultRows, dataIO=dataIO)
     elif bulkOrDelta == 'BULK' and tableType == 'FACT':
         bulkLoadFact(table=table)
-    elif bulkOrDelta == 'BULK' and tableType == 'DIMENSION':
+    elif bulkOrDelta == 'DELTA' and tableType == 'DIMENSION':
         bulkLoadDimension(table=table)
     elif bulkOrDelta == 'DELTA' and tableType == 'FACT':
         deltaLoadFact(table=table)
 
 
-def bulkLoadDimension(table):
+def bulkLoadDimension(table, defaultRows, dataIO):
 
     # We assume that the final step in the TRANSFORM stage created a
     # csv file trg_<tableName>.csv
@@ -83,6 +98,23 @@ def bulkLoadDimension(table):
 
     del df
 
+    # Add the default rows
+    JOB_LOG.info(
+        logger.logStepStart('Generating default rows for ' + table.tableName))
+
+    # The app does not have to specify default rows if it doesn't want to
+    if table.tableName in defaultRows:
+        df = pd.DataFrame.from_dict(defaultRows[table.tableName])
+        # blank values in the spreadsheet come through as empty strings, but
+        # should be NULL in the DB
+        df.replace(r'^\s*$', np.nan, regex=True, inplace=True)
+
+        JOB_LOG.info(logger.logStepEnd(df))
+
+        dataIO.writeDataToTrgDB(df=df,
+                                tableName=table.tableName,
+                                if_exists='append')
+
     # We will need the SKs we just created to write the facts later, so
     # pull the sk/nks back out (this func writes them to a csv file)
     api.getSKMapping(table.tableName,
@@ -104,6 +136,11 @@ def bulkLoadFact(table):
         logger.logStepStart('Dropping indexes for ' + table.tableName))
     table.dropIndexes()
 
+    # Because it's a bulk load, clear out the data (which also
+    # restarts the SK sequences). Note, the indexes have already been
+    # removed
+    table.truncateTable()
+    
     # We can append rows, because, as we're running a bulk load, we will
     # have just cleared out the TRG model and created. This way, append
     # guarantees we error if we don't load all the required columns

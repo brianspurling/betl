@@ -55,6 +55,13 @@ class App():
                     user=dbConfigObj['USER'],
                     password=dbConfigObj['PASSWORD'])
 
+        self.DEFAULT_ROW_SRC = \
+            SpreadsheetDatastore(
+                ssID='DR',
+                apiUrl=configObj['default_rows']['GOOGLE_SHEETS_API_URL'],
+                apiKey=configObj['default_rows']['GOOGLE_SHEETS_API_KEY_FILE'],
+                filename=configObj['default_rows']['FILENAME'])
+
         self.SRC_SYSTEMS = {}
         for srcSysID in configObj['src_sys']:
 

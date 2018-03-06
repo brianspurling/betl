@@ -6,7 +6,6 @@ from .dataIO import DataIO
 from . scheduler import Scheduler
 from .ctrlDB import CtrlDB
 
-
 CONF = None
 DATA_IO = None
 JOB_LOG = None
