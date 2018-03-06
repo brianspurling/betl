@@ -4,9 +4,10 @@ from . import df_load
 
 class Table():
 
-    def __init__(self, tableSchema):
+    def __init__(self, tableSchema, datastore):
 
         self.tableName = tableSchema['tableName'].lower()
+        self.datastore = datastore
 
         self.columns = []
         self.colNames = []
@@ -58,17 +59,12 @@ class Table():
 
         return tableDropStatement
 
-    def getSqlTruncateStatement(self):
+    def truncateTable(self):
 
-        return 'TRUNCATE ' + self.tableName + ' RESTART IDENTITY'
-
-    def getSqlResetPrimaryKeySequence(self):
-
-        return self.surrogateKeyColumn.getSqlResetPrimaryKeySequence()
-
-    def loadTableToTrgModel(self):
-
-        df_load.loadTable(self)
+        truncateStatement = 'TRUNCATE ' + self.tableName + ' RESTART IDENTITY'
+        trgDbCursor = self.datastore.cursor()
+        trgDbCursor.execute(truncateStatement)
+        self.datastore.commit()
 
     def __str__(self):
 
@@ -79,9 +75,9 @@ class Table():
 
 class TrgTable(Table):
 
-    def __init__(self, tableSchema):
+    def __init__(self, tableSchema, datastore):
 
-        Table.__init__(self, tableSchema)
+        Table.__init__(self, tableSchema, datastore)
 
         self.tableType = ''
         if self.tableName[0:3] == 'ft_':
@@ -105,3 +101,47 @@ class TrgTable(Table):
             tableType = 'SUMMARY'
 
         return tableType
+
+    def dropIndexes(self):
+
+        dropStatements = self.getSqlDropIndexStatements()
+
+        dbCursor = self.datastore.cursor()
+        for dropStatement in dropStatements:
+            dbCursor.execute(dropStatement)
+            self.datastore.commit()
+
+    def createIndexes(self):
+
+        createStatements = self.getSqlCreateIndexStatements()
+
+        dbCursor = self.datastore.cursor()
+        for createStatement in createStatements:
+            dbCursor.execute(createStatement)
+            self.datastore.commit()
+
+    def getSqlResetPrimaryKeySequence(self):
+
+        return self.surrogateKeyColumn.getSqlResetPrimaryKeySequence()
+
+    def getSqlDropIndexStatements(self):
+
+        sqlStatements = []
+        for col in self.columns:
+            if col.isSK or col.isFK:
+                # We must drop a column's foreign key before its index
+                sqlStatements.append(col.getSqlDropForeignKeyStatement())
+                sqlStatements.append(col.getSqlDropIndexStatement())
+
+        return sqlStatements
+
+    def getSqlCreateIndexStatements(self):
+        sqlStatements = []
+        for col in self.columns:
+            if col.isSK or col.isFK:
+                sqlStatements.extend(col.getSqlCreateIndexStatements())
+        return sqlStatements
+
+    def loadTableToTrgModel(self):
+
+        df_load.loadTable(self)

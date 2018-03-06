@@ -1,5 +1,7 @@
 from .dataModel import DataModel
 from .dataModel import SrcDataModel
+from .table import TrgTable
+from . import df_dmDate
 
 
 class DataLayer():
@@ -27,10 +29,11 @@ class DataLayer():
         for dataModelID in dataModelSchemas:
             if self.dataLayerID == 'SRC':
                 dataModels[dataModelID] = \
-                    SrcDataModel(dataModelSchemas[dataModelID], self.conf)
+                    SrcDataModel(dataModelSchemas[dataModelID],
+                                 self.conf, self.datastore)
             else:
                 dataModels[dataModelID] = \
-                    DataModel(dataModelSchemas[dataModelID])
+                    DataModel(dataModelSchemas[dataModelID], self.datastore)
 
         return dataModels
 
@@ -117,19 +120,9 @@ class DataLayer():
             dbCursor.execute(dropStatement)
             self.datastore.commit()
 
-    def truncatePhysicalDataModel(self, truncDims=True, truncFacts=True):
-
-        truncateStatements = self.getSqlTruncateStatements(
-            truncDims=truncDims,
-            truncFacts=truncFacts)
-
-        trgDbCursor = self.datastore.cursor()
-        for truncateStatement in truncateStatements:
-            trgDbCursor.execute(truncateStatement)
-            self.datastore.commit()
-
     def getSqlCreateStatements(self):
         sqlStatements = []
+
         for dataModelID in self.dataModels:
             sqlStatements.extend(
                 self.dataModels[dataModelID].getSqlCreateStatements())
@@ -140,15 +133,6 @@ class DataLayer():
         for dataModelID in self.dataModels:
             sqlStatements.extend(
                 self.dataModels[dataModelID].getSqlDropStatements())
-        return sqlStatements
-
-    def getSqlTruncateStatements(self, truncDims, truncFacts):
-        sqlStatements = []
-        for dataModelID in self.dataModels:
-            sqlStatements.extend(
-                self.dataModels[dataModelID].getSqlTruncateStatements(
-                    truncDims=truncDims,
-                    truncFacts=truncFacts))
         return sqlStatements
 
     def __str__(self):
@@ -188,7 +172,13 @@ class TrgDataLayer(DataLayer):
                            dataLayerID='TRG',
                            conf=conf)
 
+        if conf.schedule.DEFAULT_DM_DATE:
+            self.dataModels['TRG'].tables['dm_date'] = \
+                TrgTable(df_dmDate.getSchemaDescription(),
+                         self.datastore)
+
     def resetSKSequences(self):
+        # TODO at the last check, this wasn't being used
 
         resetStatements = self.getSqlResetSKSequences()
 

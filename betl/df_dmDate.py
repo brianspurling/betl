@@ -5,6 +5,56 @@ from datetime import date, timedelta
 from . import api
 
 
+def getSchemaDescription():
+
+    # This schema description reflects the same meta data structure that
+    # we find in the schema spreadsheets.
+    tableSchema = {
+        'tableName': 'dm_date',
+        'columnSchemas': {}
+    }
+
+    tableSchema['columnSchemas']['date_id'] = {
+        'tableName':   'dm_date',
+        'columnName':  'date_id',
+        'dataType':    'INTEGER',
+        'columnType':  'Surrogate key',
+        'fkDimension': None
+    }
+
+    tableSchema['columnSchemas']['dateYYYYMMDD'] = {
+        'tableName':   'dm_date',
+        'columnName':  'date_yyyymmdd',
+        'dataType':    'INTEGER',
+        'columnType':  'Natural key',
+        'fkDimension': None
+    }
+
+    attrColumns = [
+        'cal_date',
+        'cal_day',
+        'cal_month',
+        'cal_year',
+        'day_of_week_sunday_0_monday_1',
+        'day_of_week_sunday_1_monday_2',
+        'day_of_week_sunday_6_monday_0',
+        'day_of_week_sunday_7_monday_1',
+        'day_number',
+        'week_number']
+
+    for colName in attrColumns:
+
+        tableSchema['columnSchemas'][colName] = {
+            'tableName':   'dm_date',
+            'columnName':  colName,
+            'dataType':    'TEXT',
+            'columnType':  'Attribute',
+            'fkDimension': None
+        }
+
+    return tableSchema
+
+
 def transformDMDate(scheduler):
 
     # to do #9
@@ -17,18 +67,19 @@ def transformDMDate(scheduler):
     while startDate <= endDate:
 
         dateInfo = {'date_id': startDate.strftime('%Y%m%d'),
-                    'dateYYYYMMDD': startDate.strftime('%Y%m%d'),
-                    'calDate': startDate.strftime('%Y-%m-%d'),
-                    'calDay': startDate.day,
-                    'calMonth': startDate.month,
-                    'calYear': startDate.year}
-        dateInfo['dayOfWeekSunday0Monday1'] = startDate.isoweekday() % 7
-        dateInfo['dayOfWeekSunday1Monday2'] = startDate.isoweekday() % 7 + 1
-        dateInfo['dayOfWeekSunday6Monday0'] = startDate.weekday()
-        dateInfo['dayOfWeekSunday7Monday1'] = startDate.isoweekday()
-        dateInfo['dayNumber'] = startDate.toordinal() -                       \
+                    'date_yyyymmdd': startDate.strftime('%Y%m%d'),
+                    'cal_date': startDate.strftime('%Y-%m-%d'),
+                    'cal_day': startDate.day,
+                    'cal_month': startDate.month,
+                    'cal_year': startDate.year}
+        dateInfo['day_of_week_sunday_0_monday_1'] = startDate.isoweekday() % 7
+        dateInfo['day_of_week_sunday_1_monday_2'] = \
+            startDate.isoweekday() % 7 + 1
+        dateInfo['day_of_week_sunday_6_monday_0'] = startDate.weekday()
+        dateInfo['day_of_week_sunday_7_monday_1'] = startDate.isoweekday()
+        dateInfo['day_number'] = startDate.toordinal() - \
             date(startDate.year - 1, 12, 31).toordinal()
-        dateInfo['weekNumber'] = startDate.isocalendar()[1]
+        dateInfo['week_number'] = startDate.isocalendar()[1]
 
         dmDateList.append(dateInfo)
 
@@ -38,22 +89,4 @@ def transformDMDate(scheduler):
 
     api.writeDataToCsv(df, 'trg_dm_date')
 
-    del df
-
-
-def loadDMDate(scheduler):
-
-    # devLog = logger.getDevLog(__name__)
-
-    # to do #22
-    # to do #57
-    df = api.readDataFromCsv('trg_dm_date')
-    # TODO: because I read from csv as text, and because
-    # there's no schema for dm_date, I'm getting text IDs etc
-    # There's more than just the ID to change, but that's all i needed
-    # to test the star joins. Integrating delta loads might sort this out
-    # anyway
-    df['date_id'] = pd.to_numeric(df.date_id, errors='coerce')
-    api.writeDataToTrgDB(df, 'dm_date', if_exists='replace')
-    api.getSKMapping('dm_date', ['dateYYYYMMDD'], 'date_id')
     del df

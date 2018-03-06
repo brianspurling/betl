@@ -50,9 +50,6 @@ class Scheduler():
 
         if conf.exe.RUN_LOAD:
 
-            if conf.schedule.DEFAULT_DM_DATE and conf.exe.RUN_DM_LOAD:
-                self.scheduleDataflow(df_dmDate.loadDMDate, 'LOAD')
-
             if conf.schedule.DEFAULT_LOAD:
                 self.scheduleDataflow(df_load.defaultLoad, 'LOAD')
                 self.trgTablesToExcludeFromLoad = \

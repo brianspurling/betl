@@ -1,4 +1,7 @@
 from . import api
+from . import logger
+
+JOB_LOG = logger.getJobLog()
 
 
 #
@@ -12,13 +15,20 @@ def defaultLoad(scheduler):
 
     trgLayer = scheduler.logicalDataModels['TRG']
 
-    # If it's a bulk load, clear out all the target tables (which also
-    # restarts the SK sequences
-    if scheduler.bulkOrDelta == 'BULK':
+    trgTables = trgLayer.dataModels['TRG'].tables
+    nonDefaultStagingTables = \
+        scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
-        trgLayer.truncatePhysicalDataModel(
-            truncDims=scheduler.conf.exe.RUN_DM_LOAD,
-            truncFacts=scheduler.conf.exe.RUN_FT_LOAD)
+    # If it's a bulk load, drop the indexes to speed up writing. We do this
+    # here, because we need to drop fact indexes first (or, to be precise,
+    # the facts' foreign key constraints, because the dim ID indexes cant be
+    # dropped until the FKs that point to them are gone)
+    for tableName in trgTables:
+        if (trgTables[tableName].getTableType() == 'FACT'):
+            if tableName not in nonDefaultStagingTables:
+                JOB_LOG.info(
+                    logger.logStepStart('Dropping indexes for ' + tableName))
+                trgTables[tableName].dropIndexes()
 
     # We must load the dimensions before the facts!
     loadSequence = []
@@ -26,10 +36,6 @@ def defaultLoad(scheduler):
         loadSequence.append('DIMENSION')
     if (scheduler.conf.exe.RUN_FT_LOAD):
         loadSequence.append('FACT')
-
-    trgTables = trgLayer.dataModels['TRG'].tables
-    nonDefaultStagingTables = \
-        scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
     for tableType in loadSequence:
         for tableName in trgTables:
@@ -61,10 +67,19 @@ def bulkLoadDimension(table):
     # the right table. Start by raising custom error inside readDataFromCsv
     df = api.readDataFromCsv('trg_' + table.tableName)
 
-    # We can append rows, because, as we're running a bulk load, we will
-    # have just cleared out the TRG model and created. This way, append
+    # Because it's a bulk load, clear out the data (which also
+    # restarts the SK sequences). Note, the indexes have already been
+    # removed
+    table.truncateTable()
+
+    # We can append rows, because we just truncated. This way, append
     # guarantees we error if we don't load all the required columns
     api.writeDataToTrgDB(df, table.tableName, if_exists='append')
+
+    # Put the indexes back on
+    JOB_LOG.info(
+        logger.logStepStart('Creating indexes for ' + table.tableName))
+    table.createIndexes()
 
     del df
 
@@ -84,10 +99,20 @@ def bulkLoadFact(table):
     # Order the df's columns - the df doesn't hold the SK
     df_ft = df_ft[table.colNames_withoutSK]
 
+    # we remove indexes first to speed up writing
+    JOB_LOG.info(
+        logger.logStepStart('Dropping indexes for ' + table.tableName))
+    table.dropIndexes()
+
     # We can append rows, because, as we're running a bulk load, we will
     # have just cleared out the TRG model and created. This way, append
     # guarantees we error if we don't load all the required columns
     api.writeDataToTrgDB(df_ft, table.tableName, if_exists='append')
+
+    # Put the indexes back on
+    JOB_LOG.info(
+        logger.logStepStart('Creating indexes for ' + table.tableName))
+    table.createIndexes()
 
 
 def deltaLoadDimension(self):

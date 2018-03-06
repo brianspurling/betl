@@ -39,6 +39,38 @@ class Column():
 
         return columnResetStatement
 
+    def getSqlDropIndexStatement(self):
+        return ('DROP INDEX IF EXISTS ' +
+                self.tableName + '_' + self.columnName + '_key')
+
+    def getSqlDropForeignKeyStatement(self):
+        return ('ALTER TABLE ' + self.tableName + ' ' +
+                'DROP CONSTRAINT IF EXISTS ' +
+                self.tableName + '_' + self.columnName + '_key')
+
+    def getSqlCreateIndexStatements(self):
+        sqlStatements = []
+
+        if self.isSK or self.isFK:
+            unique = ''
+            if self.isSK:
+                unique = 'UNIQUE'
+            sqlStatements.append(
+                'CREATE ' + unique + ' INDEX IF NOT EXISTS ' +
+                self.tableName + '_' + self.columnName + '_key' +
+                ' ON ' + self.tableName + ' (' + self.columnName + ')')
+
+        if self.isFK:
+            fkDimCol = self.fkDimension[3:] + '_id'
+            sqlStatements.append(
+                'ALTER TABLE ' + self.tableName + ' ' +
+                'ADD CONSTRAINT ' +
+                self.tableName + '_' + self.columnName + '_key ' +
+                'FOREIGN KEY (' + self.columnName + ')' +
+                'REFERENCES ' + self.fkDimension + '(' + fkDimCol + ')')
+
+        return sqlStatements
+
     def getSKlookup(self):
         return api.readDataFromCsv('sk_' + self.fkDimension)
 
