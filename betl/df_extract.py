@@ -44,7 +44,7 @@ def defaultExtract(scheduler):
                                      action='BULK')
 
                 # Bulk write the SRC table
-                api.writeDataToCsv(srcDF, tableName)
+                api.writeData(srcDF, tableName, 'SRC')
 
             elif scheduler.bulkOrDelta == 'DELTA':
 
@@ -81,7 +81,7 @@ def defaultExtract(scheduler):
                         updatecolNameList.append(column.columnName)
                         deletecolNameList.append(column.columnName + '_stg')
 
-                stgDF = api.readDataFromEtlDB(tableName)
+                stgDF = api.readData(tableName, 'SRC')
 
                 deltaDF = pd.merge(left=srcDF, right=stgDF, how='outer',
                                    suffixes=('_src', '_stg'), on=nkList,
@@ -103,7 +103,7 @@ def defaultExtract(scheduler):
                                                       sourceSystemId=dmID,
                                                       action='INSERT')
                     # TODO Check this logic
-                    api.writeDataToCsv(insertsDF, tableName, 'a')
+                    api.writeData(insertsDF, tableName, 'SRC', 'append')
                     stgDF = stgDF.append(insertsDF, ignore_index=True,
                                          verify_integrity=True)
                 else:

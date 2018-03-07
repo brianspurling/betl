@@ -114,49 +114,28 @@ def buildLogicalDataModels(conf):
     logicalDataModels = {}
 
     print('\n', end='')
-    print('Loading the logical data models', end='')
+    print('Building the logical data models', end='')
     print('\n\n', end='')
 
-    anythingLoaded = False
+    print('  - Building the SRC logical data models... ', end='')
+    sys.stdout.flush()
+    logicalDataModels['SRC'] = SrcDataLayer(conf)
+    print('Done!')
 
-    if conf.exe.RUN_REBUILD_ALL or \
-       conf.exe.RUN_REBUILD_SRC or \
-       conf.exe.RUN_EXTRACT or     \
-       conf.state.RERUN_PREV_JOB:
-        print('  - Building the SRC logical data models... ', end='')
-        sys.stdout.flush()
-        logicalDataModels['SRC'] = SrcDataLayer(conf)
-        print('Done!')
-        anythingLoaded = True
+    print('  - Building the STG logical data models... ', end='')
+    sys.stdout.flush()
+    logicalDataModels['STG'] = StgDataLayer(conf)
+    print('Done!')
 
-    if conf.exe.RUN_REBUILD_ALL or \
-       conf.exe.RUN_REBUILD_STG or \
-       conf.exe.RUN_TRANSFORM or   \
-       conf.state.RERUN_PREV_JOB:
-        print('  - Building the STG logical data models... ', end='')
-        sys.stdout.flush()
-        logicalDataModels['STG'] = StgDataLayer(conf)
-        print('Done!')
-        anythingLoaded = True
+    print('  - Building the TRG logical data models... ', end='')
+    sys.stdout.flush()
+    logicalDataModels['TRG'] = TrgDataLayer(conf)
+    print('Done!')
 
-    if conf.exe.RUN_REBUILD_ALL or \
-       conf.exe.RUN_REBUILD_TRG or \
-       conf.exe.RUN_LOAD or        \
-       conf.state.RERUN_PREV_JOB:
-        print('  - Building the TRG logical data models... ', end='')
-        sys.stdout.flush()
-        logicalDataModels['TRG'] = TrgDataLayer(conf)
-        print('Done!')
-
-        print('  - Building the SUM logical data models... ', end='')
-        sys.stdout.flush()
-        logicalDataModels['SUM'] = SumDataLayer(conf)
-        print('Done!')
-        anythingLoaded = True
-
-    if not anythingLoaded:
-        print('  - This execution did not require any logical ' +
-              'models to be loaded')
+    print('  - Building the SUM logical data models... ', end='')
+    sys.stdout.flush()
+    logicalDataModels['SUM'] = SumDataLayer(conf)
+    print('Done!')
 
     return logicalDataModels
 

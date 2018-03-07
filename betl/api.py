@@ -71,6 +71,7 @@ def run(appConfigFile, runTimeParams, scheduleConfig):
 
     # Pull the schema descriptions from the gsheets and our logical data models
     logicalDataModels = utils.buildLogicalDataModels(CONF)
+    CONF.state.setLogicalDataModels(logicalDataModels)
 
     for dmID in logicalDataModels:
         JOB_LOG.info(logicalDataModels[dmID].__str__())
@@ -97,28 +98,18 @@ def run(appConfigFile, runTimeParams, scheduleConfig):
         scheduler.executeSchedule()
 
 
-def readDataFromCsv(file_or_filename):
-    return DATA_IO.readDataFromCsv(file_or_filename)
+def readData(tableName, dataLayerID):
+    return DATA_IO.readData(tableName, dataLayerID)
+
+
+def writeData(df, tableName, dataLayerID, append_or_replace='replace'):
+    DATA_IO.writeData(df, tableName, dataLayerID, append_or_replace)
 
 
 def readDataFromSrcSys(srcSysID, file_name_or_table_name):
     return DATA_IO.readDataFromSrcSys(
         srcSysID=srcSysID,
         file_name_or_table_name=file_name_or_table_name)
-
-
-def readDataFromEtlDB(tableName):
-    DATA_IO.readDataFromEtlDB(tableName=tableName)
-
-
-def writeDataToCsv(df, file_or_filename, mode='w'):
-    DATA_IO.writeDataToCsv(df, file_or_filename, mode)
-
-
-def writeDataToTrgDB(df, tableName, if_exists):
-    DATA_IO.writeDataToTrgDB(df=df,
-                             tableName=tableName,
-                             if_exists=if_exists)
 
 
 def getSKMapping(tableName, nkColList, skColName):

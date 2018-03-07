@@ -62,6 +62,9 @@ HELP = ("\n" +
         "> [nodmload] | [noftload]\n" +
         "  Don't load the dimensions / fact tables\n" +
         "\n" +
+        "> [dbwrite]\n" +
+        "  Write ETL data to physical DB (as opposed to only CSV files)\n" +
+        "\n" +
         "> [cleartmpdata]\n" +
         "  Clear all temp data from previous jobs before executing\n" +
         "\n" +
@@ -123,6 +126,7 @@ def processArgs(args):
         'RUN_DM_LOAD': True,
         'RUN_FT_LOAD': True,
 
+        'WRITE_TO_ETL_DB': False,
         'DELETE_TMP_DATA': False,
 
         'RUN_DATAFLOWS': False,
@@ -169,6 +173,8 @@ def processArgs(args):
             params['RUN_DM_LOAD'] = False
         elif arg == 'noftload':
             params['RUN_FT_LOAD'] = False
+        elif arg == 'dbwrite':
+            params['WRITE_TO_ETL_DB'] = True
         elif arg == 'cleartmpdata':
             params['DELETE_TMP_DATA'] = True
         elif arg == 'run':

@@ -124,6 +124,8 @@ class Exe():
 
         self.RUN_DATAFLOWS = params['RUN_DATAFLOWS']
 
+        self.WRITE_TO_ETL_DB = params['WRITE_TO_ETL_DB']
+
 
 class State():
 
@@ -140,11 +142,16 @@ class State():
         self.LATEST_DATE_IN_DATA = (datetime.date.today() +
                                     datetime.timedelta(days=365))
 
+        self.LOGICAL_DATA_MODELS = None
+
     def setStage(self, stage):
         self.STAGE = stage
 
     def setExecID(self, execID):
         self.EXEC_ID = execID
+
+    def setLogicalDataModels(self, logicalDataModels):
+        self.LOGICAL_DATA_MODELS = logicalDataModels
 
 
 class Schedule():

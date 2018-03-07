@@ -120,6 +120,6 @@ def transformDMDate(scheduler):
 
     df = pd.DataFrame(dmDateList)
 
-    api.writeDataToCsv(df, 'trg_dm_date')
+    api.writeData(df, 'trg_dm_date', 'STG')
 
     del df

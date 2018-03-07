@@ -23,39 +23,47 @@ class Scheduler():
         self.conf = conf
         self.dataIO = dataIO
 
-        self.constructSchedule(conf)
         self.ctrlDB = CtrlDB(conf)
-        self.ctrlDB.insertNewScheduleToCtlTable(self.scheduleDic,
-                                                conf.state.EXEC_ID)
 
-    def constructSchedule(self, conf):
+        # We must construct the scheduler even if we're re-running the prev
+        # load. constructSchedule puts all the actual funcs into the dict,
+        # so that when we pull the fun names out of the ctrlDB we can "find"
+        # the actual func to run. This means
+        self.constructSchedule()
 
-        if conf.exe.RUN_EXTRACT:
-            if conf.schedule.DEFAULT_EXTRACT:
+        if not self.conf.state.RERUN_PREV_JOB:
+            self.ctrlDB.insertNewScheduleToCtlTable(self.scheduleDic,
+                                                    conf.state.EXEC_ID)
+
+    def constructSchedule(self):
+
+        schedule = self.conf.schedule
+        if self.conf.exe.RUN_EXTRACT:
+            if schedule.DEFAULT_EXTRACT:
                 self.scheduleDataflow(df_extract.defaultExtract, 'EXTRACT')
 
                 self.srcTablesToExcludeFromExtract = \
-                    conf.schedule.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT
+                    schedule.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT
 
-            for dataflow in conf.schedule.EXTRACT_DFS:
+            for dataflow in schedule.EXTRACT_DFS:
                 self.scheduleDataflow(dataflow, 'EXTRACT')
 
-        if conf.exe.RUN_TRANSFORM:
+        if self.conf.exe.RUN_TRANSFORM:
 
-            if conf.schedule.DEFAULT_DM_DATE:
+            if schedule.DEFAULT_DM_DATE:
                 self.scheduleDataflow(df_dmDate.transformDMDate, 'TRANSFORM')
 
-            for dataflow in conf.schedule.TRANSFORM_DFS:
+            for dataflow in schedule.TRANSFORM_DFS:
                 self.scheduleDataflow(dataflow, 'TRANSFORM')
 
-        if conf.exe.RUN_LOAD:
+        if self.conf.exe.RUN_LOAD:
 
-            if conf.schedule.DEFAULT_LOAD:
+            if schedule.DEFAULT_LOAD:
                 self.scheduleDataflow(df_load.defaultLoad, 'LOAD')
                 self.trgTablesToExcludeFromLoad = \
-                    conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+                    schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
-            for dataflow in conf.schedule.LOAD_DFS:
+            for dataflow in schedule.LOAD_DFS:
                 self.scheduleDataflow(dataflow, 'LOAD')
 
     def scheduleDataflow(self, dataflow, stage):

@@ -25,12 +25,14 @@ def defaultLoad(scheduler):
     # here, because we need to drop fact indexes first (or, to be precise,
     # the facts' foreign key constraints, because the dim ID indexes cant be
     # dropped until the FKs that point to them are gone)
-    for tableName in trgTables:
-        if (trgTables[tableName].getTableType() == 'FACT'):
-            if tableName not in nonDefaultStagingTables:
-                JOB_LOG.info(
-                    logger.logStepStart('Dropping indexes for ' + tableName))
-                trgTables[tableName].dropIndexes()
+    if scheduler.bulkOrDelta == 'BULK':
+        for tableName in trgTables:
+            if (trgTables[tableName].getTableType() == 'FACT'):
+                if tableName not in nonDefaultStagingTables:
+                    JOB_LOG.info(
+                        logger.logStepStart('Dropping fact indexes for ' +
+                                            tableName))
+                    trgTables[tableName].dropIndexes()
 
     # We'll need the default rows for a bulk load, so let's just hit the
     # spreadsheet once
@@ -79,8 +81,8 @@ def bulkLoadDimension(table, defaultRows, dataIO):
     # We assume that the final step in the TRANSFORM stage created a
     # csv file trg_<tableName>.csv
     # TODO: put in a decent feedback to developer if they didn't create
-    # the right table. Start by raising custom error inside readDataFromCsv
-    df = api.readDataFromCsv('trg_' + table.tableName)
+    # the right table. Start by raising custom error inside readData
+    df = api.readData('trg_' + table.tableName, 'STG')
 
     # Because it's a bulk load, clear out the data (which also
     # restarts the SK sequences). Note, the indexes have already been
@@ -91,7 +93,7 @@ def bulkLoadDimension(table, defaultRows, dataIO):
 
     # We can append rows, because we just truncated. This way, append
     # guarantees we error if we don't load all the required columns
-    api.writeDataToTrgDB(df, table.tableName, if_exists='append')
+    api.writeData(df, table.tableName, 'TRG', 'append')
 
     # Put the indexes back on
     JOB_LOG.info(
@@ -113,9 +115,7 @@ def bulkLoadDimension(table, defaultRows, dataIO):
 
         JOB_LOG.info(logger.logStepEnd(df))
 
-        dataIO.writeDataToTrgDB(df=df,
-                                tableName=table.tableName,
-                                if_exists='append')
+        dataIO.writeData(df, table.tableName, 'TRG', 'append')
 
     # We will need the SKs we just created to write the facts later, so
     # pull the sk/nks back out (this func writes them to a csv file)
@@ -125,18 +125,13 @@ def bulkLoadDimension(table, defaultRows, dataIO):
 
 
 def bulkLoadFact(table):
-    df_ft = api.readDataFromCsv('trg_' + table.tableName)
+    df_ft = api.readData('trg_' + table.tableName, 'STG')
     for column in table.columns:
         if column.isFK:
             df_ft = api.mergeFactWithSks(df_ft, column)
 
     # Order the df's columns - the df doesn't hold the SK
     df_ft = df_ft[table.colNames_withoutSK]
-
-    # we remove indexes first to speed up writing
-    JOB_LOG.info(
-        logger.logStepStart('Dropping indexes for ' + table.tableName))
-    table.dropIndexes()
 
     # Because it's a bulk load, clear out the data (which also
     # restarts the SK sequences). Note, the indexes have already been
@@ -148,7 +143,7 @@ def bulkLoadFact(table):
     # We can append rows, because, as we're running a bulk load, we will
     # have just cleared out the TRG model and created. This way, append
     # guarantees we error if we don't load all the required columns
-    api.writeDataToTrgDB(df_ft, table.tableName, if_exists='append')
+    api.writeData(df_ft, table.tableName, 'TRG', 'append')
 
     # Put the indexes back on
     JOB_LOG.info(

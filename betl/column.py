@@ -72,7 +72,7 @@ class Column():
         return sqlStatements
 
     def getSKlookup(self):
-        return api.readDataFromCsv('sk_' + self.fkDimension)
+        return api.readData('sk_' + self.fkDimension, 'STG')
 
     def __str__(self):
         return '      ' + self.columnName + '\n'

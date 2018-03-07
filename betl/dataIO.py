@@ -2,12 +2,11 @@ import inspect
 import datetime
 import pandas as pd
 import os
+
 from .dbIO import DatabaseIO
 from .gsheetIO import GsheetIO
 from .fileIO import FileIO
 from . import logger
-
-TMP_FILE_SUBDIR_MAPPING = {}
 
 
 class DataIO():
@@ -23,41 +22,22 @@ class DataIO():
         self.dbIO = DatabaseIO(conf)
         self.gsheetIO = GsheetIO(conf)
 
-        self.rebuildTmeFileSubdirMapping()
+    def readData(self, tableName, dataLayerID):
 
-    def readDataFromCsv(self,
-                        file_or_filename,
-                        pathOverride=None,
-                        sep=',',
-                        quotechar='"',
-                        callingFuncName=None):
+        callingFuncName = inspect.stack()[2][3]
 
-        if callingFuncName is None:
-            callingFuncName = inspect.stack()[2][3]
-
-        df = pd.DataFrame()
-        filename = ''
-        if type(file_or_filename) == str:
-            filename = file_or_filename
-        else:
-            filename = file_or_filename.name
-
-        path = ''
-        if pathOverride is not None:
-            path = pathOverride + filename
-        else:
-            tmpDataPath = self.conf.app.TMP_DATA_PATH
-            stage = TMP_FILE_SUBDIR_MAPPING[filename]
-
-            path = tmpDataPath + stage + '/' + filename + '.csv'
+        path = (self.conf.app.TMP_DATA_PATH +
+                dataLayerID + '/' +
+                tableName + '.csv')
 
         self.jobLog.info(logger.logStepStart(
                          'Reading data from CSV: ' + path,
                          callingFuncName=callingFuncName))
 
+        df = pd.DataFrame()
         df = self.fileIO.readDataFromCsv(path=path,
-                                         sep=sep,
-                                         quotechar=quotechar)
+                                         sep=',',
+                                         quotechar='"')
 
         # We never want audit cols to come into transform dataframes
         if 'audit_source_system' in df.columns:
@@ -75,26 +55,42 @@ class DataIO():
 
         return df
 
-    def readDataFromDB(self,
-                       tableName,
-                       datastore,
-                       cols='*',
-                       callingFuncName=None):
+    def writeData(self, df, tableName, dataLayerID, append_or_replace):
 
-        if callingFuncName is None:
-            callingFuncName = inspect.stack()[2][3]
+        callingFuncName = inspect.stack()[2][3]
 
-        self.jobLog.info(logger.logStepStart(
-            'Reading data ' + tableName + ' from ' + datastore.dbID + ' DB',
-            callingFuncName=callingFuncName))
+        # Work out whether we need to write to DB as well as CSV
+        writeToDB = False
 
-        df = self.dbIO.readDataFromDB(tableName=tableName,
-                                      conn=datastore.conn,
-                                      cols=cols)
+        if dataLayerID in ['TRG', 'SUM']:
+            writeToDB = True
+        else:
+            writeToDB = self.conf.exe.WRITE_TO_ETL_DB
 
-        self.jobLog.info(logger.logStepEnd(df))
+        dataLayer = self.conf.state.LOGICAL_DATA_MODELS[dataLayerID]
+        if tableName not in dataLayer.getListOfTables():
+            writeToDB = False
 
-        return df
+        # write to CSV
+        mode = 'w'
+        if append_or_replace.upper() == 'APPEND':
+            mode = 'a'
+        self.writeDataToCsv(
+            df,
+            tableName,
+            dataLayerID,
+            mode,
+            callingFuncName)
+
+        # write to DB
+        if writeToDB:
+            dbEng = dataLayer.datastore.eng
+            self.writeDataToDB(
+                df,
+                tableName,
+                dbEng,
+                append_or_replace,
+                callingFuncName)
 
     def readDataFromSpreadsheet(self,
                                 tableName,
@@ -118,30 +114,23 @@ class DataIO():
 
     def writeDataToCsv(self,
                        df,
-                       file_or_filename,
+                       filename,
+                       dataLayerID,
                        mode,
                        callingFuncName=None):
-
-        global TMP_FILE_SUBDIR_MAPPING
 
         if callingFuncName is None:
             callingFuncName = inspect.stack()[2][3]
 
-        filename = ''
         headers = True
-        if type(file_or_filename) == str:
-            filename = file_or_filename
-        else:
-            headers = False
-            filename = file_or_filename.name
 
-        tmpDataPath = self.conf.app.TMP_DATA_PATH
-        stage = self.conf.state.STAGE
-        TMP_FILE_SUBDIR_MAPPING[filename] = stage
-        path = (tmpDataPath + stage + '/' +
-                filename + '.csv')
-        if not os.path.exists(tmpDataPath + stage + '/'):
-            os.makedirs(tmpDataPath + stage + '/')
+        path = (self.conf.app.TMP_DATA_PATH +
+                dataLayerID + '/')
+
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        path += filename + '.csv'
 
         self.jobLog.info(logger.logStepStart(
             'Writing data to CSV: ' + filename,
@@ -156,10 +145,7 @@ class DataIO():
                       tableName,
                       dbEng,
                       if_exists,
-                      callingFuncName=None):
-
-        if callingFuncName is None:
-            callingFuncName = inspect.stack()[2][3]
+                      callingFuncName):
 
         self.jobLog.info(logger.logStepStart(
             'Writing data to DB: ' + tableName,
@@ -178,6 +164,11 @@ class DataIO():
 
         df = pd.DataFrame()
 
+        self.jobLog.info(logger.logStepStart(
+            'Reading data from source system: ' +
+            srcSysDatastore.datatoreID + '.' + file_name_or_table_name,
+            callingFuncName=callingFuncName))
+
         if srcSysDatastore.datastoreType == 'FILESYSTEM':
             filename = file_name_or_table_name
             path = srcSysDatastore.path
@@ -185,11 +176,10 @@ class DataIO():
             quotechar = srcSysDatastore.quotechar
 
             if srcSysDatastore.fileExt == '.csv':
-                df = self.readDataFromCsv(file_or_filename=filename + '.csv',
-                                          pathOverride=path,
-                                          sep=separator,
-                                          quotechar=quotechar,
-                                          callingFuncName=callingFuncName)
+                df = self.fileIO.readDataFromCsv(path=path + filename + '.csv',
+                                                 sep=separator,
+                                                 quotechar=quotechar)
+
             else:
                 raise ValueError('Unhandled file extension for src system: ' +
                                  srcSysDatastore.fileExt + ' for source sys ' +
@@ -203,10 +193,9 @@ class DataIO():
             srcTableName = etlTableName[etlTableName.find("_")+1:]
             srcTableName = srcTableName[srcTableName.find("_")+1:]
 
-            df = self.readDataFromDB(tableName=srcTableName,
-                                     datastore=srcSysDatastore,
-                                     cols='*',
-                                     callingFuncName=callingFuncName)
+            df = self.dbIO.readDataFromDB(tableName=srcTableName,
+                                          conn=srcSysDatastore.conn,
+                                          cols='*')
 
         elif srcSysDatastore.datastoreType == 'SPREADSHEET':
             df = self.readDataFromSpreadsheet(
@@ -217,6 +206,8 @@ class DataIO():
             raise ValueError('Extract for source systems type <'
                              + srcSysDatastore.datastoreType
                              + '> connection type not supported')
+
+        self.jobLog.info(logger.logStepEnd(df))
 
         # We never want audit cols to come into transform dataframes
         if 'audit_source_system' in df.columns:
@@ -229,42 +220,6 @@ class DataIO():
             df.drop(['audit_latest_delta_load_operation'],
                     axis=1,
                     inplace=True)
-
-        return df
-
-    def readDataFromEtlDB(self, tableName):
-
-        callingFuncName = inspect.stack()[2][3]
-
-        df = self.readDataFromDB(
-            tableName=tableName,
-            datastore=self.conf.app.DWH_DATABASES['ETL'],
-            cols='*',
-            callingFuncName=callingFuncName)
-
-        return df
-
-    def readFromTrgDB(self, tableName, columnList):
-
-        callingFuncName = inspect.stack()[2][3]
-
-        newColList = []
-        for col in columnList:
-            newColList.append('"' + col + '"')
-        cols = ",".join(newColList)
-        df = self.readDataFromDB(tableName=tableName,
-                                 datastore=self.conf.app.DWH_DATABASES['TRG'],
-                                 cols=cols,
-                                 callingFuncName=callingFuncName)
-
-        return df
-
-    def writeDataToTrgDB(self, df, tableName, if_exists):
-
-        callingFuncName = inspect.stack()[2][3]
-
-        dbEng = self.conf.app.DWH_DATABASES['TRG'].eng
-        self.writeDataToDB(df, tableName, dbEng, if_exists, callingFuncName)
 
         return df
 
@@ -327,8 +282,25 @@ class DataIO():
         return df
 
     def getSKMapping(self, tableName, nkColList, skColName):
+
+        callingFuncName = inspect.stack()[2][3]
+
+        self.jobLog.info(logger.logStepStart(
+            'Reading sk mapping from ' + tableName + ' in TRG dataLayer',
+            callingFuncName=callingFuncName))
+
         colList = [skColName] + nkColList
-        df_sk = self.readFromTrgDB(tableName, colList)
+        newColList = []
+        for col in colList:
+            newColList.append('"' + col + '"')
+        cols = ",".join(newColList)
+
+        df_sk = self.dbIO.readDataFromDB(
+            tableName=tableName,
+            conn=self.conf.app.DWH_DATABASES['TRG'].conn,
+            cols=cols)
+
+        self.jobLog.info(logger.logStepEnd(df_sk))
 
         # Rename the dims ID column to SK
         self.jobLog.info(logger.logStepStart(
@@ -354,7 +326,7 @@ class DataIO():
 
         self.jobLog.info(logger.logStepEnd(df_sk))
 
-        self.writeDataToCsv(df_sk, 'sk_' + tableName, 'w')
+        self.writeDataToCsv(df_sk, 'sk_' + tableName, 'STG', 'w')
 
     def mergeFactWithSks(self, df, col):
         nkColName = col.columnName.replace('fk_', 'nk_')
@@ -387,10 +359,3 @@ class DataIO():
         self.jobLog.info(logger.logStepEnd(df_merged))
         del df_sk
         return df_merged
-
-    def rebuildTmeFileSubdirMapping(self):
-        global TMP_FILE_SUBDIR_MAPPING
-        for path, subdirs, files in os.walk(self.conf.app.TMP_DATA_PATH):
-            for name in files:
-                TMP_FILE_SUBDIR_MAPPING[name.replace('.csv', '')] = \
-                    path.replace(self.conf.app.TMP_DATA_PATH, '')
