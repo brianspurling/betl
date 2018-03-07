@@ -53,6 +53,12 @@ class DataModel():
             sql.append(self.tables[tName].getSqlResetPrimaryKeySequence())
         return sql
 
+    def getListOfTables(self):
+        tables = []
+        for tableName in self.tables:
+            tables.append(tableName)
+        return tables
+
     def __str__(self):
         string = '\n' + '  ** ' + self.dataModelID + ' **' + '\n'
         for tableName in self.tables:

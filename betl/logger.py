@@ -201,3 +201,17 @@ def logUnableToReadFromCtlDB(errorMessage):
     op += errorMessage
     op += '  \n'
     return op
+
+
+def superflousTableWarning(tableNamesStr):
+    op = '\n'
+    op += '*** WARNING! Superfluous tables in DB *** \n'
+    op += '\n'
+    op += '  The following tables were found in one of the databases \n'
+    op += '  but not in the logical data model. They should be checked \n'
+    op += '  and removed'
+    op += '\n'
+    op += '\n'
+    op += '  ' + tableNamesStr
+    op += '  \n'
+    return op

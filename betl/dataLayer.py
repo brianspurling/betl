@@ -135,6 +135,12 @@ class DataLayer():
                 self.dataModels[dataModelID].getSqlDropStatements())
         return sqlStatements
 
+    def getListOfTables(self):
+        tables = []
+        for dataModelID in self.dataModels:
+            tables.extend(self.dataModels[dataModelID].getListOfTables())
+        return tables
+
     def __str__(self):
         string = ('\n' + '\n' + '*** Data Layer: ' +
                   self.dataLayerID + ' ***' + '\n')

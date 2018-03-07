@@ -38,7 +38,7 @@ def run(appConfigFile, runTimeParams, scheduleConfig):
     # exec, because we're about to wipe it and start from scratch!
     # If it's successful, we log it lower down
     if CONF.exe.RUN_SETUP:
-        utils.setupBetl(ctrlDB)
+        utils.setupBetl(ctrlDB, CONF)
 
     # This sets the EXEC_ID in conf.state
     lastExecReport = utils.setUpExecution(CONF, ctrlDB)
@@ -87,6 +87,8 @@ def run(appConfigFile, runTimeParams, scheduleConfig):
             logicalDataModels['TRG'].buildPhysicalDataModel()
         if CONF.exe.RUN_REBUILD_SUM:
             logicalDataModels['SUM'].buildPhysicalDataModel()
+
+    utils.checkDBsForSuperflousTables(CONF, logicalDataModels, JOB_LOG)
 
     if CONF.exe.RUN_DATAFLOWS:
         scheduler = Scheduler(CONF,

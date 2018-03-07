@@ -1,5 +1,11 @@
 import sys
+import shutil
+import os
+import datetime
+import time
+
 from . import cli
+from . import logger
 from .dataLayer import SrcDataLayer
 from .dataLayer import StgDataLayer
 from .dataLayer import TrgDataLayer
@@ -73,10 +79,29 @@ def getDetailsOfLastExecution(ctlDB):
     return lastExecDetails
 
 
-def setupBetl(ctlDB):
+def setupBetl(ctlDB, conf):
     ctlDB.dropAllCtlTables()
+    archiveLogFiles(conf)
     ctlDB.createExecutionsTable()
     ctlDB.createSchedulesTable()
+
+
+def archiveLogFiles(conf):
+
+    timestamp = datetime.datetime.fromtimestamp(
+        time.time()
+    ).strftime('%Y%m%d%H%M%S')
+
+    source = conf.app.LOG_PATH
+    dest = conf.app.LOG_PATH + 'archive_' + timestamp + '/'
+
+    if not os.path.exists(dest):
+        os.makedirs(dest)
+
+    files = os.listdir(source)
+    for f in files:
+        if f.find('.log') > -1:
+            shutil.move(source+f, dest)
 
 
 def buildLogicalDataModels(conf):
@@ -134,3 +159,32 @@ def buildLogicalDataModels(conf):
               'models to be loaded')
 
     return logicalDataModels
+
+
+def checkDBsForSuperflousTables(conf, logicalDataModels, jobLog):
+    query = ("SELECT table_name FROM information_schema.tables " +
+             "WHERE table_schema = 'public'")
+
+    etlDBCursor = conf.app.DWH_DATABASES['ETL'].cursor()
+    etlDBCursor.execute(query)
+    trgDBCursor = conf.app.DWH_DATABASES['TRG'].cursor()
+    trgDBCursor.execute(query)
+
+    # query returns list of tuples, (<tablename>, )
+    allTables = []
+    allTables.extend([item[0] for item in etlDBCursor.fetchall()])
+    allTables.extend([item[0] for item in trgDBCursor.fetchall()])
+
+    dataModelTables = []
+    for dataLayerID in logicalDataModels:
+        dataModelTables.extend(
+            logicalDataModels[dataLayerID].getListOfTables())
+
+    superflousTableNames = []
+    for tableName in allTables:
+        if tableName not in dataModelTables:
+            superflousTableNames.append(tableName)
+
+    if len(superflousTableNames) > 0:
+        jobLog.warn(
+            logger.superflousTableWarning(', '.join(superflousTableNames)))

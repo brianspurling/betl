@@ -85,6 +85,8 @@ def bulkLoadDimension(table, defaultRows, dataIO):
     # Because it's a bulk load, clear out the data (which also
     # restarts the SK sequences). Note, the indexes have already been
     # removed
+    JOB_LOG.info(
+        logger.logStepStart('Truncating ' + table.tableName))
     table.truncateTable()
 
     # We can append rows, because we just truncated. This way, append
@@ -139,8 +141,10 @@ def bulkLoadFact(table):
     # Because it's a bulk load, clear out the data (which also
     # restarts the SK sequences). Note, the indexes have already been
     # removed
+    JOB_LOG.info(
+        logger.logStepStart('Truncating ' + table.tableName))
     table.truncateTable()
-    
+
     # We can append rows, because, as we're running a bulk load, we will
     # have just cleared out the TRG model and created. This way, append
     # guarantees we error if we don't load all the required columns

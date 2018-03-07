@@ -89,7 +89,7 @@ def transformDMDate(scheduler):
         startDate = startDate + timedelta(1)
 
     dateInfo = {'date_id': -1,
-                'date_yyyymmdd': None,
+                'date_yyyymmdd': 00000000,  # Natural key
                 'cal_date': 'MISSING',
                 'cal_day': None,
                 'cal_month': None,
@@ -104,7 +104,7 @@ def transformDMDate(scheduler):
     dmDateList.append(dateInfo)
 
     dateInfo = {'date_id': -2,
-                'date_yyyymmdd': None,
+                'date_yyyymmdd': 00000000,  # Natural key
                 'cal_date': 'UNRECOGNISED',
                 'cal_day': None,
                 'cal_month': None,
