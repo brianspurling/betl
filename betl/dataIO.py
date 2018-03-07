@@ -377,7 +377,7 @@ class DataIO():
         self.jobLog.info(logger.logStepStart(
             'Assigning all missing rows to default -1 row'))
 
-        df_merged.loc[df_merged[col.columnName] is None, col.columnName] = -1
+        df_merged.loc[df_merged[col.columnName].isnull(), col.columnName] = -1
 
         self.jobLog.info(logger.logStepEnd(df_merged))
 
