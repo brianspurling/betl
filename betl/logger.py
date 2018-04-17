@@ -96,12 +96,13 @@ def logExecutionStartFinish(startOrFinish='START'):
     op += '                  *****************************' + '\n'
     if startOrFinish == 'FINISH':
         currentTime = datetime.now()
-        elapsedMins = (currentTime - EXE_START_TIME).total_minutes()
+        elapsedSecs = (currentTime - EXE_START_TIME).total_seconds()
+        elapsedMins = round(elapsedSecs / 60, 1)
         op += '\n'
-        op += '                       Finished: ' + datetime.now()
+        op += '                  Finished: ' + str(EXE_START_TIME)
         op += '\n'
-        op += '                       Duration: ' + str(elapsedMins) + ' mins'
-        op += '\n'
+        op += '                  Duration: ' + str(elapsedMins) + ' mins'
+        op += '\n\n'
         op += '                       ' + JOB_LOG_FILE_NAME
         op += '\n'
         op += '                       ' + DEV_LOG_FILE_NAME
@@ -139,7 +140,7 @@ def logExecutionOverview(execReport, rerun=False):
     op += '\n'
     op += '----------------------------------------------------------' + '\n'
     op += ' ' + introText + ': ' + str(execReport['execId']) + '\n'
-    op += '   - Started ' + str(EXE_START_TIME) + '\n'
+    op += '   - Started: ' + str(EXE_START_TIME) + '\n'
     op += '   - ' + lastExecStatusMsg + '\n'
     op += '----------------------------------------------------------' + '\n'
     return op

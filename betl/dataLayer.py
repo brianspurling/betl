@@ -148,7 +148,7 @@ class DataLayer():
                 return cn
 
     def __str__(self):
-        string = ('\n' + '\n' + '*** Data Layer: ' +
+        string = ('\n' + '*** Data Layer: ' +
                   self.dataLayerID + ' ***' + '\n')
         for dataModelID in self.dataModels:
             string += str(self.dataModels[dataModelID])

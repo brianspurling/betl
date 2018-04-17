@@ -166,4 +166,4 @@ def checkDBsForSuperflousTables(conf, logicalDataModels, jobLog):
 
     if len(superflousTableNames) > 0:
         jobLog.warn(
-            logger.superflousTableWarning(', '.join(superflousTableNames)))
+            logger.superflousTableWarning(',\n  '.join(superflousTableNames)))
