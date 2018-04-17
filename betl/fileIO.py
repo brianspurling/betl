@@ -28,15 +28,18 @@ class FileIO():
                     thisPrefix = int(filename[:self.filePrefixLength])
                     if thisPrefix >= self.nextFilePrefix:
                         self.nextFilePrefix = thisPrefix + 1
-                    print(filename)
                     self.fileNameMap[_filename] = filename
 
     def writeDataToCsv(self, df, path, filename, headers, mode):
 
-        filenamePrefix = str(self.nextFilePrefix).zfill(self.filePrefixLength)
-        _filename = filenamePrefix + "-" + filename
-        self.nextFilePrefix += 1
-        self.fileNameMap[filename] = _filename
+        _filename = ''
+        if mode == 'a':
+            _filename = self.fileNameMap[filename]
+        else:
+            prefix = str(self.nextFilePrefix).zfill(self.filePrefixLength)
+            _filename = prefix + "-" + filename
+            self.nextFilePrefix += 1
+            self.fileNameMap[filename] = _filename
 
         _file = open(path + _filename, mode)
 
