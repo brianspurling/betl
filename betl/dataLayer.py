@@ -141,6 +141,12 @@ class DataLayer():
             tables.extend(self.dataModels[dataModelID].getListOfTables())
         return tables
 
+    def getColumnListForTable(self, tableName):
+        for dataModelID in self.dataModels:
+            cn = self.dataModels[dataModelID].getColumnListForTable(tableName)
+            if cn is not None:
+                return cn
+
     def __str__(self):
         string = ('\n' + '\n' + '*** Data Layer: ' +
                   self.dataLayerID + ' ***' + '\n')

@@ -84,6 +84,27 @@ class DataIO():
             # TODO: proper error handling here
             raise ValueError("You just attempted to write to a source system!")
 
+        # If this is a table defined in our logical data model, then we
+        # can check we have all the columns and reorder them to match
+        # the schema (which saves the app having to worry about this)
+        colNameList = dataLayer.getColumnListForTable(tableName)
+        if colNameList is not None:
+            for colName in list(df):
+                if colName not in colNameList:
+                    raise ValueError(
+                        "You're trying to write to a table that's been " +
+                        "defined in your logical data model, but your " +
+                        "columns don't match. Column '" + colName +
+                        "' was not expected")
+            try:
+                df = df[colNameList]
+            except KeyError as e:
+                raise ValueError(
+                    "You're trying to write to a table that's been " +
+                    "defined in your logical data model, but your " +
+                    "columns don't match. You're missing one or more " +
+                    "columns: '" + str(e))
+
         # write to CSV
         mode = 'w'
         if append_or_replace.upper() == 'APPEND':
