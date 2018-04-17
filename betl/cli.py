@@ -6,19 +6,20 @@ ARG_NOT_RECOGNISED = ("Argument {arg} not recognised. Try 'help'")
 LAST_EXE_STILL_RUNNING = ("\nThe last execution of the job is still " +
                           "running.\nPress any key to abort the new execution")
 
-LAST_EXE_FAILED = ("\nThe last execution of the job failed to complete. " +
-                   "It finished with status: {status}. It is strongly " +
-                   "recommended you complete the execution " +
-                   "before running a new load.\n\nTo ignore this warning " +
-                   "and run a brand new load, enter 'ignore'. To rerun the " +
-                   "previous job press any key\n")
+LAST_EXE_FAILED = (
+    "\nThe last execution of the job failed to complete.\n" +
+    "It finished with status: {status}. \n" +
+    "It is strongly recommended you complete the execution\n" +
+    "before running a new load.\n\n" +
+    "To ignore this warning and run a brand new load, enter\n" +
+    "'ignore'. To rerun the previous job press any key\n")
 
-CANT_RERUN_WITH_SETUP_OR_REBUILD = ("\nYou can't rerun a previous job at " +
-                                    "the same time as reinstalling the betl " +
-                                    "config tables, or rebuilding a data " +
-                                    "layer - you would lose all history of " +
-                                    "the last job run if you did. Fool.\n" +
-                                    "Press any key to abort execution.")
+CANT_RERUN_WITH_SETUP_OR_REBUILD = (
+    "\nYou can't rerun a previous job at the same time as\n" +
+    "reinstalling the betl config tables, or rebuilding a data\n" +
+    "layer - you would lose all history of the last job run if\n" +
+    "you did. Fool.\n\n" +
+    "Press any key to abort execution.")
 
 CANT_REBUILD_WITH_DELTA = ("You cannot rebuild the ETL database's data " +
                            "models as part of a delta load. Fool.")
