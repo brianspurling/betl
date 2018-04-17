@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from . import logger as logger
 
 
@@ -11,7 +12,11 @@ class DatabaseIO():
 
         self.conf = conf
 
-    def writeDataToDB(self, df, tableName, eng, if_exists):
+    def writeDataToDB(self, df, tableName, eng, if_exists,
+                      emptyStingToNaN=True):
+
+        if emptyStingToNaN:
+            df.replace('', np.nan, inplace=True)
 
         df.to_sql(tableName,
                   eng,
@@ -21,3 +26,8 @@ class DatabaseIO():
     def readDataFromDB(self, tableName, conn, cols='*'):
 
         return pd.read_sql('SELECT ' + cols + ' FROM ' + tableName, con=conn)
+
+    def customSql(self, sql, datastore):
+        dbCursor = datastore.cursor()
+        dbCursor.execute(sql)
+        datastore.commit()

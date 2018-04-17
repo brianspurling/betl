@@ -55,7 +55,8 @@ class DataIO():
 
         return df
 
-    def writeData(self, df, tableName, dataLayerID, append_or_replace):
+    def writeData(self, df, tableName, dataLayerID, append_or_replace,
+                  forceDBWrite=False):
 
         callingFuncName = inspect.stack()[2][3]
 
@@ -64,11 +65,13 @@ class DataIO():
 
         if dataLayerID in ['TRG', 'SUM']:
             writeToDB = True
+        elif forceDBWrite:
+            writeToDB = True
         else:
             writeToDB = self.conf.exe.WRITE_TO_ETL_DB
 
         dataLayer = self.conf.state.LOGICAL_DATA_MODELS[dataLayerID]
-        if tableName not in dataLayer.getListOfTables():
+        if tableName not in dataLayer.getListOfTables() and not forceDBWrite:
             writeToDB = False
 
         # write to CSV
@@ -91,6 +94,40 @@ class DataIO():
                 dbEng,
                 append_or_replace,
                 callingFuncName)
+
+    def getColumnHeadings(self, tableName, dataLayerID):
+
+        callingFuncName = inspect.stack()[2][3]
+
+        path = (self.conf.app.TMP_DATA_PATH +
+                dataLayerID + '/' +
+                tableName + '.csv')
+
+        self.jobLog.info(logger.logStepStart(
+                         'Getting column headings from CSV: ' + path,
+                         callingFuncName=callingFuncName))
+
+        df = pd.DataFrame()
+        df = self.fileIO.readDataFromCsv(path=path,
+                                         sep=',',
+                                         quotechar='"',
+                                         nrows=1)
+
+        # We never want audit cols to come into transform dataframes
+        if 'audit_source_system' in df.columns:
+            df.drop(['audit_source_system'], axis=1, inplace=True)
+        if 'audit_bulk_load_date' in df.columns:
+            df.drop(['audit_bulk_load_date'], axis=1, inplace=True)
+        if 'audit_latest_delta_load_date' in df.columns:
+            df.drop(['audit_latest_delta_load_date'], axis=1, inplace=True)
+        if 'audit_latest_delta_load_operation' in df.columns:
+            df.drop(['audit_latest_delta_load_operation'],
+                    axis=1,
+                    inplace=True)
+
+        self.jobLog.info(logger.logStepEnd(df))
+
+        return list(df)
 
     def readDataFromSpreadsheet(self,
                                 tableName,
@@ -155,6 +192,31 @@ class DataIO():
 
         self.jobLog.info(logger.logStepEnd(df))
 
+    def customSql(self, sql, dataLayerID, retrieveTableName=None):
+
+        callingFuncName = inspect.stack()[2][3]
+
+        self.jobLog.info(logger.logStepStart(
+            'Executing custom sql\n\n' + sql + '\n\n',
+            callingFuncName=callingFuncName))
+        datastore = self.conf.state.LOGICAL_DATA_MODELS[dataLayerID].datastore
+        self.dbIO.customSql(sql, datastore)
+        self.jobLog.info(logger.logStepEnd())
+
+        df = None
+        if retrieveTableName is not None:
+            ds = self.conf.state.LOGICAL_DATA_MODELS[dataLayerID].datastore
+            self.jobLog.info(logger.logStepStart(
+                'Reading data from DB: ' + retrieveTableName,
+                callingFuncName=callingFuncName))
+            df = self.dbIO.readDataFromDB(tableName=retrieveTableName,
+                                          conn=ds.conn,
+                                          cols='*')
+            self.jobLog.info(logger.logStepEnd(df))
+            self.writeDataToCsv(df, retrieveTableName, 'STG', 'w')
+
+        return df
+
     # # # #
 
     def readDataFromSrcSys(self, srcSysID, file_name_or_table_name):
@@ -185,7 +247,7 @@ class DataIO():
                                  srcSysDatastore.fileExt + ' for source sys ' +
                                  srcSysID)
 
-        elif srcSysDatastore.datastoreType == 'POSTGRES':
+        elif srcSysDatastore.datastoreType in ('POSTGRES', 'SQLITE'):
 
             etlTableName = file_name_or_table_name
             # Cut off the src_<dataModelID>_ prefix, by doing

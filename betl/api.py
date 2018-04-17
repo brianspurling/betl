@@ -91,19 +91,45 @@ def run(appConfigFile, runTimeParams, scheduleConfig):
 
     utils.checkDBsForSuperflousTables(CONF, logicalDataModels, JOB_LOG)
 
+    response = 'SUCCESS'
     if CONF.exe.RUN_DATAFLOWS:
         scheduler = Scheduler(CONF,
                               DATA_IO,
                               logicalDataModels)
-        scheduler.executeSchedule()
+        response = scheduler.executeSchedule()
+
+    if response == 'SUCCESS':
+        # TODO because I've had to move this out here so it logs even when
+        # run param isn't passed, I'm now no longer catching a failure to
+        # to write to the ctrlDB (see scheduler for proper handling). Need
+        # to consolidate all fo this
+        ctrlDB.updateExecutionInCtlTable(
+            execId=CONF.state.EXEC_ID,
+            status='SUCCESSFUL',
+            statusMessage='')
+        logStr = ("\n\n" +
+                  "THE JOB COMPLETED SUCCESSFULLY " +
+                  "(the executions table has been updated)\n\n")
+        JOB_LOG.info(logStr)
+        JOB_LOG.info(logger.logExecutionStartFinish('FINISH'))
 
 
 def readData(tableName, dataLayerID):
     return DATA_IO.readData(tableName, dataLayerID)
 
 
-def writeData(df, tableName, dataLayerID, append_or_replace='replace'):
-    DATA_IO.writeData(df, tableName, dataLayerID, append_or_replace)
+def writeData(df, tableName, dataLayerID, append_or_replace='replace',
+              forceDBWrite=False):
+    DATA_IO.writeData(df, tableName, dataLayerID, append_or_replace,
+                      forceDBWrite)
+
+
+def getColumnHeadings(tableName, dataLayerID):
+    return DATA_IO.getColumnHeadings(tableName, dataLayerID)
+
+
+def customSql(sql, dataLayerID, retrieveTableName):
+    return DATA_IO.customSql(sql, dataLayerID, retrieveTableName)
 
 
 def readDataFromSrcSys(srcSysID, file_name_or_table_name):

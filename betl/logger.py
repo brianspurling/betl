@@ -1,6 +1,7 @@
 import os
 import logging
 import inspect
+from datetime import datetime
 
 # TODO: http://docs.python-guide.org/en/latest/writing/logging/
 # >>> logging in a library
@@ -10,7 +11,8 @@ LOG_LEVEL = logging.ERROR
 CONF = None
 JOB_LOG_FILE_NAME = None
 DEV_LOG_FILE_NAME = None
-HELLO = ''
+
+START_TIME = None
 
 # TODO loggers allow some kind of ancestor/inheritance model
 
@@ -74,6 +76,7 @@ def getDevLog(moduleName):
 
 
 def logExecutionStartFinish(startOrFinish='START'):
+
     print('')
     value = 'Started '
     if startOrFinish == 'FINISH':
@@ -114,7 +117,7 @@ def logExecutionOverview(execReport, rerun=False):
 
     lastExecStatusMsg = ('The last execution (' +
                          str(execReport['lastExecId']) + ') ' +
-                         'finished with: ' + execReport['lastExecStatus'])
+                         'has status: ' + execReport['lastExecStatus'])
     op = ''
     op += '\n'
     op += '----------------------------------------------------------' + '\n'
@@ -134,6 +137,9 @@ def logClearedTempData():
 
 
 def logStepStart(stepDescription, stepId=None, callingFuncName=None):
+    global START_TIME
+    START_TIME = datetime.now()
+
     op = ''
     op += '\n'
     op += '******************************************************************'
@@ -145,23 +151,36 @@ def logStepStart(stepDescription, stepId=None, callingFuncName=None):
         inspect.stack()[2][3]
 
     if (stepId is not None):
-        op += stage + funcName + ' (step ' + str(stepId) + '): '
+        op += stage + funcName + ' (step ' + str(stepId) + ') '
     else:
-        op += stage + funcName + ': '
-    op += stepDescription + '\n'
+        op += stage + funcName + ' '
+
+    op += stepDescription + '\n\n'
+
+    op += '[Started at: ' + str(START_TIME) + ']'
+
     return op
 
 
-def logStepEnd(df):
+def logStepEnd(df=None):
+
+    currentTime = datetime.now()
+    elapsedSeconds = (currentTime - START_TIME).total_seconds()
     op = ''
-    op += describeDataFrame(df)
+
+    op += '[Completed in: ' + str(round(elapsedSeconds, 2)) + ' seconds]\n\n'
+
+    if df is not None:
+        op += describeDataFrame(df)
+    else:
+        op += ''
+
     return op
 
 
 def describeDataFrame(df):
     op = ''
-    op += 'Shape: ' + str(df.shape) + '\n'
-    op += '\n'
+    op += 'Shape: ' + str(df.shape) + '\n\n'
     op += 'Columns:\n'
     for colName in list(df.columns.values):
         op += ' ' + colName + ': '

@@ -118,20 +118,12 @@ class Scheduler():
                         setStartDateTime=False,
                         setEndDateTime=True)
 
-            self.ctrlDB.updateExecutionInCtlTable(
-                execId=self.conf.state.EXEC_ID,
-                status='SUCCESSFUL',
-                statusMessage='')
-
-            logStr = ("\n\n" +
-                      "THE JOB COMPLETED SUCCESSFULLY " +
-                      "(the executions table has been updated)\n\n")
-            self.jobLog.info(logStr)
-            self.jobLog.info(logger.logExecutionStartFinish('FINISH'))
+            return 'SUCCESS'
 
         # Catch everything, so we can output to the logs
         except Exception as e1:
             self.handleDataflowException(schedule, counter, e1)
+            return 'FAIL'
 
     def executeDataflow(self, dataflowName):
         # We set the conf.STAGE object so that, during execution of the
@@ -142,6 +134,9 @@ class Scheduler():
         self.scheduleDic[dataflowName]['dataflow'](self)
         self.devLog.info('Completed execution of dataflow: ' + dataflowName)
 
+    # TODO: need proper set of status response messages to pass out of here,
+    # so all logging start/stop can happen in one place (otherwise it's
+    # inconsistent depending whether run arg was passed in or not)
     def handleDataflowException(self, schedule, counter, errorMessage):
             tb1 = traceback.format_exc()
             try:

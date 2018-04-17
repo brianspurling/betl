@@ -3,6 +3,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import sqlalchemy
+import sqlite3
 
 
 class Datastore():
@@ -15,7 +16,8 @@ class Datastore():
 
 class PostgresDatastore(Datastore):
 
-    def __init__(self, dbID, host, dbName, user, password):
+    def __init__(self, dbID, host, dbName, user, password,
+                 createIfNotFound=False):
 
         Datastore.__init__(self,
                            datastoreID=dbID,
@@ -26,7 +28,7 @@ class PostgresDatastore(Datastore):
         self.dbName = dbName
         self.user = user
         self.password = password
-        self.conn = self.getDBConnection()
+        self.conn = self.getDBConnection(createIfNotFound)
         self.eng = sqlalchemy.create_engine(r'postgresql://'
                                             + self.user
                                             + ':@'
@@ -40,7 +42,7 @@ class PostgresDatastore(Datastore):
     def cursor(self):
         return self.conn.cursor()
 
-    def getDBConnection(self):
+    def getDBConnection(self, createIfNotFound):
         # We will temporarily connect to the postgres database, to check
         # whether configDetails['DBNAME'] exists yet
 
@@ -55,12 +57,9 @@ class PostgresDatastore(Datastore):
                              "WHERE datname = '" + self.dbName + "'")
         dbs = tempDBCursor.fetchall()
 
-        if(len(dbs) == 0):
+        if(len(dbs) == 0 and createIfNotFound):
             tempConn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-            # TODO: need to pass in appConf to get DBName
-            tempDBCursor.execute('CREATE DATABASE '
-                                 + 'DBNAME PLACEHOLER' + '_'
-                                 + self.dbName)
+            tempDBCursor.execute('CREATE DATABASE ' + self.dbName)
 
         connectionString = "host='" + self.host + "'" + \
                            "dbname='" + self.dbName + "'" + \
@@ -68,6 +67,26 @@ class PostgresDatastore(Datastore):
                            "password='" + self.password + "'"
 
         return psycopg2.connect(connectionString)
+
+
+class SqliteDatastore(Datastore):
+
+    def __init__(self, dbID, path, filename):
+
+        Datastore.__init__(self,
+                           datastoreID=dbID,
+                           datastoreType='SQLITE')
+
+        self.dbID = dbID
+        self.path = path
+        self.filename = filename
+        self.conn = sqlite3.connect(path + '/' + filename)
+
+    def commit(self):
+        self.conn.commit()
+
+    def cursor(self):
+        return self.conn.cursor()
 
 
 class FileDatastore(Datastore):

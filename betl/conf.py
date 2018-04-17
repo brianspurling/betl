@@ -1,6 +1,7 @@
 import datetime
 from configobj import ConfigObj
 from .datastore import PostgresDatastore
+from .datastore import SqliteDatastore
 from .datastore import SpreadsheetDatastore
 from .datastore import FileDatastore
 
@@ -53,7 +54,8 @@ class App():
                     host=dbConfigObj['HOST'],
                     dbName=dbConfigObj['DBNAME'],
                     user=dbConfigObj['USER'],
-                    password=dbConfigObj['PASSWORD'])
+                    password=dbConfigObj['PASSWORD'],
+                    createIfNotFound=True)
 
         self.DEFAULT_ROW_SRC = \
             SpreadsheetDatastore(
@@ -75,6 +77,13 @@ class App():
                         dbName=cnfgObj['DBNAME'],
                         user=cnfgObj['USER'],
                         password=cnfgObj['PASSWORD'])
+
+            elif cnfgObj['TYPE'] == 'SQLITE':
+                self.SRC_SYSTEMS[srcSysID] = \
+                    SqliteDatastore(
+                        dbID=srcSysID,
+                        path=cnfgObj['PATH'],
+                        filename=cnfgObj['FILENAME'])
 
             elif cnfgObj['TYPE'] == 'FILESYSTEM':
                 self.SRC_SYSTEMS[srcSysID] = \
