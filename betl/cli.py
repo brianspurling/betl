@@ -30,6 +30,7 @@ BULK_LOAD_WARNING = ("\nRunning BULK load will completely wipe your " +
                      "data warehouse's history.\nAll changes stored " +
                      "by your deltas will be lost.\nSure? (Y or N)  ")
 
+# TODO add warning about losing data if you rebuild
 SETUP_WARNING = ("\nRunning SETUP will reset your control DB. " +
                  "\nAll execution logs in the DB will be lost (log files " +
                  "will be archived).\nSure? (Y or N)  ")

@@ -78,6 +78,13 @@ def run(appConfigFile, runTimeParams, scheduleConfig):
     for dmID in logicalDataModels:
         JOB_LOG.info(logicalDataModels[dmID].__str__())
 
+    if CONF.exe.RUN_REBUILD_ALL or \
+       CONF.exe.RUN_REBUILD_SRC or \
+       CONF.exe.RUN_REBUILD_STG or \
+       CONF.exe.RUN_REBUILD_TRG or \
+       CONF.exe.RUN_REBUILD_SUM:
+        JOB_LOG.info(logger.logPhysicalDataModelBuildStart())
+
     if CONF.exe.RUN_REBUILD_ALL:
         for dataModelID in logicalDataModels:
             logicalDataModels[dataModelID].buildPhysicalDataModel()

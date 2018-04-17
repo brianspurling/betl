@@ -253,3 +253,16 @@ def superflousTableWarning(tableNamesStr):
     op += '  ' + tableNamesStr
     op += '  \n'
     return op
+
+
+def logPhysicalDataModelBuildStart():
+    op = ''
+    op += '*** Rebuilding the physical data models ***'
+    op += '\n'
+    return op
+
+
+def logPhysicalDataModelBuild_dataLayerDone(dataLayerID):
+    op = ''
+    op += '  - Rebuilt the ' + dataLayerID + ' physical data models... '
+    return op

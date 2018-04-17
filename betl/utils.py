@@ -110,11 +110,12 @@ def buildLogicalDataModels(conf):
     # semantics, I can also move the log to the outisde of the whole execution
     # (execution ID, rather than job ID?). I think the job log should capture
     # everything, becuase an auto run could easily fail here.
+    # I at least need to move these into logger, like the physical model build
 
     logicalDataModels = {}
 
     print('\n', end='')
-    print('Building the logical data models', end='')
+    print('*** Building the logical data models ***', end='')
     print('\n\n', end='')
 
     print('  - Building the SRC logical data models... ', end='')

@@ -2,6 +2,7 @@ from .dataModel import DataModel
 from .dataModel import SrcDataModel
 from .table import TrgTable
 from . import df_dmDate
+from . import logger as logger
 
 
 class DataLayer():
@@ -16,6 +17,9 @@ class DataLayer():
         self.schemaDescSpreadsheetDatastore = \
             conf.app.SCHEMA_DESCRIPTION_GSHEETS[dbID]
         self.dataModels = self.buildLogicalDataModels()
+
+        self.devLog = logger.getDevLog(__name__)
+        self.jobLog = logger.getJobLog()
 
     #
     # Logical Data Model (Gsheets)
@@ -110,6 +114,9 @@ class DataLayer():
         for createStatement in createStatements:
             dbCursor.execute(createStatement)
             self.datastore.commit()
+
+        self.jobLog.info(
+            logger.logPhysicalDataModelBuild_dataLayerDone(self.dataLayerID))
 
     def dropPhysicalDataModel(self):
 
