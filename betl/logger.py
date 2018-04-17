@@ -13,6 +13,7 @@ JOB_LOG_FILE_NAME = None
 DEV_LOG_FILE_NAME = None
 
 STEP_START_TIME = None
+EXE_START_TIME = None
 
 # TODO loggers allow some kind of ancestor/inheritance model
 
