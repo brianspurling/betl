@@ -115,7 +115,7 @@ def bulkLoadDimension(table, defaultRows, dataIO):
 
         JOB_LOG.info(logger.logStepEnd(df))
 
-        dataIO.writeData(df, table.tableName, 'TRG', 'append')
+        api.writeData(df, table.tableName, 'TRG', 'append')
 
     # We will need the SKs we just created to write the facts later, so
     # pull the sk/nks back out (this func writes them to a csv file)
