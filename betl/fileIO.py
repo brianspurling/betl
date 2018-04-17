@@ -36,10 +36,13 @@ class FileIO():
         if mode == 'a':
             _filename = self.fileNameMap[filename]
         else:
-            prefix = str(self.nextFilePrefix).zfill(self.filePrefixLength)
-            _filename = prefix + "-" + filename
-            self.nextFilePrefix += 1
-            self.fileNameMap[filename] = _filename
+            if filename in self.fileNameMap:
+                _filename = self.fileNameMap[filename]
+            else:
+                prefix = str(self.nextFilePrefix).zfill(self.filePrefixLength)
+                _filename = prefix + "-" + filename
+                self.nextFilePrefix += 1
+                self.fileNameMap[filename] = _filename
 
         _file = open(path + _filename, mode)
 
