@@ -12,7 +12,7 @@ CONF = None
 JOB_LOG_FILE_NAME = None
 DEV_LOG_FILE_NAME = None
 
-START_TIME = None
+STEP_START_TIME = None
 
 # TODO loggers allow some kind of ancestor/inheritance model
 
@@ -77,6 +77,11 @@ def getDevLog(moduleName):
 
 def logExecutionStartFinish(startOrFinish='START'):
 
+    global EXE_START_TIME
+
+    if startOrFinish == 'START':
+        EXE_START_TIME = datetime.now()
+
     print('')
     value = 'Started '
     if startOrFinish == 'FINISH':
@@ -89,6 +94,12 @@ def logExecutionStartFinish(startOrFinish='START'):
     op += '                  *                           *' + '\n'
     op += '                  *****************************' + '\n'
     if startOrFinish == 'FINISH':
+        currentTime = datetime.now()
+        elapsedMins = (currentTime - EXE_START_TIME).total_minutes()
+        op += '\n'
+        op += '                       Finished: ' + datetime.now()
+        op += '\n'
+        op += '                       Duration: ' + str(elapsedMins) + ' mins'
         op += '\n'
         op += '                       ' + JOB_LOG_FILE_NAME
         op += '\n'
@@ -111,17 +122,23 @@ def logBetlSetupComplete():
 
 
 def logExecutionOverview(execReport, rerun=False):
+
+    global EXE_START_TIME
+
     introText = 'Running NEW execution'
     if rerun:
         introText = 'Rerunning PREVIOUS execution'
 
     lastExecStatusMsg = ('The last execution (' +
                          str(execReport['lastExecId']) + ') ' +
-                         'has status: ' + execReport['lastExecStatus'])
+                         'finished with status: ' +
+                         execReport['lastExecStatus'])
+
     op = ''
     op += '\n'
     op += '----------------------------------------------------------' + '\n'
     op += ' ' + introText + ': ' + str(execReport['execId']) + '\n'
+    op += '   - Started ' + str(EXE_START_TIME) + '\n'
     op += '   - ' + lastExecStatusMsg + '\n'
     op += '----------------------------------------------------------' + '\n'
     return op
@@ -137,8 +154,8 @@ def logClearedTempData():
 
 
 def logStepStart(stepDescription, stepId=None, callingFuncName=None):
-    global START_TIME
-    START_TIME = datetime.now()
+    global STEP_START_TIME
+    STEP_START_TIME = datetime.now()
 
     op = ''
     op += '\n'
@@ -157,7 +174,7 @@ def logStepStart(stepDescription, stepId=None, callingFuncName=None):
 
     op += stepDescription + '\n\n'
 
-    op += '[Started at: ' + str(START_TIME) + ']'
+    op += '[Started at: ' + str(STEP_START_TIME) + ']'
 
     return op
 
@@ -165,7 +182,7 @@ def logStepStart(stepDescription, stepId=None, callingFuncName=None):
 def logStepEnd(df=None):
 
     currentTime = datetime.now()
-    elapsedSeconds = (currentTime - START_TIME).total_seconds()
+    elapsedSeconds = (currentTime - STEP_START_TIME).total_seconds()
     op = ''
 
     op += '[Completed in: ' + str(round(elapsedSeconds, 2)) + ' seconds]\n\n'
