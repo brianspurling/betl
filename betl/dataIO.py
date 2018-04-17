@@ -31,7 +31,7 @@ class DataIO():
         filename = tableName + '.csv'
 
         self.jobLog.info(logger.logStepStart(
-                         'Reading data from CSV: ' + path,
+                         'Reading data from CSV: ' + path + filename,
                          callingFuncName=callingFuncName))
 
         df = pd.DataFrame()
@@ -114,7 +114,8 @@ class DataIO():
         filename = tableName + '.csv'
 
         self.jobLog.info(logger.logStepStart(
-                         'Getting column headings from CSV: ' + path,
+                         'Getting column headings from CSV: ' + path
+                         + filename,
                          callingFuncName=callingFuncName))
 
         df = pd.DataFrame()
