@@ -27,8 +27,8 @@ class DataIO():
         callingFuncName = inspect.stack()[2][3]
 
         path = (self.conf.app.TMP_DATA_PATH +
-                dataLayerID + '/' +
-                tableName + '.csv')
+                dataLayerID + '/')
+        filename = tableName + '.csv'
 
         self.jobLog.info(logger.logStepStart(
                          'Reading data from CSV: ' + path,
@@ -36,6 +36,7 @@ class DataIO():
 
         df = pd.DataFrame()
         df = self.fileIO.readDataFromCsv(path=path,
+                                         filename=filename,
                                          sep=',',
                                          quotechar='"')
 
@@ -100,8 +101,8 @@ class DataIO():
         callingFuncName = inspect.stack()[2][3]
 
         path = (self.conf.app.TMP_DATA_PATH +
-                dataLayerID + '/' +
-                tableName + '.csv')
+                dataLayerID + '/')
+        filename = tableName + '.csv'
 
         self.jobLog.info(logger.logStepStart(
                          'Getting column headings from CSV: ' + path,
@@ -109,6 +110,7 @@ class DataIO():
 
         df = pd.DataFrame()
         df = self.fileIO.readDataFromCsv(path=path,
+                                         filename=filename,
                                          sep=',',
                                          quotechar='"',
                                          nrows=1)
@@ -167,13 +169,13 @@ class DataIO():
         if not os.path.exists(path):
             os.makedirs(path)
 
-        path += filename + '.csv'
+        _filename = filename + '.csv'
 
         self.jobLog.info(logger.logStepStart(
             'Writing data to CSV: ' + filename,
             callingFuncName=callingFuncName))
 
-        self.fileIO.writeDataToCsv(df, path, headers, mode)
+        self.fileIO.writeDataToCsv(df, path, _filename, headers, mode)
 
         self.jobLog.info(logger.logStepEnd(df))
 
@@ -238,9 +240,11 @@ class DataIO():
             quotechar = srcSysDatastore.quotechar
 
             if srcSysDatastore.fileExt == '.csv':
-                df = self.fileIO.readDataFromCsv(path=path + filename + '.csv',
+                df = self.fileIO.readDataFromCsv(path=path,
+                                                 filename=filename + '.csv',
                                                  sep=separator,
-                                                 quotechar=quotechar)
+                                                 quotechar=quotechar,
+                                                 isTmpData=False)
 
             else:
                 raise ValueError('Unhandled file extension for src system: ' +

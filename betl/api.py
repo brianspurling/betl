@@ -68,6 +68,8 @@ def run(appConfigFile, runTimeParams, scheduleConfig):
 
     if CONF.exe.DELETE_TMP_DATA:
         DATA_IO.fileIO.deleteTempoaryData()
+    else:
+        DATA_IO.fileIO.populateFileNameMap()
 
     # Pull the schema descriptions from the gsheets and our logical data models
     logicalDataModels = utils.buildLogicalDataModels(CONF)
