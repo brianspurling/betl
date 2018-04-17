@@ -8,27 +8,30 @@ import sqlite3
 
 class Datastore():
 
-    def __init__(self, datastoreID, datastoreType):
+    def __init__(self, datastoreID, datastoreType, isSrcSys):
 
         self.datatoreID = datastoreID
         self.datastoreType = datastoreType
+        self.isSrcSys = isSrcSys
 
 
 class PostgresDatastore(Datastore):
 
     def __init__(self, dbID, host, dbName, user, password,
-                 createIfNotFound=False):
+                 createIfNotFound=False,
+                 isSrcSys=False):
 
         Datastore.__init__(self,
                            datastoreID=dbID,
-                           datastoreType='POSTGRES')
+                           datastoreType='POSTGRES',
+                           isSrcSys=isSrcSys)
 
         self.dbID = dbID
         self.host = host
         self.dbName = dbName
         self.user = user
         self.password = password
-        self.conn = self.getDBConnection(createIfNotFound)
+        self.conn = self.getDBConnection(createIfNotFound, isSrcSys)
         self.eng = sqlalchemy.create_engine(r'postgresql://'
                                             + self.user
                                             + ':@'
@@ -42,7 +45,7 @@ class PostgresDatastore(Datastore):
     def cursor(self):
         return self.conn.cursor()
 
-    def getDBConnection(self, createIfNotFound):
+    def getDBConnection(self, createIfNotFound, isSrcSys):
         # We will temporarily connect to the postgres database, to check
         # whether configDetails['DBNAME'] exists yet
 
@@ -66,21 +69,31 @@ class PostgresDatastore(Datastore):
                            "user='" + self.user + "'" + \
                            "password='" + self.password + "'"
 
-        return psycopg2.connect(connectionString)
+        conn = psycopg2.connect(connectionString)
+
+        if isSrcSys:
+            conn.set_session(readonly=True)
+
+        return conn
 
 
 class SqliteDatastore(Datastore):
 
-    def __init__(self, dbID, path, filename):
+    def __init__(self, dbID, path, filename, isSrcSys=False):
 
         Datastore.__init__(self,
                            datastoreID=dbID,
-                           datastoreType='SQLITE')
+                           datastoreType='SQLITE',
+                           isSrcSys=isSrcSys)
 
         self.dbID = dbID
         self.path = path
         self.filename = filename
-        self.conn = sqlite3.connect(path + '/' + filename)
+        readOnlyString = ''
+        if isSrcSys:
+            readOnlyString = '?mode=ro'
+        self.conn = sqlite3.connect(path + '/' + filename + readOnlyString,
+                                    uri=True)
 
     def commit(self):
         self.conn.commit()
@@ -91,11 +104,13 @@ class SqliteDatastore(Datastore):
 
 class FileDatastore(Datastore):
 
-    def __init__(self, fileSysID, path, fileExt, delim, quotechar):
+    def __init__(self, fileSysID, path, fileExt, delim, quotechar,
+                 isSrcSys=False):
 
         Datastore.__init__(self,
                            datastoreID=fileSysID,
-                           datastoreType='FILESYSTEM')
+                           datastoreType='FILESYSTEM',
+                           isSrcSys=isSrcSys)
 
         self.fileSysID = fileSysID
         self.path = path
@@ -106,11 +121,12 @@ class FileDatastore(Datastore):
 
 class SpreadsheetDatastore(Datastore):
 
-    def __init__(self, ssID, apiUrl, apiKey, filename):
+    def __init__(self, ssID, apiUrl, apiKey, filename, isSrcSys=False):
 
         Datastore.__init__(self,
                            datastoreID=ssID,
-                           datastoreType='SPREADSHEET')
+                           datastoreType='SPREADSHEET',
+                           isSrcSys=isSrcSys)
 
         self.ssID = ssID
         self.apiUrl = apiUrl

@@ -75,6 +75,15 @@ class DataIO():
         if tableName not in dataLayer.getListOfTables() and not forceDBWrite:
             writeToDB = False
 
+        # We need to check manually for isSrcSys and raise an error if we're
+        # trying to write to a srcSys. PostGres and SqlLite also push this
+        # check down to the connection itself, but this doesn't apply to csv
+        # or spreadsheet, and nor does it cover sqlalchemy's engine (used by
+        # Pandas). Hence the check here. 
+        if dataLayer.datastore.isSrcSys:
+            # TODO: proper error handling here
+            raise ValueError("You just attempted to write to a source system!")
+
         # write to CSV
         mode = 'w'
         if append_or_replace.upper() == 'APPEND':

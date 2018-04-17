@@ -76,14 +76,16 @@ class App():
                         host=cnfgObj['HOST'],
                         dbName=cnfgObj['DBNAME'],
                         user=cnfgObj['USER'],
-                        password=cnfgObj['PASSWORD'])
+                        password=cnfgObj['PASSWORD'],
+                        isSrcSys=True)
 
             elif cnfgObj['TYPE'] == 'SQLITE':
                 self.SRC_SYSTEMS[srcSysID] = \
                     SqliteDatastore(
                         dbID=srcSysID,
                         path=cnfgObj['PATH'],
-                        filename=cnfgObj['FILENAME'])
+                        filename=cnfgObj['FILENAME'],
+                        isSrcSys=True)
 
             elif cnfgObj['TYPE'] == 'FILESYSTEM':
                 self.SRC_SYSTEMS[srcSysID] = \
@@ -92,7 +94,8 @@ class App():
                         path=cnfgObj['PATH'],
                         fileExt=cnfgObj['FILE_EXT'],
                         delim=cnfgObj['DELIMITER'],
-                        quotechar=cnfgObj['QUOTECHAR'])
+                        quotechar=cnfgObj['QUOTECHAR'],
+                        isSrcSys=True)
 
             elif cnfgObj['TYPE'] == 'SPREADSHEET':
                 apiUrl = cnfgObj['GOOGLE_SHEETS_API_URL']
@@ -102,7 +105,8 @@ class App():
                         ssID=srcSysID,
                         apiUrl=apiUrl,
                         apiKey=apiKey,
-                        filename=cnfgObj['FILENAME'])
+                        filename=cnfgObj['FILENAME'],
+                        isSrcSys=True)
 
 
 class Exe():
