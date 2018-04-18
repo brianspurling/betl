@@ -51,7 +51,9 @@ def run(appConfigFile, runTimeParams, scheduleConfig):
     JOB_LOG = logger.getJobLog()
     DEV_LOG = logger.getDevLog(__name__)
 
-    JOB_LOG.info(logger.logExecutionStartFinish('START'))
+    JOB_LOG.info(logger.logExecutionStartFinish(
+        'START',
+        rerun=CONF.state.RERUN_PREV_JOB))
 
     if CONF.exe.RUN_SETUP:
         JOB_LOG.info(logger.logBetlSetupComplete())

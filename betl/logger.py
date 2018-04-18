@@ -76,7 +76,7 @@ def getDevLog(moduleName):
     return logging.getLogger(moduleName)
 
 
-def logExecutionStartFinish(startOrFinish='START'):
+def logExecutionStartFinish(startOrFinish='START', rerun=False):
 
     global EXE_START_TIME
 
@@ -84,14 +84,19 @@ def logExecutionStartFinish(startOrFinish='START'):
         EXE_START_TIME = datetime.now()
 
     print('')
-    value = 'Started '
+    value = ''
+    if startOrFinish == 'START':
+        if rerun:
+            value = 'Restarted'
+        else:
+            value = 'Started  '
     if startOrFinish == 'FINISH':
-        value = 'Finished'
+        value = 'Finished '
 
     op = ''
     op += '                  *****************************' + '\n'
     op += '                  *                           *' + '\n'
-    op += '                  *  BETL Execution ' + value + '  *' + '\n'
+    op += '                  *  BETL Execution ' + value + ' *' + '\n'
     op += '                  *                           *' + '\n'
     op += '                  *****************************' + '\n'
     if startOrFinish == 'FINISH':
@@ -137,12 +142,13 @@ def logExecutionOverview(execReport, rerun=False):
                          execReport['lastExecStatus'])
 
     op = ''
-    op += '\n'
-    op += '----------------------------------------------------------' + '\n'
+    op += '----------------------------------------------------------------'
+    op += '-----' + '\n'
     op += ' ' + introText + ': ' + str(execReport['execId']) + '\n'
     op += '   - Started: ' + str(EXE_START_TIME) + '\n'
     op += '   - ' + lastExecStatusMsg + '\n'
-    op += '----------------------------------------------------------' + '\n'
+    op += '-----------------------------------------------------------------'
+    op += '-----' + '\n'
     return op
 
 
