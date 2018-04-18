@@ -1,4 +1,3 @@
-import os
 import logging
 import inspect
 from datetime import datetime
@@ -33,14 +32,10 @@ def initialiseLogging(execId, logLevel, conf):
     JOB_LOG_FILE_NAME = 'logs/' + str(EXEC_ID) + '_jobLog.log'
     DEV_LOG_FILE_NAME = 'logs/' + str(EXEC_ID) + '_devLog.log'
 
-    # if the files already exist, remove (a previous run might have failed
-    # before it saved the new execId down to the DB, therefore we might be
-    # running with the same execId again)
-    # TODO: archive the old files!
-    if (os.path.exists(JOB_LOG_FILE_NAME)):
-        os.remove(JOB_LOG_FILE_NAME)
-    if (os.path.exists(DEV_LOG_FILE_NAME)):
-        os.remove(DEV_LOG_FILE_NAME)
+    # if (os.path.exists(JOB_LOG_FILE_NAME)):
+    #     os.remove(JOB_LOG_FILE_NAME)
+    # if (os.path.exists(DEV_LOG_FILE_NAME)):
+    #     os.remove(DEV_LOG_FILE_NAME)
 
     jobLog = logging.getLogger('JOB_LOG')
     jobLogFileName = JOB_LOG_FILE_NAME
