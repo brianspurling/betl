@@ -44,7 +44,8 @@ def defaultExtract(scheduler):
                                      action='BULK')
 
                 # Bulk write the SRC table
-                api.writeData(srcDF, tableName, 'SRC')
+                # TODO: remove test data restriction!
+                api.writeData(srcDF.head(1000), tableName, 'SRC')
 
             elif scheduler.bulkOrDelta == 'DELTA':
 
