@@ -33,16 +33,14 @@ class FileIO():
     def writeDataToCsv(self, df, path, filename, headers, mode):
 
         _filename = ''
-        if mode == 'a':
+
+        if filename in self.fileNameMap:
             _filename = self.fileNameMap[filename]
         else:
-            if filename in self.fileNameMap:
-                _filename = self.fileNameMap[filename]
-            else:
-                prefix = str(self.nextFilePrefix).zfill(self.filePrefixLength)
-                _filename = prefix + "-" + filename
-                self.nextFilePrefix += 1
-                self.fileNameMap[filename] = _filename
+            prefix = str(self.nextFilePrefix).zfill(self.filePrefixLength)
+            _filename = prefix + "-" + filename
+            self.nextFilePrefix += 1
+            self.fileNameMap[filename] = _filename
 
         _file = open(path + _filename, mode)
 
