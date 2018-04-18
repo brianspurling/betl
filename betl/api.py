@@ -139,7 +139,7 @@ def getColumnHeadings(tableName, dataLayerID):
     return DATA_IO.getColumnHeadings(tableName, dataLayerID)
 
 
-def customSql(sql, dataLayerID, retrieveTableName):
+def customSql(sql, dataLayerID, retrieveTableName=None):
     return DATA_IO.customSql(sql, dataLayerID, retrieveTableName)
 
 
