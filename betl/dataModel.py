@@ -59,10 +59,10 @@ class DataModel():
             tables.append(tableName)
         return tables
 
-    def getColumnListForTable(self, searchTableName):
+    def getColumnsForTable(self, searchTableName):
         for tableName in self.tables:
             if searchTableName == tableName:
-                return self.tables[tableName].colNames
+                return self.tables[tableName].columns
 
     def __str__(self):
         string = '\n' + '  ** ' + self.dataModelID + ' **' + '\n'

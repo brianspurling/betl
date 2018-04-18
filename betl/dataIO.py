@@ -87,22 +87,65 @@ class DataIO():
         # If this is a table defined in our logical data model, then we
         # can check we have all the columns and reorder them to match
         # the schema (which saves the app having to worry about this)
-        colNameList = dataLayer.getColumnListForTable(tableName)
-        if colNameList is not None:
+        logDataModelCols = dataLayer.getColumnsForTable(tableName)
+        if logDataModelCols is not None:
+
+            # TODO: need a fixed list of these audit cols and get rid of
+            # repeated listing of them
+            auditColumns = [
+                'audit_source_system',
+                'audit_bulk_load_date',
+                'audit_latest_delta_load_date',
+                'audit_latest_delta_load_operation']
+            logDataModelColNames_sks = []
+
+            logDataModelColNames_all = []
+            logDataModelColNames_noSKs = []
+            logDataModelColNames_all_plus_audit = []
+
+            for col in logDataModelCols:
+                logDataModelColNames_all.append(col.columnName)
+                if not col.isSK:
+                    logDataModelColNames_noSKs.append(col.columnName)
+                else:
+                    logDataModelColNames_sks.append(col.columnName)
+            logDataModelColNames_all_plus_audit = \
+                logDataModelColNames_all + auditColumns
+
+            colsIncludeSKs = False
+            colsIncludeAudit = False
             for colName in list(df):
-                if colName not in colNameList:
+                if colName in logDataModelColNames_sks:
+                    colsIncludeSKs = True
+                if colName in auditColumns:
+                    colsIncludeAudit = True
+
+                if colName not in logDataModelColNames_all_plus_audit:
                     raise ValueError(
-                        "You're trying to write to a table that's been " +
-                        "defined in your logical data model, but your " +
-                        "columns don't match. Column '" + colName +
-                        "' was not expected")
+                        "You're trying to write data to a table that's been " +
+                        "defined in your logical data model, but the " +
+                        "columns in your dataset don't match the logical " +
+                        "data model. Column '" + colName +
+                        "' is not in the logical data model.")
             try:
-                df = df[colNameList]
+                colsToSortBy = None
+                if colsIncludeSKs and colsIncludeAudit:
+                    colsToSortBy = logDataModelColNames_all_plus_audit
+                if colsIncludeSKs and not colsIncludeAudit:
+                    colsToSortBy = logDataModelColNames_all
+                if not colsIncludeSKs and colsIncludeAudit:
+                    colsToSortBy = logDataModelColNames_noSKs + auditColumns
+                if not colsIncludeSKs and not colsIncludeAudit:
+                    colsToSortBy = logDataModelColNames_noSKs
+
+                df = df[colsToSortBy]
+
             except KeyError as e:
                 raise ValueError(
-                    "You're trying to write to a table that's been " +
-                    "defined in your logical data model, but your " +
-                    "columns don't match. You're missing one or more " +
+                    "You're trying to write data to a table that's been " +
+                    "defined in your logical data model, but the " +
+                    "columns in your dataset don't match the logical " +
+                    "data model. Your dataset is missing one or more " +
                     "columns: '" + str(e))
 
         # write to CSV
