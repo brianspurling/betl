@@ -203,7 +203,7 @@ class DataIO():
         _filename = filename + '.csv'
 
         self.jobLog.info(logger.logStepStart(
-            'Writing data to CSV: ' + filename,
+            'Writing data to CSV: ' + filename + ' (mode=' + mode + ')',
             callingFuncName=callingFuncName))
 
         self.fileIO.writeDataToCsv(df, path, _filename, headers, mode)
