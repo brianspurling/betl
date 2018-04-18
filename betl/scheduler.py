@@ -27,8 +27,8 @@ class Scheduler():
 
         # We must construct the scheduler even if we're re-running the prev
         # load. constructSchedule puts all the actual funcs into the dict,
-        # so that when we pull the fun names out of the ctrlDB we can "find"
-        # the actual func to run. This means
+        # so that when we pull the func names out of the ctrlDB we can "find"
+        # the actual func to run.
         self.constructSchedule()
 
         if not self.conf.state.RERUN_PREV_JOB:
