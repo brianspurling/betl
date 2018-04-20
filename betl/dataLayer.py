@@ -34,10 +34,14 @@ class DataLayer():
             if self.dataLayerID == 'SRC':
                 dataModels[dataModelID] = \
                     SrcDataModel(dataModelSchemas[dataModelID],
-                                 self.conf, self.datastore)
+                                 self.conf,
+                                 self.datastore,
+                                 self.dataLayerID)
             else:
                 dataModels[dataModelID] = \
-                    DataModel(dataModelSchemas[dataModelID], self.datastore)
+                    DataModel(dataModelSchemas[dataModelID],
+                              self.datastore,
+                              self.dataLayerID)
 
         return dataModels
 
@@ -194,7 +198,9 @@ class TrgDataLayer(DataLayer):
         if conf.schedule.DEFAULT_DM_DATE:
             self.dataModels['TRG'].tables['dm_date'] = \
                 TrgTable(df_dmDate.getSchemaDescription(),
-                         self.datastore)
+                         self.datastore,
+                         dataLayerID='TRG',
+                         dataModelID='TRG')
 
     def resetSKSequences(self):
         # TODO at the last check, this wasn't being used

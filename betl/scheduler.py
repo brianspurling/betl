@@ -4,6 +4,7 @@ from .ctrlDB import CtrlDB
 from . import df_extract
 from . import df_dmDate
 from . import df_load
+from . import df_summarise
 
 
 class Scheduler():
@@ -65,6 +66,16 @@ class Scheduler():
 
             for dataflow in schedule.LOAD_DFS:
                 self.scheduleDataflow(dataflow, 'LOAD')
+
+        if self.conf.exe.RUN_SUMMARISE:
+
+            if schedule.DEFAULT_SUMMARISE:
+                self.scheduleDataflow(
+                    df_summarise.defaultSummarise,
+                    'SUMMARISE')
+
+            for dataflow in schedule.SUMMARISE_DFS:
+                self.scheduleDataflow(dataflow, 'SUMMARISE')
 
     def scheduleDataflow(self, dataflow, stage):
         # TODO: validate the dataflow names - the application can't schedule

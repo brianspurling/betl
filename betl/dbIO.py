@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from . import logger as logger
+import psycopg2
 
 
 class DatabaseIO():
@@ -31,3 +32,16 @@ class DatabaseIO():
         dbCursor = datastore.cursor()
         dbCursor.execute(sql)
         datastore.commit()
+
+        try:
+            # TODO: catch if all the columns haven't been named in the sql
+            data = dbCursor.fetchall()
+            columns = [column[0] for column in dbCursor.description]
+            df = pd.DataFrame(data)
+            logger.describeDataFrame(df)
+            if len(df) > 0:
+                df.columns = columns
+        except psycopg2.ProgrammingError:
+            df = None
+
+        return df

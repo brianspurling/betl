@@ -22,7 +22,7 @@ class DataIO():
         self.dbIO = DatabaseIO(conf)
         self.gsheetIO = GsheetIO(conf)
 
-    def readData(self, tableName, dataLayerID):
+    def readData(self, tableName, dataLayerID, rowNum=None, forceDBRead=None):
 
         callingFuncName = inspect.stack()[2][3]
 
@@ -35,10 +35,17 @@ class DataIO():
                          callingFuncName=callingFuncName))
 
         df = pd.DataFrame()
-        df = self.fileIO.readDataFromCsv(path=path,
-                                         filename=filename,
-                                         sep=',',
-                                         quotechar='"')
+        if forceDBRead is not None:
+            df = self.dbIO.readDataFromDB(
+                tableName=tableName,
+                conn=self.conf.app.DWH_DATABASES[forceDBRead].conn)
+
+        else:
+            df = self.fileIO.readDataFromCsv(path=path,
+                                             filename=filename,
+                                             sep=',',
+                                             quotechar='"',
+                                             rowNum=rowNum)
 
         # We never want audit cols to come into transform dataframes
         if 'audit_source_system' in df.columns:
@@ -57,7 +64,8 @@ class DataIO():
         return df
 
     def writeData(self, df, tableName, dataLayerID, append_or_replace,
-                  forceDBWrite=False):
+                  forceDBWrite=False,
+                  writingDefaultRows=False):
 
         callingFuncName = inspect.stack()[2][3]
 
@@ -148,17 +156,6 @@ class DataIO():
                     "data model. Your dataset is missing one or more " +
                     "columns: '" + str(e))
 
-        # write to CSV
-        mode = 'w'
-        if append_or_replace.upper() == 'APPEND':
-            mode = 'a'
-        self.writeDataToCsv(
-            df,
-            tableName,
-            dataLayerID,
-            mode,
-            callingFuncName)
-
         # write to DB
         if writeToDB:
             dbEng = dataLayer.datastore.eng
@@ -168,6 +165,21 @@ class DataIO():
                 dbEng,
                 append_or_replace,
                 callingFuncName)
+
+        # write to CSV
+        mode = 'w'
+        if append_or_replace.upper() == 'APPEND':
+            mode = 'a'
+
+        if writingDefaultRows:
+            df.drop(df.columns[0], axis=1, inplace=True)
+
+        self.writeDataToCsv(
+            df,
+            tableName,
+            dataLayerID,
+            mode,
+            callingFuncName)
 
     def getColumnHeadings(self, tableName, dataLayerID):
 
@@ -253,6 +265,18 @@ class DataIO():
 
         self.jobLog.info(logger.logStepEnd(df))
 
+    def truncateFile(self,
+                     filename,
+                     dataLayerID,
+                     callingFuncName=None):
+        if callingFuncName is None:
+            callingFuncName = inspect.stack()[2][3]
+
+        path = (self.conf.app.TMP_DATA_PATH +
+                dataLayerID + '/')
+        _filename = filename + '.csv'
+        self.fileIO.truncateFile(path, _filename)
+
     def writeDataToDB(self,
                       df,
                       tableName,
@@ -268,32 +292,19 @@ class DataIO():
 
         self.jobLog.info(logger.logStepEnd(df))
 
-    def customSql(self, sql, dataLayerID, retrieveTableName=None):
+    def customSql(self, sql, dataLayerID):
 
         callingFuncName = inspect.stack()[2][3]
 
         self.jobLog.info(logger.logStepStart(
-            'Executing custom sql\n\n' + sql + '\n\n',
+            'Executing custom sql\n\n' + sql,
             callingFuncName=callingFuncName))
         datastore = self.conf.state.LOGICAL_DATA_MODELS[dataLayerID].datastore
-        self.dbIO.customSql(sql, datastore)
-        self.jobLog.info(logger.logStepEnd())
+        df = self.dbIO.customSql(sql, datastore)
 
-        df = None
-        if retrieveTableName is not None:
-            ds = self.conf.state.LOGICAL_DATA_MODELS[dataLayerID].datastore
-            self.jobLog.info(logger.logStepStart(
-                'Reading data from DB: ' + retrieveTableName,
-                callingFuncName=callingFuncName))
-            df = self.dbIO.readDataFromDB(tableName=retrieveTableName,
-                                          conn=ds.conn,
-                                          cols='*')
-            self.jobLog.info(logger.logStepEnd(df))
-            self.writeDataToCsv(df, retrieveTableName, 'STG', 'w')
+        self.jobLog.info(logger.logStepEnd(df))
 
         return df
-
-    # # # #
 
     def readDataFromSrcSys(self, srcSysID, file_name_or_table_name):
 

@@ -4,8 +4,10 @@ from . import df_load
 
 class Table():
 
-    def __init__(self, tableSchema, datastore):
+    def __init__(self, tableSchema, datastore, dataLayerID, dataModelID):
 
+        self.dataLayerID = dataLayerID
+        self.dataModelID = dataModelID
         self.tableName = tableSchema['tableName'].lower()
         self.datastore = datastore
 
@@ -73,20 +75,12 @@ class Table():
         return string
 
 
+# TRG tables are any table in the TRG database, i.e. datalayers TRG & SUM
 class TrgTable(Table):
 
-    def __init__(self, tableSchema, datastore):
+    def __init__(self, tableSchema, datastore, dataLayerID, dataModelID):
 
-        Table.__init__(self, tableSchema, datastore)
-
-        self.tableType = ''
-        if self.tableName[0:3] == 'ft_':
-            self.tableType = 'FACT'
-        elif self.tableName[0:3] == 'dm_':
-            self.tableType = 'DIMENSION'
-        else:
-            raise ValueError("Can't determine table type for " +
-                             self.tableName)
+        Table.__init__(self, tableSchema, datastore, dataLayerID, dataModelID)
 
     def getTableType(self):
 
@@ -99,6 +93,9 @@ class TrgTable(Table):
             tableType = 'FACT'
         elif self.tableName[:3] == 'su_':
             tableType = 'SUMMARY'
+        else:
+            raise ValueError("Can't determine table type for " +
+                             self.tableName)
 
         return tableType
 

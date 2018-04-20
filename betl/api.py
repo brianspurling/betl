@@ -125,8 +125,9 @@ def run(appConfigFile, runTimeParams, scheduleConfig):
         JOB_LOG.info(logger.logExecutionStartFinish('FINISH'))
 
 
-def readData(tableName, dataLayerID):
-    return DATA_IO.readData(tableName, dataLayerID)
+def readData(tableName, dataLayerID, rowNum=None,
+             forceDBRead=None):
+    return DATA_IO.readData(tableName, dataLayerID, rowNum, forceDBRead)
 
 
 def writeData(df, tableName, dataLayerID, append_or_replace='replace',
@@ -139,8 +140,8 @@ def getColumnHeadings(tableName, dataLayerID):
     return DATA_IO.getColumnHeadings(tableName, dataLayerID)
 
 
-def customSql(sql, dataLayerID, retrieveTableName=None):
-    return DATA_IO.customSql(sql, dataLayerID, retrieveTableName)
+def customSql(sql, dataLayerID):
+    return DATA_IO.customSql(sql, dataLayerID)
 
 
 def readDataFromSrcSys(srcSysID, file_name_or_table_name):

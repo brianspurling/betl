@@ -51,13 +51,23 @@ class FileIO():
 
         df.to_csv(_file, header=colHeaders, index=False)
 
+    def truncateFile(self, path, filename):
+
+        _filename = ''
+        if filename in self.fileNameMap:
+            _filename = self.fileNameMap[filename]
+            if os.path.exists(path + _filename):
+                _file = open(path + _filename, 'w')
+                _file.close()
+
     def readDataFromCsv(self,
                         path,
                         filename,
                         sep=',',
                         quotechar='"',
                         nrows=None,
-                        isTmpData=True):
+                        isTmpData=True,
+                        rowNum=None):
 
         _filename = filename
         if isTmpData:
@@ -78,12 +88,17 @@ class FileIO():
         for header in headerList:
             dtype[header] = str
 
+        if rowNum is not None:
+            nrows = 1
+            rowNum = rowNum - 1
+
         return pd.read_csv(path + _filename,
                            sep=sep,
                            quotechar=quotechar,
                            dtype=dtype,
                            na_filter=False,
-                           nrows=nrows)
+                           nrows=nrows,
+                           skiprows=rowNum)
 
     def deleteTempoaryData(self):
         self.devLog.info("START")

@@ -199,11 +199,12 @@ def logStepEnd(df=None):
 
 
 def describeDataFrame(df):
+    # TODO: dataframe won't always have columns (csvs on last step before load)
     op = ''
     op += 'Shape: ' + str(df.shape) + '\n\n'
     op += 'Columns:\n'
     for colName in list(df.columns.values):
-        op += ' ' + colName + ': '
+        op += ' ' + str(colName)[:30] + ': '
         op += getSampleValue(df, colName, 0) + ', '
         op += getSampleValue(df, colName, 1) + ', '
         op += getSampleValue(df, colName, 2)

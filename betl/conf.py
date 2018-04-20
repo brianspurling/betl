@@ -132,6 +132,7 @@ class Exe():
         self.RUN_LOAD = params['RUN_LOAD']
         self.RUN_DM_LOAD = params['RUN_DM_LOAD']
         self.RUN_FT_LOAD = params['RUN_FT_LOAD']
+        self.RUN_SUMMARISE = params['RUN_SUMMARISE']
 
         self.DELETE_TMP_DATA = params['DELETE_TMP_DATA']
 
@@ -174,9 +175,11 @@ class Schedule():
         self.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT = \
             scheduleConfig['SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT']
         self.DEFAULT_LOAD = scheduleConfig['DEFAULT_LOAD']
+        self.DEFAULT_SUMMARISE = scheduleConfig['DEFAULT_SUMMARISE']
         self.DEFAULT_DM_DATE = scheduleConfig['DEFAULT_DM_DATE']
         self.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD = \
             scheduleConfig['TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD']
         self.EXTRACT_DFS = scheduleConfig['EXTRACT_DFS']
         self.TRANSFORM_DFS = scheduleConfig['TRANSFORM_DFS']
         self.LOAD_DFS = scheduleConfig['LOAD_DFS']
+        self.SUMMARISE_DFS = scheduleConfig['SUMMARISE_DFS']

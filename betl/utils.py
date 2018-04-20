@@ -42,7 +42,7 @@ def setUpExecution(conf, ctlDB):
                conf.exe.RUN_REBUILD_STG or \
                conf.exe.RUN_REBUILD_TRG or \
                conf.exe.RUN_REBUILD_SUM:
-                text = input(cli.CANT_RERUN_AND_SETUP_OR_REBUILD)
+                text = input(cli.CANT_RERUN_WITH_SETUP_OR_REBUILD)
                 sys.exit()
             else:
                 conf.state.RERUN_PREV_JOB = True
@@ -118,22 +118,26 @@ def buildLogicalDataModels(conf):
     print('*** Building the logical data models ***', end='')
     print('\n\n', end='')
 
-    print('  - Building the SRC logical data models... ', end='')
+    print('  - Building the logical data models for the SRC data layer... ',
+          end='')
     sys.stdout.flush()
     logicalDataModels['SRC'] = SrcDataLayer(conf)
     print('Done!')
 
-    print('  - Building the STG logical data models... ', end='')
+    print('  - Building the logical data models for the STG data layer... ',
+          end='')
     sys.stdout.flush()
     logicalDataModels['STG'] = StgDataLayer(conf)
     print('Done!')
 
-    print('  - Building the TRG logical data models... ', end='')
+    print('  - Building the logical data models for the TRG data layer... ',
+          end='')
     sys.stdout.flush()
     logicalDataModels['TRG'] = TrgDataLayer(conf)
     print('Done!')
 
-    print('  - Building the SUM logical data models... ', end='')
+    print('  - Building the logical data models for the SUM data layer... ',
+          end='')
     sys.stdout.flush()
     logicalDataModels['SUM'] = SumDataLayer(conf)
     print('Done!')

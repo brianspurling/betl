@@ -69,7 +69,7 @@ def loadTable(table, bulkOrDelta, defaultRows, dataIO):
     if bulkOrDelta == 'BULK' and tableType == 'DIMENSION':
         bulkLoadDimension(table=table, defaultRows=defaultRows, dataIO=dataIO)
     elif bulkOrDelta == 'BULK' and tableType == 'FACT':
-        bulkLoadFact(table=table)
+        bulkLoadFact(table=table, dataIO=dataIO)
     elif bulkOrDelta == 'DELTA' and tableType == 'DIMENSION':
         bulkLoadDimension(table=table)
     elif bulkOrDelta == 'DELTA' and tableType == 'FACT':
@@ -90,6 +90,8 @@ def bulkLoadDimension(table, defaultRows, dataIO):
     JOB_LOG.info(
         logger.logStepStart('Truncating ' + table.tableName))
     table.truncateTable()
+    dataIO.truncateFile(filename=table.tableName,
+                        dataLayerID=table.dataLayerID)
 
     # We can append rows, because we just truncated. This way, append
     # guarantees we error if we don't load all the required columns
@@ -115,7 +117,11 @@ def bulkLoadDimension(table, defaultRows, dataIO):
 
         JOB_LOG.info(logger.logStepEnd(df))
 
-        api.writeData(df, table.tableName, 'TRG', 'append')
+        # We skip the API for this call because we're telling dataIO that this
+        # is a defaultRows write, so it knows to remove the SK for the file
+        # write
+        dataIO.writeData(df, table.tableName, 'TRG', 'append',
+                         writingDefaultRows=True)
 
     # We will need the SKs we just created to write the facts later, so
     # pull the sk/nks back out (this func writes them to a csv file)
@@ -124,7 +130,7 @@ def bulkLoadDimension(table, defaultRows, dataIO):
                      table.surrogateKeyColName)
 
 
-def bulkLoadFact(table):
+def bulkLoadFact(table, dataIO):
     df_ft = api.readData('trg_' + table.tableName, 'STG')
     for column in table.columns:
         if column.isFK:
@@ -139,7 +145,8 @@ def bulkLoadFact(table):
     JOB_LOG.info(
         logger.logStepStart('Truncating ' + table.tableName))
     table.truncateTable()
-
+    dataIO.truncateFile(filename=table.tableName,
+                        dataLayerID=table.dataLayerID)
     # We can append rows, because, as we're running a bulk load, we will
     # have just cleared out the TRG model and created. This way, append
     # guarantees we error if we don't load all the required columns

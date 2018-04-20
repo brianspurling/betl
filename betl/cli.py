@@ -127,6 +127,7 @@ def processArgs(args):
         'RUN_LOAD': True,
         'RUN_DM_LOAD': True,
         'RUN_FT_LOAD': True,
+        'RUN_SUMMARISE': True,
 
         'WRITE_TO_ETL_DB': False,
         'DELETE_TMP_DATA': False,
@@ -175,6 +176,8 @@ def processArgs(args):
             params['RUN_DM_LOAD'] = False
         elif arg == 'noftload':
             params['RUN_FT_LOAD'] = False
+        elif arg == 'nosummarise':
+            params['RUN_SUMMARISE'] = False
         elif arg == 'dbwrite':
             params['WRITE_TO_ETL_DB'] = True
         elif arg == 'cleartmpdata':
