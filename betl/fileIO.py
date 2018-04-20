@@ -71,8 +71,6 @@ class FileIO():
 
         _filename = filename
         if isTmpData:
-            # TODO: Catch missing files and raise. E.g. likely cause: running
-            # transform without running extracts first.
             _filename = self.fileNameMap[filename]
 
         # We need to force it to read everything as text. Only way I can

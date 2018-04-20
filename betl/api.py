@@ -110,10 +110,6 @@ def run(appConfigFile, runTimeParams, scheduleConfig):
         response = scheduler.executeSchedule()
 
     if response == 'SUCCESS':
-        # TODO because I've had to move this out here so it logs even when
-        # run param isn't passed, I'm now no longer catching a failure to
-        # to write to the ctrlDB (see scheduler for proper handling). Need
-        # to consolidate all fo this
         ctrlDB.updateExecutionInCtlTable(
             execId=CONF.state.EXEC_ID,
             status='SUCCESSFUL',

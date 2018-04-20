@@ -34,7 +34,6 @@ class DatabaseIO():
         datastore.commit()
 
         try:
-            # TODO: catch if all the columns haven't been named in the sql
             data = dbCursor.fetchall()
             columns = [column[0] for column in dbCursor.description]
             df = pd.DataFrame(data)

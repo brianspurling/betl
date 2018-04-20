@@ -7,9 +7,6 @@ from . import api
 
 def getSchemaDescription():
 
-    # TODO: Surely some should be date types?! Don't forget to fis default
-    # rows too
-
     # This schema description reflects the same meta data structure that
     # we find in the schema spreadsheets.
     tableSchema = {
@@ -59,9 +56,6 @@ def getSchemaDescription():
 
 
 def transformDMDate(scheduler):
-
-    # to do #9
-    # TODO # 51
 
     startDate = scheduler.conf.state.EARLIEST_DATE_IN_DATA
     endDate = scheduler.conf.state.LATEST_DATE_IN_DATA

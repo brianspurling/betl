@@ -78,8 +78,6 @@ class Scheduler():
                 self.scheduleDataflow(dataflow, 'SUMMARISE')
 
     def scheduleDataflow(self, dataflow, stage):
-        # TODO: validate the dataflow names - the application can't schedule
-        # any of the reserved names (e.g. defaultDxtract, etc)
         self.scheduleList.append({
             'dataflow': dataflow,
             'stage': stage})
@@ -141,13 +139,9 @@ class Scheduler():
         # dataflow  we know which stage we're in
         self.conf.state.setStage(self.scheduleDic[dataflowName]['stage'])
         self.devLog.info('Starting execution of dataflow: ' + dataflowName)
-        # TODO #11
         self.scheduleDic[dataflowName]['dataflow'](self)
         self.devLog.info('Completed execution of dataflow: ' + dataflowName)
 
-    # TODO: need proper set of status response messages to pass out of here,
-    # so all logging start/stop can happen in one place (otherwise it's
-    # inconsistent depending whether run arg was passed in or not)
     def handleDataflowException(self, schedule, counter, errorMessage):
             tb1 = traceback.format_exc()
             try:

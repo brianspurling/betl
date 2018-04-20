@@ -72,8 +72,9 @@
         elif srcSysConn.datastoreType == 'FILESYSTEM':
             # one DataModel has 1+ files, each with a list of cols in
             # the first row
-            # TODO: use standard reader funcs from fileIO
-            csv.field_size_limit(1131072)  # TODO #18
+            # NOTE: this should be using the standard reader funcs from fileIO
+            # NOTE: what is the best way to handle the csv field size?
+            csv.field_size_limit(1131072)
             for filename in srcSysConn.files:
                 with open(filename + '.csv', "r") as srcFile:
                     delimiter = srcSysConn.files[filename]['delimiter']
@@ -117,7 +118,6 @@
                 'tableName': tableName,
                 'columnName': colName,
                 'dataType': colSchemaFromPG[7],
-                # TODO we could pull out more than this
                 'columnType': 'Attribute',
                 'fkDimension': None
             }
@@ -139,7 +139,8 @@
             colSchemas[colName] = {
                 'tableName': tableName,
                 'columnName': colName,
-                'dataType': 'TEXT',  # TODO #19
+                'dataType': 'TEXT',  # NOTE: why am I not pulling this straight
+                                     # from DB?
                 'columnType': 'Attribute',
                 'fkDimension': None
             }

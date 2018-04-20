@@ -89,7 +89,7 @@ class SqliteDatastore(Datastore):
         self.dbID = dbID
         self.path = path
         self.filename = filename
-        # TODO: you're supposed to be able to connect in read-only mode using:
+        # NOTE: you're supposed to be able to connect in read-only mode using:
         # readOnlyString = ''
         # if isSrcSys:
         #    readOnlyString = '?mode=ro'

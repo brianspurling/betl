@@ -66,7 +66,7 @@ class CtrlDB():
                "SET " +
                "end_datetime = current_timestamp, " +
                "status = '" + status + "', " +
-               "log_file = '" + 'placeholder' + "', " +  # TODO: log file name
+               "log_file = '" + 'placeholder' + "', " +
                "status_message = '" + statusMessage + "' " +
                "WHERE exec_id = " + str(execId))
 
@@ -163,7 +163,6 @@ class CtrlDB():
 
     def dropAllCtlTables(self, ):
 
-        # TODO: #45 - archive then delete old log files
         ctlDBCursor = self.datastore.cursor()
 
         ctlDBCursor.execute("SELECT * " +

@@ -80,8 +80,7 @@ def bulkLoadDimension(table, defaultRows, dataIO):
 
     # We assume that the final step in the TRANSFORM stage created a
     # csv file trg_<tableName>.csv
-    # TODO: put in a decent feedback to developer if they didn't create
-    # the right table. Start by raising custom error inside readData
+
     df = api.readData('trg_' + table.tableName, 'STG')
 
     # Because it's a bulk load, clear out the data (which also

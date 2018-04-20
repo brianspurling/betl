@@ -1,6 +1,6 @@
 from . import logger as logger
 import pandas as pd
-from . import api  # d TODO as betl?
+from . import api
 
 
 #
@@ -55,8 +55,9 @@ def defaultExtract(scheduler):
 
                 # We identify the deltas by comparing the source system table
                 # to our SRC layer in the ETL database, using
-                # merge(). After each merge we get _src and _stg columns. TODO
-                # wrong language here in these suffixes.
+                # merge(). After each merge we get _src and _stg columns.
+
+                # NOTE: wrong language here in these suffixes.
                 # We need to be able to easily strip back to the columns we
                 # want, which depends whether we're keeping left_only (inserts)
                 # or right_only (deletes)
@@ -102,7 +103,7 @@ def defaultExtract(scheduler):
                         scheduler.dataIO.setAuditCols(df=insertsDF,
                                                       sourceSystemId=dmID,
                                                       action='INSERT')
-                    # TODO Check this logic
+                    # NOTE: Check this logic
                     api.writeData(insertsDF, tableName, 'SRC', 'append')
                     stgDF = stgDF.append(insertsDF, ignore_index=True,
                                          verify_integrity=True)
@@ -125,8 +126,6 @@ def defaultExtract(scheduler):
                         df=deletesDF,
                         sourceSystemId=dmID,
                         action='DELETE')
-                    # TODO can't fix this now, but  think it should
-                    # be pushed into the schemas, which have the db conn
                     etlDbCursor = scheduler.dataIO.ETL_DB_CONN.cursor()
                     for index, row in deletesDF.iterrows():
 

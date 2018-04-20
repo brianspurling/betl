@@ -89,7 +89,6 @@ class DataIO():
         # or spreadsheet, and nor does it cover sqlalchemy's engine (used by
         # Pandas). Hence the check here.
         if dataLayer.datastore.isSrcSys:
-            # TODO: proper error handling here
             raise ValueError("You just attempted to write to a source system!")
 
         # If this is a table defined in our logical data model, then we
@@ -98,8 +97,6 @@ class DataIO():
         logDataModelCols = dataLayer.getColumnsForTable(tableName)
         if logDataModelCols is not None:
 
-            # TODO: need a fixed list of these audit cols and get rid of
-            # repeated listing of them
             auditColumns = [
                 'audit_source_system',
                 'audit_bulk_load_date',
@@ -379,7 +376,6 @@ class DataIO():
     # into persistent storage
     #
     def setAuditCols(self, df, srcSysID, action):
-        # TODO: Do I need to return this, or is df the same object?
         if action == 'BULK':
             return self.setAuditCols_bulk(df, srcSysID)
         elif action == 'INSERT':

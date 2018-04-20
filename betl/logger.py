@@ -2,9 +2,6 @@ import logging
 import inspect
 from datetime import datetime
 
-# TODO: http://docs.python-guide.org/en/latest/writing/logging/
-# >>> logging in a library
-
 EXEC_ID = None
 LOG_LEVEL = logging.ERROR
 CONF = None
@@ -13,8 +10,6 @@ DEV_LOG_FILE_NAME = None
 
 STEP_START_TIME = None
 EXE_START_TIME = None
-
-# TODO loggers allow some kind of ancestor/inheritance model
 
 
 def initialiseLogging(execId, logLevel, conf):
@@ -199,7 +194,6 @@ def logStepEnd(df=None):
 
 
 def describeDataFrame(df):
-    # TODO: dataframe won't always have columns (csvs on last step before load)
     op = ''
     op += 'Shape: ' + str(df.shape) + '\n\n'
     op += 'Columns:\n'

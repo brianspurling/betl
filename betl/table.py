@@ -86,7 +86,6 @@ class TrgTable(Table):
 
         tableType = 'UNKNOWN'
 
-        # TODO is this reliable enough?
         if self.tableName[:3] == 'dm_':
             tableType = 'DIMENSION'
         elif self.tableName[:3] == 'ft_':

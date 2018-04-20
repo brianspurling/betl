@@ -202,23 +202,6 @@ class TrgDataLayer(DataLayer):
                          dataLayerID='TRG',
                          dataModelID='TRG')
 
-    def resetSKSequences(self):
-        # TODO at the last check, this wasn't being used
-
-        resetStatements = self.getSqlResetSKSequences()
-
-        trgDbCursor = self.datastore.cursor()
-        for resetStatement in resetStatements:
-            trgDbCursor.execute(resetStatement)
-            self.datastore.commit()
-
-    def getSqlResetSKSequences(self):
-        sqlStatements = []
-        for dataModelID in self.dataModels:
-            sqlStatements.extend(
-                self.dataModels[dataModelID].getSqlResetPrimaryKeySequences())
-        return sqlStatements
-
 
 class SumDataLayer(DataLayer):
 
