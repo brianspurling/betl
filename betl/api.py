@@ -10,6 +10,8 @@ CONF = None
 DATA_IO = None
 JOB_LOG = None
 DEV_LOG = None
+CTRL_DB = None
+LOGICAL_DATA_MODELS = None
 
 
 def processArgs(args):
@@ -18,30 +20,34 @@ def processArgs(args):
 
 # This function sits in api.py because it sets up the global variables
 # that the other API functions rely upon
-def run(appConfigFile, runTimeParams, scheduleConfig):
+def init(appConfigFile, runTimeParams, scheduleConfig=None):
 
     global CONF
     global DATA_IO
     global JOB_LOG
     global DEV_LOG
+    global CTRL_DB
+    global LOGICAL_DATA_MODELS
 
     ###############
     # LOGGING OFF #
     ###############
 
-    # We can't log anything until we've checked the last execution ID #
+    if scheduleConfig is None:
+        scheduleConfig = utils.getDetaulfScheduleConfig()
 
-    CONF = Conf(appConfigFile, runTimeParams, scheduleConfig)
-    ctrlDB = CtrlDB(CONF)
+    # We can't log anything until we've checked the last execution ID #
+    CONF = Conf(appConfigFile, processArgs(runTimeParams), scheduleConfig)
+    CTRL_DB = CtrlDB(CONF)
 
     # If we're running setup, we need to do this before checking the last
     # exec, because we're about to wipe it and start from scratch!
     # If it's successful, we log it lower down
     if CONF.exe.RUN_SETUP:
-        utils.setupBetl(ctrlDB, CONF)
+        utils.setupBetl(CTRL_DB, CONF)
 
     # This sets the EXEC_ID in conf.state
-    lastExecReport = utils.setUpExecution(CONF, ctrlDB)
+    lastExecReport = utils.setUpExecution(CONF, CTRL_DB)
 
     ##############
     # LOGGING ON #
@@ -74,11 +80,11 @@ def run(appConfigFile, runTimeParams, scheduleConfig):
         DATA_IO.fileIO.populateFileNameMap()
 
     # Pull the schema descriptions from the gsheets and our logical data models
-    logicalDataModels = utils.buildLogicalDataModels(CONF)
-    CONF.state.setLogicalDataModels(logicalDataModels)
+    LOGICAL_DATA_MODELS = utils.buildLogicalDataModels(CONF)
+    CONF.state.setLogicalDataModels(LOGICAL_DATA_MODELS)
 
-    for dmID in logicalDataModels:
-        JOB_LOG.info(logicalDataModels[dmID].__str__())
+    for dmID in LOGICAL_DATA_MODELS:
+        JOB_LOG.info(LOGICAL_DATA_MODELS[dmID].__str__())
 
     if CONF.exe.RUN_REBUILD_ALL or \
        CONF.exe.RUN_REBUILD_SRC or \
@@ -88,29 +94,34 @@ def run(appConfigFile, runTimeParams, scheduleConfig):
         JOB_LOG.info(logger.logPhysicalDataModelBuildStart())
 
     if CONF.exe.RUN_REBUILD_ALL:
-        for dataModelID in logicalDataModels:
-            logicalDataModels[dataModelID].buildPhysicalDataModel()
+        for dataModelID in LOGICAL_DATA_MODELS:
+            LOGICAL_DATA_MODELS[dataModelID].buildPhysicalDataModel()
     else:
         if CONF.exe.RUN_REBUILD_SRC:
-            logicalDataModels['SRC'].buildPhysicalDataModel()
+            LOGICAL_DATA_MODELS['SRC'].buildPhysicalDataModel()
         if CONF.exe.RUN_REBUILD_STG:
-            logicalDataModels['STG'].buildPhysicalDataModel()
+            LOGICAL_DATA_MODELS['STG'].buildPhysicalDataModel()
         if CONF.exe.RUN_REBUILD_TRG:
-            logicalDataModels['TRG'].buildPhysicalDataModel()
+            LOGICAL_DATA_MODELS['TRG'].buildPhysicalDataModel()
         if CONF.exe.RUN_REBUILD_SUM:
-            logicalDataModels['SUM'].buildPhysicalDataModel()
+            LOGICAL_DATA_MODELS['SUM'].buildPhysicalDataModel()
 
-    utils.checkDBsForSuperflousTables(CONF, logicalDataModels, JOB_LOG)
+    utils.checkDBsForSuperflousTables(CONF, LOGICAL_DATA_MODELS, JOB_LOG)
+
+
+def run():
+    global CTRL_DB
+    global LOGICAL_DATA_MODELS
 
     response = 'SUCCESS'
     if CONF.exe.RUN_DATAFLOWS:
         scheduler = Scheduler(CONF,
                               DATA_IO,
-                              logicalDataModels)
+                              LOGICAL_DATA_MODELS)
         response = scheduler.executeSchedule()
 
     if response == 'SUCCESS':
-        ctrlDB.updateExecutionInCtlTable(
+        CTRL_DB.updateExecutionInCtlTable(
             execId=CONF.state.EXEC_ID,
             status='SUCCESSFUL',
             statusMessage='')
@@ -164,5 +175,5 @@ def logStepStart(stepDescription, stepId=None, callingFuncName=None):
                                      callingFuncName=callingFuncName))
 
 
-def logStepEnd(df):
+def logStepEnd(df=None):
     JOB_LOG.info(logger.logStepEnd(df=df))

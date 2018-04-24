@@ -112,7 +112,6 @@ class App():
 class Exe():
 
     def __init__(self, params):
-
         self.LOG_LEVEL = params['LOG_LEVEL']
 
         self.SKIP_WARNINGS = params['SKIP_WARNINGS']
@@ -146,7 +145,8 @@ class State():
     def __init__(self):
         self.EXEC_ID = None
         self.RERUN_PREV_JOB = False
-        self.STAGE = None  # Global state for which stage (E,T,L) we're on
+        # Global state for which stage (E,T,L) we're on
+        self.STAGE = 'STAGE NOT SET'
 
         # These dictate the start/end dates of dm_date. They can be overridden
         # at any point in the application's ETL process, providing the

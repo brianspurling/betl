@@ -79,6 +79,7 @@ HELP = ("\n" +
         "* betl instructions *\n" +
         "*********************\n" +
         "\n" +
+        # TODO: this is no longer right!
         "- In your script, first call betl.processArgs(sys.argv)\n" +
         "- Then pass config details to betl with betl.loadAppConfig()\n" +
         "  Refer to betl.conf.py for the configuration required\n" +
@@ -102,6 +103,9 @@ def processArgs(args):
     bulk = False
     delta = False
     isUnrecognisedArg = False
+
+    if len(args) > 0 and args[0] == 'main.py':
+        del args[0]
 
     params = {
 
@@ -135,7 +139,7 @@ def processArgs(args):
 
     }
 
-    for arg in args[1:]:
+    for arg in args:
         if arg == 'help':
             showHelp = True
         elif arg == 'log_info':

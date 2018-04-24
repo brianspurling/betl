@@ -1,4 +1,4 @@
-from .api import processArgs
+from .api import init
 from .api import run
 from .api import readData
 from .api import writeData
