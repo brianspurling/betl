@@ -198,11 +198,23 @@ def describeDataFrame(df):
     op += 'Shape: ' + str(df.shape) + '\n\n'
     op += 'Columns:\n'
     for colName in list(df.columns.values):
-        op += ' ' + str(colName)[:30] + ': '
-        op += getSampleValue(df, colName, 0) + ', '
-        op += getSampleValue(df, colName, 1) + ', '
-        op += getSampleValue(df, colName, 2)
-        op += ', ... \n'
+        if len(str(colName)) > 30:
+            op += ' ' + str(colName)[:30] + '--: '
+        else:
+            op += ' ' + str(colName) + ': '
+
+        value = getSampleValue(df, colName, 0)
+        if value is not None:
+            op += value + ', '
+        value = getSampleValue(df, colName, 1)
+        if value is not None:
+            op += value + ', '
+        value = getSampleValue(df, colName, 2)
+        if value is not None:
+            op += value
+        if len(df.index) > 3:
+            op += ', ...'
+        op += '\n'
     return op
 
 
@@ -211,10 +223,10 @@ def getSampleValue(df, colName, rowNum):
         value = str(df[colName].iloc[rowNum])
         value = value.replace('\n', '')
         value = value.replace('\t', '')
+        if len(value) > 20:
+            value = value[0:30] + '..'
     else:
-        value = ''
-    if len(value) > 20:
-        value = value[0:30] + '..'
+        value = None
     return value
 
 
