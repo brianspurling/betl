@@ -11,7 +11,6 @@ def defaultExtract(scheduler):
 
     devLog = logger.getDevLog(__name__)
 
-    # to do #9
     srcTablesToExclude = scheduler.srcTablesToExcludeFromExtract
     srcLayer = scheduler.logicalDataModels['SRC']
 
@@ -37,12 +36,10 @@ def defaultExtract(scheduler):
                 file_name_or_table_name=tableName)
 
             if scheduler.bulkOrDelta == 'BULK':
-
                 srcDF =                                                       \
                     api.setAuditCols(df=srcDF,
                                      srcSysID=dmID,
                                      action='BULK')
-
                 # Bulk write the SRC table
                 api.writeData(srcDF, tableName, 'SRC')
 

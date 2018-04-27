@@ -132,9 +132,8 @@ def run():
         JOB_LOG.info(logger.logExecutionStartFinish('FINISH'))
 
 
-def readData(tableName, dataLayerID, rowNum=None,
-             forceDBRead=None):
-    return DATA_IO.readData(tableName, dataLayerID, rowNum, forceDBRead)
+def readData(tableName, dataLayerID, forceDBRead=None):
+    return DATA_IO.readData(tableName, dataLayerID, forceDBRead)
 
 
 def writeData(df, tableName, dataLayerID, append_or_replace='replace',

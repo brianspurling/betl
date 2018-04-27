@@ -155,6 +155,7 @@ def bulkLoadFact(table, dataIO):
     JOB_LOG.info(
         logger.logStepStart('Creating indexes for ' + table.tableName))
     table.createIndexes()
+    JOB_LOG.info(logger.logStepEnd())
 
 
 def deltaLoadDimension(self):

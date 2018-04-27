@@ -67,7 +67,8 @@ class FileIO():
                         quotechar='"',
                         nrows=None,
                         isTmpData=True,
-                        rowNum=None):
+                        testDataLimit=None,
+                        getFirstRow=False):
 
         _filename = filename
         if isTmpData:
@@ -86,17 +87,19 @@ class FileIO():
         for header in headerList:
             dtype[header] = str
 
-        if rowNum is not None:
+        if testDataLimit is not None:
+            nrows = testDataLimit
+        else:
+            nrows = None
+        if getFirstRow:
             nrows = 1
-            rowNum = rowNum - 1
 
         return pd.read_csv(path + _filename,
                            sep=sep,
                            quotechar=quotechar,
                            dtype=dtype,
                            na_filter=False,
-                           nrows=nrows,
-                           skiprows=rowNum)
+                           nrows=nrows)
 
     def deleteTempoaryData(self):
         self.devLog.info("START")

@@ -11,7 +11,12 @@ class GsheetIO():
 
         self.conf = conf
 
-    def readDataFromWorksheet(self, worksheet):
+    def readDataFromWorksheet(self, worksheet, testDataLimit=None):
 
         data = worksheet.get_all_values()
-        return pd.DataFrame(data[1:], columns=data[0])
+        if testDataLimit is not None:
+            rowLimit = len(data)
+        else:
+            rowLimit = testDataLimit
+
+        return pd.DataFrame(data[1:rowLimit], columns=data[0])

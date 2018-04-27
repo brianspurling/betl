@@ -1,4 +1,5 @@
 import datetime
+import pandas as pd
 from configobj import ConfigObj
 from .datastore import PostgresDatastore
 from .datastore import SqliteDatastore
@@ -18,6 +19,21 @@ class Conf():
         self.exe = Exe(runTimeParams)
         self.state = State()
         self.schedule = Schedule(scheduleConfig)
+        auditColumns_data = {
+            'colName': [
+                'audit_source_system',
+                'audit_bulk_load_date',
+                'audit_latest_delta_load_date',
+                'audit_latest_delta_load_operation'
+            ],
+            'dataType': [
+                'TEXT',
+                'DATE',
+                'DATE',
+                'TEXT'
+            ],
+        }
+        self.auditColumns = pd.DataFrame(auditColumns_data)
 
 
 class App():
@@ -138,6 +154,8 @@ class Exe():
         self.RUN_DATAFLOWS = params['RUN_DATAFLOWS']
 
         self.WRITE_TO_ETL_DB = params['WRITE_TO_ETL_DB']
+
+        self.TEST_DATA_LIMIT = params['TEST_DATA_LIMIT']
 
 
 class State():

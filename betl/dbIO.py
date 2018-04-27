@@ -24,9 +24,14 @@ class DatabaseIO():
                   if_exists=if_exists,
                   index=False)
 
-    def readDataFromDB(self, tableName, conn, cols='*'):
+    def readDataFromDB(self, tableName, conn, cols='*', testDataLimit=None):
 
-        return pd.read_sql('SELECT ' + cols + ' FROM ' + tableName, con=conn)
+        if testDataLimit is not None:
+            limitText = ' LIMIT ' + str(testDataLimit)
+        else:
+            limitText = ''
+        return pd.read_sql('SELECT ' + cols + ' FROM ' +
+                           tableName + limitText, con=conn)
 
     def customSql(self, sql, datastore):
         dbCursor = datastore.cursor()

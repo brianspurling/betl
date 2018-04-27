@@ -134,6 +134,7 @@ def processArgs(args):
 
         'WRITE_TO_ETL_DB': False,
         'DELETE_TMP_DATA': False,
+        'TEST_DATA_LIMIT': None,
 
         'RUN_DATAFLOWS': False,
 
@@ -185,6 +186,8 @@ def processArgs(args):
             params['WRITE_TO_ETL_DB'] = True
         elif arg == 'cleartmpdata':
             params['DELETE_TMP_DATA'] = True
+        elif arg == 'testdatalimit':
+            params['TEST_DATA_LIMIT'] = 100
         elif arg == 'run':
             params['RUN_DATAFLOWS'] = True
         else:

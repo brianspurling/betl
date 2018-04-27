@@ -13,7 +13,10 @@ from .table import TrgTable
 
 class DataModel():
 
-    def __init__(self, dataModelSchema, datastore, dataLayerID):
+    def __init__(self, conf, dataModelSchema, datastore, dataLayerID):
+
+        self.conf = conf
+
         self.dataLayerID = dataLayerID
         self.dataModelID = dataModelSchema['dataModelID']
         self.datastore = datastore
@@ -26,12 +29,14 @@ class DataModel():
 
         for tableName in dataModelSchema['tableSchemas']:
             if self.dataModelID in ('TRG', 'SUM'):
-                table = TrgTable(dataModelSchema['tableSchemas'][tableName],
+                table = TrgTable(self.conf,
+                                 dataModelSchema['tableSchemas'][tableName],
                                  self.datastore,
                                  self.dataLayerID,
                                  self.dataModelID)
             else:
-                table = Table(dataModelSchema['tableSchemas'][tableName],
+                table = Table(self.conf,
+                              dataModelSchema['tableSchemas'][tableName],
                               self.datastore,
                               self.dataLayerID,
                               self.dataModelID)
@@ -82,9 +87,10 @@ class SrcDataModel(DataModel):
     # the spreadsheet. but why dont' i need it for files?? maybe I do - not
     # tested  No it's beecause the spreadsheet func is writtend differnetly,
     # because it's the schema func
-    def __init__(self, dataModelSchema, conf, datastore, dataLayerID):
+    def __init__(self, conf, dataModelSchema, datastore, dataLayerID):
 
-        DataModel.__init__(self, dataModelSchema, datastore, dataLayerID)
+        DataModel.__init__(self, conf, dataModelSchema, datastore, dataLayerID)
 
+        self.conf = conf
         self.srcSysDatastore = \
             conf.app.SRC_SYSTEMS[dataModelSchema['dataModelID']]

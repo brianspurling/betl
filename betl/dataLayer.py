@@ -2,6 +2,7 @@ from .dataModel import DataModel
 from .dataModel import SrcDataModel
 from .table import TrgTable
 from . import df_dmDate
+from . import df_dmAudit
 from . import logger as logger
 
 
@@ -33,13 +34,14 @@ class DataLayer():
         for dataModelID in dataModelSchemas:
             if self.dataLayerID == 'SRC':
                 dataModels[dataModelID] = \
-                    SrcDataModel(dataModelSchemas[dataModelID],
-                                 self.conf,
+                    SrcDataModel(self.conf,
+                                 dataModelSchemas[dataModelID],
                                  self.datastore,
                                  self.dataLayerID)
             else:
                 dataModels[dataModelID] = \
-                    DataModel(dataModelSchemas[dataModelID],
+                    DataModel(self.conf,
+                              dataModelSchemas[dataModelID],
                               self.datastore,
                               self.dataLayerID)
 
@@ -190,17 +192,27 @@ class TrgDataLayer(DataLayer):
 
     def __init__(self, conf):
 
+        # This will create the schema defined in the logical data model
         DataLayer.__init__(self,
                            dbID='TRG',
                            dataLayerID='TRG',
                            conf=conf)
 
+        # We also need to create the "default" components of the target model
         if conf.schedule.DEFAULT_DM_DATE:
             self.dataModels['TRG'].tables['dm_date'] = \
-                TrgTable(df_dmDate.getSchemaDescription(),
+                TrgTable(self.conf,
+                         df_dmDate.getSchemaDescription(),
                          self.datastore,
                          dataLayerID='TRG',
                          dataModelID='TRG')
+
+        self.dataModels['TRG'].tables['dm_audit'] = \
+            TrgTable(self.conf,
+                     df_dmAudit.getSchemaDescription(),
+                     self.datastore,
+                     dataLayerID='TRG',
+                     dataModelID='TRG')
 
 
 class SumDataLayer(DataLayer):

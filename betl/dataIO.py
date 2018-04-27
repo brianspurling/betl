@@ -22,7 +22,7 @@ class DataIO():
         self.dbIO = DatabaseIO(conf)
         self.gsheetIO = GsheetIO(conf)
 
-    def readData(self, tableName, dataLayerID, rowNum=None, forceDBRead=None):
+    def readData(self, tableName, dataLayerID, forceDBRead=None):
 
         callingFuncName = inspect.stack()[2][3]
 
@@ -44,20 +44,19 @@ class DataIO():
             df = self.fileIO.readDataFromCsv(path=path,
                                              filename=filename,
                                              sep=',',
-                                             quotechar='"',
-                                             rowNum=rowNum)
+                                             quotechar='"')
 
         # We never want audit cols to come into transform dataframes
-        if 'audit_source_system' in df.columns:
-            df.drop(['audit_source_system'], axis=1, inplace=True)
-        if 'audit_bulk_load_date' in df.columns:
-            df.drop(['audit_bulk_load_date'], axis=1, inplace=True)
-        if 'audit_latest_delta_load_date' in df.columns:
-            df.drop(['audit_latest_delta_load_date'], axis=1, inplace=True)
-        if 'audit_latest_delta_load_operation' in df.columns:
-            df.drop(['audit_latest_delta_load_operation'],
-                    axis=1,
-                    inplace=True)
+        # if 'audit_source_system' in df.columns:
+        #     df.drop(['audit_source_system'], axis=1, inplace=True)
+        # if 'audit_bulk_load_date' in df.columns:
+        #     df.drop(['audit_bulk_load_date'], axis=1, inplace=True)
+        # if 'audit_latest_delta_load_date' in df.columns:
+        #     df.drop(['audit_latest_delta_load_date'], axis=1, inplace=True)
+        # if 'audit_latest_delta_load_operation' in df.columns:
+        #     df.drop(['audit_latest_delta_load_operation'],
+        #             axis=1,
+        #             inplace=True)
 
         self.jobLog.info(logger.logStepEnd(df))
 
@@ -97,13 +96,7 @@ class DataIO():
         logDataModelCols = dataLayer.getColumnsForTable(tableName)
         if logDataModelCols is not None:
 
-            auditColumns = [
-                'audit_source_system',
-                'audit_bulk_load_date',
-                'audit_latest_delta_load_date',
-                'audit_latest_delta_load_operation']
             logDataModelColNames_sks = []
-
             logDataModelColNames_all = []
             logDataModelColNames_noSKs = []
             logDataModelColNames_all_plus_audit = []
@@ -115,14 +108,14 @@ class DataIO():
                 else:
                     logDataModelColNames_sks.append(col.columnName)
             logDataModelColNames_all_plus_audit = \
-                logDataModelColNames_all + auditColumns
-
+                logDataModelColNames_all + \
+                self.conf.auditColumns['colName'].tolist()
             colsIncludeSKs = False
             colsIncludeAudit = False
             for colName in list(df):
                 if colName in logDataModelColNames_sks:
                     colsIncludeSKs = True
-                if colName in auditColumns:
+                if colName in self.conf.auditColumns['colName'].tolist():
                     colsIncludeAudit = True
 
                 if colName not in logDataModelColNames_all_plus_audit:
@@ -139,10 +132,10 @@ class DataIO():
                 if colsIncludeSKs and not colsIncludeAudit:
                     colsToSortBy = logDataModelColNames_all
                 if not colsIncludeSKs and colsIncludeAudit:
-                    colsToSortBy = logDataModelColNames_noSKs + auditColumns
+                    colsToSortBy = logDataModelColNames_noSKs + \
+                        self.conf.auditColumns['colName'].tolist()
                 if not colsIncludeSKs and not colsIncludeAudit:
                     colsToSortBy = logDataModelColNames_noSKs
-
                 df = df[colsToSortBy]
 
             except KeyError as e:
@@ -196,7 +189,7 @@ class DataIO():
                                          filename=filename,
                                          sep=',',
                                          quotechar='"',
-                                         nrows=1)
+                                         getFirstRow=True)
 
         # We never want audit cols to come into transform dataframes
         if 'audit_source_system' in df.columns:
@@ -217,7 +210,8 @@ class DataIO():
     def readDataFromSpreadsheet(self,
                                 tableName,
                                 datastore,
-                                callingFuncName=None):
+                                callingFuncName=None,
+                                testDataLimit=None):
 
         if callingFuncName is None:
             callingFuncName = inspect.stack()[2][3]
@@ -228,7 +222,8 @@ class DataIO():
             callingFuncName=callingFuncName))
 
         df = self.gsheetIO.readDataFromWorksheet(
-            worksheet=datastore.worksheets[tableName])
+            worksheet=datastore.worksheets[tableName],
+            testDataLimit=testDataLimit)
 
         self.jobLog.info(logger.logStepEnd(df))
 
@@ -303,17 +298,16 @@ class DataIO():
 
         return df
 
-    def readDataFromSrcSys(self, srcSysID, file_name_or_table_name):
+    def readDataFromSrcSys(self,
+                           srcSysID,
+                           file_name_or_table_name):
+
+        testDataLimit = self.conf.exe.TEST_DATA_LIMIT
 
         callingFuncName = inspect.stack()[1][3]
         srcSysDatastore = self.conf.app.SRC_SYSTEMS[srcSysID]
 
         df = pd.DataFrame()
-
-        self.jobLog.info(logger.logStepStart(
-            'Reading data from source system: ' +
-            srcSysDatastore.datatoreID + '.' + file_name_or_table_name,
-            callingFuncName=callingFuncName))
 
         if srcSysDatastore.datastoreType == 'FILESYSTEM':
             filename = file_name_or_table_name
@@ -326,7 +320,8 @@ class DataIO():
                                                  filename=filename + '.csv',
                                                  sep=separator,
                                                  quotechar=quotechar,
-                                                 isTmpData=False)
+                                                 isTmpData=False,
+                                                 testDataLimit=testDataLimit)
 
             else:
                 raise ValueError('Unhandled file extension for src system: ' +
@@ -343,13 +338,15 @@ class DataIO():
 
             df = self.dbIO.readDataFromDB(tableName=srcTableName,
                                           conn=srcSysDatastore.conn,
-                                          cols='*')
+                                          cols='*',
+                                          testDataLimit=testDataLimit)
 
         elif srcSysDatastore.datastoreType == 'SPREADSHEET':
             df = self.readDataFromSpreadsheet(
                 tableName=file_name_or_table_name,
                 datastore=srcSysDatastore,
-                callingFuncName=callingFuncName)
+                callingFuncName=callingFuncName,
+                testDataLimit=testDataLimit)
         else:
             raise ValueError('Extract for source systems type <'
                              + srcSysDatastore.datastoreType

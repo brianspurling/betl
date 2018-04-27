@@ -4,8 +4,9 @@ from . import df_load
 
 class Table():
 
-    def __init__(self, tableSchema, datastore, dataLayerID, dataModelID):
+    def __init__(self, conf, tableSchema, datastore, dataLayerID, dataModelID):
 
+        self.conf = conf
         self.dataLayerID = dataLayerID
         self.dataModelID = dataModelID
         self.tableName = tableSchema['tableName'].lower()
@@ -49,6 +50,16 @@ class Table():
         for columnObject in self.columns:
             colsCreateStatements.append(columnObject.getSqlCreateStatement())
 
+        # For all tables except fact and summary tables in the TRG Layer,
+        # we add audit columns (the fact and summary tables in TRG get their
+        # own dimension to hold this info)
+        if self.getTableType() != 'FACT':
+            for i, auditColRow in self.conf.auditColumns.iterrows():
+                colsCreateStatements.append(
+                    auditColRow['colName'] +
+                    ' ' +
+                    auditColRow['dataType'])
+
         tableCreateStatement += ', '.join(colsCreateStatements)
 
         tableCreateStatement += ')'
@@ -68,25 +79,13 @@ class Table():
         trgDbCursor.execute(truncateStatement)
         self.datastore.commit()
 
-    def __str__(self):
-
-        string = '\n' + '    ' + self.tableName + '\n'
-        string += ''.join(map(str, self.columns))
-        return string
-
-
-# TRG tables are any table in the TRG database, i.e. datalayers TRG & SUM
-class TrgTable(Table):
-
-    def __init__(self, tableSchema, datastore, dataLayerID, dataModelID):
-
-        Table.__init__(self, tableSchema, datastore, dataLayerID, dataModelID)
-
     def getTableType(self):
 
         tableType = 'UNKNOWN'
 
-        if self.tableName[:3] == 'dm_':
+        if self.dataLayerID != 'TRG':
+            tableType = 'Not TRG Layer'
+        elif self.tableName[:3] == 'dm_':
             tableType = 'DIMENSION'
         elif self.tableName[:3] == 'ft_':
             tableType = 'FACT'
@@ -97,6 +96,21 @@ class TrgTable(Table):
                              self.tableName)
 
         return tableType
+
+    def __str__(self):
+
+        string = '\n' + '    ' + self.tableName + '\n'
+        string += ''.join(map(str, self.columns))
+        return string
+
+
+# TRG tables are any table in the TRG database, i.e. datalayers TRG & SUM
+class TrgTable(Table):
+
+    def __init__(self, conf, tableSchema, datastore, dataLayerID, dataModelID):
+
+        Table.__init__(self, conf, tableSchema,
+                       datastore, dataLayerID, dataModelID)
 
     def dropIndexes(self):
 
