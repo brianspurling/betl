@@ -8,7 +8,7 @@ JOB_LOG = logger.getJobLog()
 # have to be custom-built by the app. All this does is truncate all the
 # tables when running a bulk load
 #
-def defaultSummarise(scheduler):
+def defaultSummarisePrep(scheduler):
 
     sumLayer = scheduler.logicalDataModels['SUM']
 
@@ -29,3 +29,15 @@ def defaultSummarise(scheduler):
                 JOB_LOG.info(
                     logger.logStepStart('Truncating ' + tableName))
                 sumTables[tableName].truncateTable()
+
+
+def defaultSummariseFinish(scheduler):
+
+    sumLayer = scheduler.logicalDataModels['SUM']
+
+    sumTables = sumLayer.dataModels['SUM'].tables
+
+    if scheduler.bulkOrDelta == 'BULK':
+        for tableName in sumTables:
+            if (sumTables[tableName].getTableType() == 'SUMMARY'):
+                sumTables[tableName].createIndexes()

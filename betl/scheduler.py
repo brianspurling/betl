@@ -3,6 +3,7 @@ from . import logger as logger
 from .ctrlDB import CtrlDB
 from . import df_extract
 from . import df_dmDate
+from . import df_dmAudit
 from . import df_load
 from . import df_summarise
 
@@ -71,11 +72,16 @@ class Scheduler():
 
             if schedule.DEFAULT_SUMMARISE:
                 self.scheduleDataflow(
-                    df_summarise.defaultSummarise,
+                    df_summarise.defaultSummarisePrep,
                     'SUMMARISE')
 
             for dataflow in schedule.SUMMARISE_DFS:
                 self.scheduleDataflow(dataflow, 'SUMMARISE')
+
+            if schedule.DEFAULT_SUMMARISE:
+                self.scheduleDataflow(
+                    df_summarise.defaultSummariseFinish,
+                    'SUMMARISE')
 
     def scheduleDataflow(self, dataflow, stage):
         self.scheduleList.append({
