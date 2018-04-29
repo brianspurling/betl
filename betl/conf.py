@@ -1,10 +1,12 @@
 import datetime
 import pandas as pd
+import os
 from configobj import ConfigObj
 from .datastore import PostgresDatastore
 from .datastore import SqliteDatastore
 from .datastore import SpreadsheetDatastore
 from .datastore import FileDatastore
+from .ctrlDB import CtrlDB
 
 
 #
@@ -79,6 +81,8 @@ class App():
                 apiUrl=configObj['default_rows']['GOOGLE_SHEETS_API_URL'],
                 apiKey=configObj['default_rows']['GOOGLE_SHEETS_API_KEY_FILE'],
                 filename=configObj['default_rows']['FILENAME'])
+
+        self.CTRL_DB = CtrlDB(self.DWH_DATABASES['CTL'])
 
         self.SRC_SYSTEMS = {}
         for srcSysID in configObj['src_sys']:
@@ -175,6 +179,21 @@ class State():
                                     datetime.timedelta(days=365))
 
         self.LOGICAL_DATA_MODELS = None
+
+        self.fileNameMap = {}
+        self.nextFilePrefix = 1
+        self.filePrefixLength = 4
+
+    def populateFileNameMap(self, tmpDataPath):
+        for root, directories, filenames in os.walk(tmpDataPath):
+            for filename in filenames:
+                _filename = filename[self.filePrefixLength+1:]
+                shortfn, ext = os.path.splitext(filename)
+                if ext == '.csv':
+                    thisPrefix = int(filename[:self.filePrefixLength])
+                    if thisPrefix >= self.nextFilePrefix:
+                        self.nextFilePrefix = thisPrefix + 1
+                    self.fileNameMap[_filename] = filename
 
     def setStage(self, stage):
         self.STAGE = stage

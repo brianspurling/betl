@@ -1,6 +1,6 @@
 from . import logger
 
-JOB_LOG = logger.getJobLog()
+JOB_LOG = logger.getLogger()
 
 
 #

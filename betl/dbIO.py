@@ -4,48 +4,41 @@ from . import logger as logger
 import psycopg2
 
 
-class DatabaseIO():
+def writeDataToDB(df, tableName, eng, if_exists,
+                  emptyStingToNaN=True):
 
-    def __init__(self, conf):
+    if emptyStingToNaN:
+        df.replace('', np.nan, inplace=True)
 
-        self.devLog = logger.getDevLog(__name__)
-        self.jobLog = logger.getJobLog()
+    df.to_sql(tableName,
+              eng,
+              if_exists=if_exists,
+              index=False)
 
-        self.conf = conf
 
-    def writeDataToDB(self, df, tableName, eng, if_exists,
-                      emptyStingToNaN=True):
+def readDataFromDB(tableName, conn, cols='*', testDataLimit=None):
 
-        if emptyStingToNaN:
-            df.replace('', np.nan, inplace=True)
+    if testDataLimit is not None:
+        limitText = ' LIMIT ' + str(testDataLimit)
+    else:
+        limitText = ''
+    return pd.read_sql('SELECT ' + cols + ' FROM ' +
+                       tableName + limitText, con=conn)
 
-        df.to_sql(tableName,
-                  eng,
-                  if_exists=if_exists,
-                  index=False)
 
-    def readDataFromDB(self, tableName, conn, cols='*', testDataLimit=None):
+def customSql(sql, datastore):
+    dbCursor = datastore.cursor()
+    dbCursor.execute(sql)
+    datastore.commit()
 
-        if testDataLimit is not None:
-            limitText = ' LIMIT ' + str(testDataLimit)
-        else:
-            limitText = ''
-        return pd.read_sql('SELECT ' + cols + ' FROM ' +
-                           tableName + limitText, con=conn)
+    try:
+        data = dbCursor.fetchall()
+        columns = [column[0] for column in dbCursor.description]
+        df = pd.DataFrame(data)
+        logger.describeDataFrame(df)
+        if len(df) > 0:
+            df.columns = columns
+    except psycopg2.ProgrammingError:
+        df = None
 
-    def customSql(self, sql, datastore):
-        dbCursor = datastore.cursor()
-        dbCursor.execute(sql)
-        datastore.commit()
-
-        try:
-            data = dbCursor.fetchall()
-            columns = [column[0] for column in dbCursor.description]
-            df = pd.DataFrame(data)
-            logger.describeDataFrame(df)
-            if len(df) > 0:
-                df.columns = columns
-        except psycopg2.ProgrammingError:
-            df = None
-
-        return df
+    return df

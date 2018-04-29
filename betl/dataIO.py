@@ -1,7 +1,5 @@
 import inspect
-import datetime
 import pandas as pd
-import os
 
 from .dbIO import DatabaseIO
 from .gsheetIO import GsheetIO
@@ -14,7 +12,7 @@ class DataIO():
     def __init__(self, conf):
 
         self.devLog = logger.getDevLog(__name__)
-        self.jobLog = logger.getJobLog()
+        self.jobLog = logger.getLogger()
 
         self.conf = conf
 
@@ -207,56 +205,6 @@ class DataIO():
 
         return list(df)
 
-    def readDataFromSpreadsheet(self,
-                                tableName,
-                                datastore,
-                                callingFuncName=None,
-                                testDataLimit=None):
-
-        if callingFuncName is None:
-            callingFuncName = inspect.stack()[2][3]
-
-        self.jobLog.info(logger.logStepStart(
-            'Reading data from spreadsheet ' + datastore.ssID + ', ' +
-            'worksheet: ' + tableName,
-            callingFuncName=callingFuncName))
-
-        df = self.gsheetIO.readDataFromWorksheet(
-            worksheet=datastore.worksheets[tableName],
-            testDataLimit=testDataLimit)
-
-        self.jobLog.info(logger.logStepEnd(df))
-
-        return df
-
-    def writeDataToCsv(self,
-                       df,
-                       filename,
-                       dataLayerID,
-                       mode,
-                       callingFuncName=None):
-
-        if callingFuncName is None:
-            callingFuncName = inspect.stack()[2][3]
-
-        headers = True
-
-        path = (self.conf.app.TMP_DATA_PATH +
-                dataLayerID + '/')
-
-        if not os.path.exists(path):
-            os.makedirs(path)
-
-        _filename = filename + '.csv'
-
-        self.jobLog.info(logger.logStepStart(
-            'Writing data to CSV: ' + filename + ' (mode=' + mode + ')',
-            callingFuncName=callingFuncName))
-
-        self.fileIO.writeDataToCsv(df, path, _filename, headers, mode)
-
-        self.jobLog.info(logger.logStepEnd(df))
-
     def truncateFile(self,
                      filename,
                      dataLayerID,
@@ -295,133 +243,6 @@ class DataIO():
         df = self.dbIO.customSql(sql, datastore)
 
         self.jobLog.info(logger.logStepEnd(df))
-
-        return df
-
-    def readDataFromSrcSys(self,
-                           srcSysID,
-                           file_name_or_table_name):
-
-        testDataLimit = self.conf.exe.TEST_DATA_LIMIT
-
-        callingFuncName = inspect.stack()[1][3]
-        srcSysDatastore = self.conf.app.SRC_SYSTEMS[srcSysID]
-
-        df = pd.DataFrame()
-
-        if srcSysDatastore.datastoreType == 'FILESYSTEM':
-            filename = file_name_or_table_name
-            path = srcSysDatastore.path
-            separator = srcSysDatastore.delim
-            quotechar = srcSysDatastore.quotechar
-
-            if srcSysDatastore.fileExt == '.csv':
-                df = self.fileIO.readDataFromCsv(path=path,
-                                                 filename=filename + '.csv',
-                                                 sep=separator,
-                                                 quotechar=quotechar,
-                                                 isTmpData=False,
-                                                 testDataLimit=testDataLimit)
-
-            else:
-                raise ValueError('Unhandled file extension for src system: ' +
-                                 srcSysDatastore.fileExt + ' for source sys ' +
-                                 srcSysID)
-
-        elif srcSysDatastore.datastoreType in ('POSTGRES', 'SQLITE'):
-
-            etlTableName = file_name_or_table_name
-            # Cut off the src_<dataModelID>_ prefix, by doing
-            # two "left trims" on the "_" char
-            srcTableName = etlTableName[etlTableName.find("_")+1:]
-            srcTableName = srcTableName[srcTableName.find("_")+1:]
-
-            df = self.dbIO.readDataFromDB(tableName=srcTableName,
-                                          conn=srcSysDatastore.conn,
-                                          cols='*',
-                                          testDataLimit=testDataLimit)
-
-        elif srcSysDatastore.datastoreType == 'SPREADSHEET':
-            df = self.readDataFromSpreadsheet(
-                tableName=file_name_or_table_name,
-                datastore=srcSysDatastore,
-                callingFuncName=callingFuncName,
-                testDataLimit=testDataLimit)
-        else:
-            raise ValueError('Extract for source systems type <'
-                             + srcSysDatastore.datastoreType
-                             + '> connection type not supported')
-
-        self.jobLog.info(logger.logStepEnd(df))
-
-        # We never want audit cols to come into transform dataframes
-        if 'audit_source_system' in df.columns:
-            df.drop(['audit_source_system'], axis=1, inplace=True)
-        if 'audit_bulk_load_date' in df.columns:
-            df.drop(['audit_bulk_load_date'], axis=1, inplace=True)
-        if 'audit_latest_delta_load_date' in df.columns:
-            df.drop(['audit_latest_delta_load_date'], axis=1, inplace=True)
-        if 'audit_latest_delta_load_operation' in df.columns:
-            df.drop(['audit_latest_delta_load_operation'],
-                    axis=1,
-                    inplace=True)
-
-        return df
-
-    #
-    # Functions to set the audit columns on the dataframes, prior to loading
-    # into persistent storage
-    #
-    def setAuditCols(self, df, srcSysID, action):
-        if action == 'BULK':
-            return self.setAuditCols_bulk(df, srcSysID)
-        elif action == 'INSERT':
-            return self.setAuditCols_insert(df, srcSysID)
-        elif action == 'UPDATE':
-            return self.setAuditCols_update(df, srcSysID)
-        elif action == 'DELETE':
-            return self.setAuditCols_delete(df)
-        else:
-            raise ValueError("Incorrect parameter action passed to " +
-                             "setAuditCols")
-
-    def setAuditCols_bulk(self, df, srcSysID):
-        df['audit_source_system'] = srcSysID
-        df['audit_bulk_load_date'] = datetime.datetime.now()
-        df['audit_latest_delta_load_date'] = None
-        df['audit_latest_delta_load_operation'] = None
-
-        self.devLog.info("END")
-
-        return df
-
-    def setAuditCols_insert(self, df, sourceSystemId):
-
-        df['audit_source_system'] = sourceSystemId
-        df['audit_bulk_load_date'] = None
-        df['audit_latest_delta_load_date'] = datetime.datetime.now()
-        df['audit_latest_delta_load_operation'] = 'INSERT'
-
-        self.devLog.info("END")
-
-        return df
-
-    def setAuditCols_update(self, df, sourceSystemId):
-
-        df['audit_source_system'] = sourceSystemId
-        df['audit_latest_delta_load_date'] = datetime.datetime.now()
-        df['audit_latest_delta_load_operation'] = 'UPDATE'
-
-        self.devLog.info("END")
-
-        return df
-
-    def setAuditCols_delete(self, df):
-
-        df['audit_latest_delta_load_date'] = datetime.datetime.now()
-        df['audit_latest_delta_load_operation'] = 'DELETE'
-
-        self.devLog.info("END")
 
         return df
 

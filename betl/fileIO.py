@@ -1,121 +1,96 @@
 import tempfile
 import shutil
-import os
 import pandas as pd
-from . import logger as logger
+import os
 
 
-class FileIO():
+def writeDataToCsv(conf, df, path, filename, headers, mode):
 
-    def __init__(self, conf):
+    _filename = ''
 
-        self.devLog = logger.getDevLog(__name__)
-        self.jobLog = logger.getJobLog()
+    if filename in conf.state.fileNameMap:
+        _filename = conf.state.fileNameMap[filename]
+    else:
+        prefix = \
+            str(conf.state.nextFilePrefix).zfill(conf.state.filePrefixLength)
+        _filename = prefix + "-" + filename
+        conf.state.nextFilePrefix += 1
+        conf.state.fileNameMap[filename] = _filename
 
-        self.tmpDataPath = conf.app.TMP_DATA_PATH
-        self.conf = conf
+    _file = open(path + _filename, mode)
 
-        self.fileNameMap = {}
-        self.nextFilePrefix = 1
-        self.filePrefixLength = 4
+    # If we're appending, we never put the column headers in
+    colHeaders = headers
+    if mode == 'a':
+        colHeaders = None
 
-    def populateFileNameMap(self):
-        for root, directories, filenames in os.walk(self.tmpDataPath):
-            for filename in filenames:
-                _filename = filename[self.filePrefixLength+1:]
-                shortfn, ext = os.path.splitext(filename)
-                if ext == '.csv':
-                    thisPrefix = int(filename[:self.filePrefixLength])
-                    if thisPrefix >= self.nextFilePrefix:
-                        self.nextFilePrefix = thisPrefix + 1
-                    self.fileNameMap[_filename] = filename
+    df.to_csv(_file, header=colHeaders, index=False)
 
-    def writeDataToCsv(self, df, path, filename, headers, mode):
 
-        _filename = ''
+def truncateFile(conf, path, filename):
 
-        if filename in self.fileNameMap:
-            _filename = self.fileNameMap[filename]
-        else:
-            prefix = str(self.nextFilePrefix).zfill(self.filePrefixLength)
-            _filename = prefix + "-" + filename
-            self.nextFilePrefix += 1
-            self.fileNameMap[filename] = _filename
+    _filename = ''
+    if filename in conf.state.fileNameMap:
+        _filename = conf.state.fileNameMap[filename]
+        if os.path.exists(path + _filename):
+            _file = open(path + _filename, 'w')
+            _file.close()
 
-        _file = open(path + _filename, mode)
 
-        # If we're appending, we never put the column headers in
-        colHeaders = headers
-        if mode == 'a':
-            colHeaders = None
+def readDataFromCsv(conf,
+                    path,
+                    filename,
+                    sep=',',
+                    quotechar='"',
+                    nrows=None,
+                    isTmpData=True,
+                    testDataLimit=None,
+                    getFirstRow=False):
 
-        df.to_csv(_file, header=colHeaders, index=False)
+    _filename = filename
+    if isTmpData:
+        _filename = conf.state.fileNameMap[filename]
 
-    def truncateFile(self, path, filename):
+    # We need to force it to read everything as text. Only way I can
+    # see to do this is to read the headers and setup a dtype for each
+    headersDf = pd.read_csv(path + _filename,
+                            sep=sep,
+                            quotechar=quotechar,
+                            nrows=1,
+                            na_filter=False)
 
-        _filename = ''
-        if filename in self.fileNameMap:
-            _filename = self.fileNameMap[filename]
-            if os.path.exists(path + _filename):
-                _file = open(path + _filename, 'w')
-                _file.close()
+    headerList = headersDf.columns.values
+    dtype = {}
+    for header in headerList:
+        dtype[header] = str
 
-    def readDataFromCsv(self,
-                        path,
-                        filename,
-                        sep=',',
-                        quotechar='"',
-                        nrows=None,
-                        isTmpData=True,
-                        testDataLimit=None,
-                        getFirstRow=False):
+    if testDataLimit is not None:
+        nrows = testDataLimit
+    else:
+        nrows = None
+    if getFirstRow:
+        nrows = 1
 
-        _filename = filename
-        if isTmpData:
-            _filename = self.fileNameMap[filename]
+    return pd.read_csv(path + _filename,
+                       sep=sep,
+                       quotechar=quotechar,
+                       dtype=dtype,
+                       na_filter=False,
+                       nrows=nrows)
 
-        # We need to force it to read everything as text. Only way I can
-        # see to do this is to read the headers and setup a dtype for each
-        headersDf = pd.read_csv(path + _filename,
-                                sep=sep,
-                                quotechar=quotechar,
-                                nrows=1,
-                                na_filter=False)
 
-        headerList = headersDf.columns.values
-        dtype = {}
-        for header in headerList:
-            dtype[header] = str
+def deleteTempoaryData(tmpDataPath):
 
-        if testDataLimit is not None:
-            nrows = testDataLimit
-        else:
-            nrows = None
-        if getFirstRow:
-            nrows = 1
+    path = tmpDataPath.replace('/', '')
 
-        return pd.read_csv(path + _filename,
-                           sep=sep,
-                           quotechar=quotechar,
-                           dtype=dtype,
-                           na_filter=False,
-                           nrows=nrows)
-
-    def deleteTempoaryData(self):
-        self.devLog.info("START")
-
-        path = self.tmpDataPath.replace('/', '')
-
-        if (os.path.exists(path)):
-            # `tempfile.mktemp` Returns an absolute pathname of a file that
-            # did not exist at the time the call is made. We pass
-            # dir=os.path.dirname(dir_name) here to ensure we will move
-            # to the same filesystem. Otherwise, shutil.copy2 will be used
-            # internally and the problem remains: we're still deleting the
-            # folder when we come to recreate it
-            tmp = tempfile.mktemp(dir=os.path.dirname(path))
-            shutil.move(path, tmp)  # rename
-            shutil.rmtree(tmp)  # delete
-        os.makedirs(path)  # create the new folder
-        self.jobLog.info(logger.logClearedTempData())
-        self.devLog.info("END")
+    if (os.path.exists(path)):
+        # `tempfile.mktemp` Returns an absolute pathname of a file that
+        # did not exist at the time the call is made. We pass
+        # dir=os.path.dirname(dir_name) here to ensure we will move
+        # to the same filesystem. Otherwise, shutil.copy2 will be used
+        # internally and the problem remains: we're still deleting the
+        # folder when we come to recreate it
+        tmp = tempfile.mktemp(dir=os.path.dirname(path))
+        shutil.move(path, tmp)  # rename
+        shutil.rmtree(tmp)  # delete
+    os.makedirs(path)  # create the new folder

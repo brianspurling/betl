@@ -3,7 +3,7 @@ from . import logger
 import pandas as pd
 import numpy as np
 
-JOB_LOG = logger.getJobLog()
+JOB_LOG = logger.getLogger()
 
 
 #

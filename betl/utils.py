@@ -6,10 +6,117 @@ import time
 
 from . import cli
 from . import logger
+from . import fileIO
 from .dataLayer import SrcDataLayer
 from .dataLayer import StgDataLayer
 from .dataLayer import TrgDataLayer
 from .dataLayer import SumDataLayer
+from .conf import Conf
+from .scheduler import Scheduler
+
+JOB_LOG = None
+DEV_LOG = None
+
+
+def init(appConfigFile, runTimeParams, scheduleConfig=None):
+    global JOB_LOG
+    global DEV_LOG
+
+    ###############
+    # LOGGING OFF #
+    ###############
+
+    if scheduleConfig is None:
+        scheduleConfig = getDetaulfScheduleConfig()
+
+    # We can't log anything until we've checked the last execution ID #
+    conf = Conf(appConfigFile, cli.processArgs(runTimeParams), scheduleConfig)
+
+    # If we're running setup, we need to do this before checking the last
+    # exec, because we're about to wipe it and start from scratch!
+    # If it's successful, we log it lower down
+    if conf.exe.RUN_SETUP:
+        setupBetl(conf)
+
+    # This sets the EXEC_ID in conf.state
+    lastExecReport = setUpExecution(conf)
+
+    ##############
+    # LOGGING ON #
+    ##############
+
+    logger.initialiseLogging(conf)
+    JOB_LOG = logger.getLogger()
+    DEV_LOG = logger.getDevLog(__name__)
+
+    JOB_LOG.info(logger.logExecutionStartFinish(
+        'START',
+        rerun=conf.state.RERUN_PREV_JOB))
+
+    if conf.exe.RUN_SETUP:
+        JOB_LOG.info(logger.logBetlSetupComplete())
+        JOB_LOG.info(logger.logExecutionOverview(lastExecReport))
+    else:
+        if conf.state.RERUN_PREV_JOB:
+            JOB_LOG.info(logger.logExecutionOverview(lastExecReport,
+                                                     rerun=True))
+        else:
+            JOB_LOG.info(logger.logExecutionOverview(lastExecReport))
+
+    if conf.exe.DELETE_TMP_DATA:
+        fileIO.deleteTempoaryData(conf.app.TMP_DATA_PATH)
+    else:
+        conf.state.populateFileNameMap(conf.app.TMP_DATA_PATH)
+
+    # Pull the schema descriptions from the gsheets and our logical data models
+    logicalDataModels = buildLogicalDataModels(conf)
+    conf.state.setLogicalDataModels(logicalDataModels)
+
+    for dmID in logicalDataModels:
+        JOB_LOG.info(logicalDataModels[dmID].__str__())
+
+    if conf.exe.RUN_REBUILD_ALL or \
+       conf.exe.RUN_REBUILD_SRC or \
+       conf.exe.RUN_REBUILD_STG or \
+       conf.exe.RUN_REBUILD_TRG or \
+       conf.exe.RUN_REBUILD_SUM:
+        JOB_LOG.info(logger.logPhysicalDataModelBuildStart())
+
+    if conf.exe.RUN_REBUILD_ALL:
+        for dataModelID in logicalDataModels:
+            logicalDataModels[dataModelID].buildPhysicalDataModel()
+    else:
+        if conf.exe.RUN_REBUILD_SRC:
+            logicalDataModels['SRC'].buildPhysicalDataModel()
+        if conf.exe.RUN_REBUILD_STG:
+            logicalDataModels['STG'].buildPhysicalDataModel()
+        if conf.exe.RUN_REBUILD_TRG:
+            logicalDataModels['TRG'].buildPhysicalDataModel()
+        if conf.exe.RUN_REBUILD_SUM:
+            logicalDataModels['SUM'].buildPhysicalDataModel()
+
+    checkDBsForSuperflousTables(conf)
+    return conf
+
+
+def run(conf):
+
+    response = 'SUCCESS'
+
+    if conf.exe.RUN_DATAFLOWS:
+        scheduler = Scheduler(conf)
+        response = scheduler.executeSchedule()
+
+    if response == 'SUCCESS':
+        conf.app.CTRL_DB.updateExecutionInCtlTable(
+            execId=conf.state.EXEC_ID,
+            status='SUCCESSFUL',
+            statusMessage='')
+        logStr = ("\n\n" +
+                  "THE JOB COMPLETED SUCCESSFULLY " +
+                  "(the executions table has been updated)\n\n")
+        JOB_LOG.info(logStr)
+        JOB_LOG.info(logger.logExecutionStartFinish('FINISH'))
 
 
 def getDetaulfScheduleConfig():
@@ -29,10 +136,10 @@ def getDetaulfScheduleConfig():
     return scheduleConfig
 
 
-def setUpExecution(conf, ctlDB):
+def setUpExecution(conf):
 
     # Log in to the CTL DB and check the status of the last run
-    lastExecDetails = getDetailsOfLastExecution(ctlDB)
+    lastExecDetails = getDetailsOfLastExecution(conf.app.CTRL_DB)
     lastExecStatus = lastExecDetails['lastExecStatus']
     lastExecId = lastExecDetails['lastExecId']
 
@@ -72,7 +179,9 @@ def setUpExecution(conf, ctlDB):
     conf.state.setExecID(execId)
 
     if not conf.state.RERUN_PREV_JOB:
-        ctlDB.insertNewExecutionToCtlTable(execId, conf.exe.BULK_OR_DELTA)
+        conf.app.CTRL_DB.insertNewExecutionToCtlTable(
+            execId,
+            conf.exe.BULK_OR_DELTA)
 
     lastExecReport = {
         'lastExecId': lastExecId,
@@ -96,11 +205,11 @@ def getDetailsOfLastExecution(ctlDB):
     return lastExecDetails
 
 
-def setupBetl(ctlDB, conf):
-    ctlDB.dropAllCtlTables()
+def setupBetl(conf):
+    conf.app.CTRL_DB.dropAllCtlTables()
     archiveLogFiles(conf)
-    ctlDB.createExecutionsTable()
-    ctlDB.createSchedulesTable()
+    conf.app.CTRL_DB.createExecutionsTable()
+    conf.app.CTRL_DB.createSchedulesTable()
 
 
 def archiveLogFiles(conf):
@@ -156,7 +265,7 @@ def buildLogicalDataModels(conf):
     return logicalDataModels
 
 
-def checkDBsForSuperflousTables(conf, logicalDataModels, jobLog):
+def checkDBsForSuperflousTables(conf):
     query = ("SELECT table_name FROM information_schema.tables " +
              "WHERE table_schema = 'public'")
 
@@ -171,9 +280,9 @@ def checkDBsForSuperflousTables(conf, logicalDataModels, jobLog):
     allTables.extend([item[0] for item in trgDBCursor.fetchall()])
 
     dataModelTables = []
-    for dataLayerID in logicalDataModels:
+    for dataLayerID in conf.state.LOGICAL_DATA_MODELS:
         dataModelTables.extend(
-            logicalDataModels[dataLayerID].getListOfTables())
+            conf.state.LOGICAL_DATA_MODELS[dataLayerID].getListOfTables())
 
     superflousTableNames = []
     for tableName in allTables:
@@ -181,5 +290,5 @@ def checkDBsForSuperflousTables(conf, logicalDataModels, jobLog):
             superflousTableNames.append(tableName)
 
     if len(superflousTableNames) > 0:
-        jobLog.warn(
+        JOB_LOG.warn(
             logger.superflousTableWarning(',\n  '.join(superflousTableNames)))

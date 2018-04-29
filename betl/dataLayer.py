@@ -20,7 +20,7 @@ class DataLayer():
         self.dataModels = self.buildLogicalDataModels()
 
         self.devLog = logger.getDevLog(__name__)
-        self.jobLog = logger.getJobLog()
+        self.jobLog = logger.getLogger()
 
     #
     # Logical Data Model (Gsheets)

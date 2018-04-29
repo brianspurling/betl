@@ -1,8 +1,7 @@
 import pandas as pd
 from datetime import date, timedelta
 
-# from . import logger
-from . import api
+from . import api as betl
 
 
 def getSchemaDescription():
@@ -57,6 +56,8 @@ def getSchemaDescription():
 
 def transformDMDate(scheduler):
 
+    # TODO ideally this would be built within BETL (set a good example, and
+    # all that!)
     startDate = scheduler.conf.state.EARLIEST_DATE_IN_DATA
     endDate = scheduler.conf.state.LATEST_DATE_IN_DATA
 
@@ -82,38 +83,48 @@ def transformDMDate(scheduler):
 
         startDate = startDate + timedelta(1)
 
-    dateInfo = {'date_id': -1,
-                'date_yyyymmdd': 00000000,  # Natural key
-                'cal_date': 'MISSING',
-                'cal_day': None,
-                'cal_month': None,
-                'cal_year': None,
-                'day_of_week_sunday_0_monday_1': None,
-                'day_of_week_sunday_1_monday_2': None,
-                'day_of_week_sunday_6_monday_0': None,
-                'day_of_week_sunday_7_monday_1': None,
-                'day_number': None,
-                'week_number': None}
+    # Minus one rows
 
-    dmDateList.append(dateInfo)
+    dmDateList.append({
+        'date_id': -1,
+        'date_yyyymmdd': 00000000,  # Natural key
+        'cal_date': 'MISSING',
+        'cal_day': None,
+        'cal_month': None,
+        'cal_year': None,
+        'day_of_week_sunday_0_monday_1': None,
+        'day_of_week_sunday_1_monday_2': None,
+        'day_of_week_sunday_6_monday_0': None,
+        'day_of_week_sunday_7_monday_1': None,
+        'day_number': None,
+        'week_number': None})
 
-    dateInfo = {'date_id': -2,
-                'date_yyyymmdd': 00000000,  # Natural key
-                'cal_date': 'UNRECOGNISED',
-                'cal_day': None,
-                'cal_month': None,
-                'cal_year': None,
-                'day_of_week_sunday_0_monday_1': None,
-                'day_of_week_sunday_1_monday_2': None,
-                'day_of_week_sunday_6_monday_0': None,
-                'day_of_week_sunday_7_monday_1': None,
-                'day_number': None,
-                'week_number': None}
-
-    dmDateList.append(dateInfo)
+    dmDateList.append({
+        'date_id': -2,
+        'date_yyyymmdd': 00000000,  # Natural key
+        'cal_date': 'UNRECOGNISED',
+        'cal_day': None,
+        'cal_month': None,
+        'cal_year': None,
+        'day_of_week_sunday_0_monday_1': None,
+        'day_of_week_sunday_1_monday_2': None,
+        'day_of_week_sunday_6_monday_0': None,
+        'day_of_week_sunday_7_monday_1': None,
+        'day_number': None,
+        'week_number': None})
 
     df = pd.DataFrame(dmDateList)
 
-    api.writeData(df, 'trg_dm_date', 'STG')
+    dfl = betl.DataFlow(desc='Generate the dm_date rows')
 
-    del df
+    dfl.createDataset(
+        dataset='trg_dm_date',
+        data=df,
+        desc='Loaded a pre-constructed dataframe')
+
+    dfl.write(
+        dataset='trg_dm_date',
+        targetTableName='trg_dm_date',
+        dataLayerID='STG')
+
+    dfl.close()

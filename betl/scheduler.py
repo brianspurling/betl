@@ -1,6 +1,5 @@
 import traceback
 from . import logger as logger
-from .ctrlDB import CtrlDB
 from . import df_extract
 from . import df_dmDate
 from . import df_dmAudit
@@ -10,12 +9,12 @@ from . import df_summarise
 
 class Scheduler():
 
-    def __init__(self, conf, dataIO, logicalDataModels):
+    def __init__(self, conf):
 
         self.devLog = logger.getDevLog(__name__)
-        self.jobLog = logger.getJobLog()
+        self.jobLog = logger.getLogger()
 
-        self.logicalDataModels = logicalDataModels
+        self.logicalDataModels = conf.state.LOGICAL_DATA_MODELS
         self.scheduleList = []
         self.scheduleDic = {}
         self.srcTablesToExcludeFromExtract = []
@@ -23,9 +22,7 @@ class Scheduler():
         self.bulkOrDelta = conf.exe.BULK_OR_DELTA
 
         self.conf = conf
-        self.dataIO = dataIO
-
-        self.ctrlDB = CtrlDB(conf)
+        self.ctrlDB = self.conf.app.CTRL_DB
 
         # We must construct the scheduler even if we're re-running the prev
         # load. constructSchedule puts all the actual funcs into the dict,
@@ -57,6 +54,8 @@ class Scheduler():
 
             for dataflow in schedule.TRANSFORM_DFS:
                 self.scheduleDataflow(dataflow, 'TRANSFORM')
+
+            self.scheduleDataflow(df_dmAudit.transformDMAudit, 'TRANSFORM')
 
         if self.conf.exe.RUN_LOAD:
 

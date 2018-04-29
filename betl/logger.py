@@ -2,17 +2,23 @@ import logging
 import inspect
 from datetime import datetime
 
+JOB_LOG = None
+
 EXEC_ID = None
 LOG_LEVEL = logging.ERROR
 CONF = None
 JOB_LOG_FILE_NAME = None
 DEV_LOG_FILE_NAME = None
 
-STEP_START_TIME = None
 EXE_START_TIME = None
 
 
-def initialiseLogging(execId, logLevel, conf):
+def initialiseLogging(conf):
+
+    execId = conf.state.EXEC_ID
+    logLevel = conf.exe.LOG_LEVEL
+
+    global JOB_LOG
     global EXEC_ID
     global LOG_LEVEL
     global CONF
@@ -32,19 +38,19 @@ def initialiseLogging(execId, logLevel, conf):
     # if (os.path.exists(DEV_LOG_FILE_NAME)):
     #     os.remove(DEV_LOG_FILE_NAME)
 
-    jobLog = logging.getLogger('JOB_LOG')
+    JOB_LOG = logging.getLogger('JOB_LOG')
     jobLogFileName = JOB_LOG_FILE_NAME
     devLogFileName = DEV_LOG_FILE_NAME
     jobLogFileHandler = logging.FileHandler(jobLogFileName, mode='a')
     devLogFileHandler = logging.FileHandler(devLogFileName, mode='a')
     streamHandler = logging.StreamHandler()
-    jobLog.setLevel(logging.DEBUG)  # Always log everything on this log
-    jobLog.addHandler(jobLogFileHandler)
-    jobLog.addHandler(devLogFileHandler)
-    jobLog.addHandler(streamHandler)
+    JOB_LOG.setLevel(logging.DEBUG)  # Always log everything on this log
+    JOB_LOG.addHandler(jobLogFileHandler)
+    JOB_LOG.addHandler(devLogFileHandler)
+    JOB_LOG.addHandler(streamHandler)
 
 
-def getJobLog():
+def getLogger():
     return logging.getLogger('JOB_LOG')
 
 
@@ -151,9 +157,7 @@ def logClearedTempData():
     return op
 
 
-def logStepStart(stepDescription, stepId=None, callingFuncName=None):
-    global STEP_START_TIME
-    STEP_START_TIME = datetime.now()
+def logDFStart(desc, startTime):
 
     op = ''
     op += '\n'
@@ -161,60 +165,73 @@ def logStepStart(stepDescription, stepId=None, callingFuncName=None):
     op += '\n'
     op += '\n'
 
-    stage = '[' + CONF.state.STAGE + '] '
-    funcName = callingFuncName if callingFuncName is not None else            \
-        inspect.stack()[2][3]
+    stage = '[' + CONF.state.STAGE + '] \n\n'
 
-    if (stepId is not None):
-        op += stage + funcName + ' (step ' + str(stepId) + ') '
-    else:
-        op += stage + funcName + ' '
+    op += stage + desc + '\n\n'
 
-    op += stepDescription + '\n\n'
+    op += '[Started dataflow at: ' + str(startTime) + ']' + '\n'
 
-    op += '[Started at: ' + str(STEP_START_TIME) + ']'
-
-    return op
+    JOB_LOG.info(op)
 
 
-def logStepEnd(df=None):
+def logDFEnd(durationSeconds, df=None):
 
-    currentTime = datetime.now()
-    elapsedSeconds = (currentTime - STEP_START_TIME).total_seconds()
     op = ''
-
-    op += '[Completed in: ' + str(round(elapsedSeconds, 2)) + ' seconds]\n\n'
+    op += '[Completed dataflow in: '
+    op += str(round(durationSeconds, 2)) + ' seconds] \n\n'
 
     if df is not None:
         op += describeDataFrame(df)
-    else:
-        op += ''
 
-    return op
+    JOB_LOG.info(op)
+
+
+def logStepStart(startTime, desc=None):
+
+    op = ''
+    op += '   ' + str(inspect.stack()[1][3])
+    if desc is not None:
+        op += ': ' + desc + '\n'
+    else:
+        op += '\n'
+    op += '   [Started at: ' + str(startTime) + ']'
+
+    JOB_LOG.info(op)
+
+
+def logStepEnd(report, duration, df=None):
+    op = ''
+    op += '   [Completed step in: ' + str(round(duration, 2)) + ' seconds] \n'
+    op += '   ' + report + '\n'
+    if df is not None:
+        op += describeDataFrame(df)
+
+    JOB_LOG.info(op)
 
 
 def describeDataFrame(df):
     op = ''
     op += 'Shape: ' + str(df.shape) + '\n\n'
     op += 'Columns:\n'
-    for colName in list(df.columns.values):
-        if len(str(colName)) > 30:
-            op += ' ' + str(colName)[:30] + '--: '
-        else:
-            op += ' ' + str(colName) + ': '
 
-        value = getSampleValue(df, colName, 0)
-        if value is not None:
-            op += value + ', '
-        value = getSampleValue(df, colName, 1)
-        if value is not None:
-            op += value + ', '
-        value = getSampleValue(df, colName, 2)
-        if value is not None:
-            op += value
-        if len(df.index) > 3:
-            op += ', ...'
-        op += '\n'
+    # for colName in list(df.columns.values):
+    #     if len(str(colName)) > 30:
+    #         op += ' ' + str(colName)[:30] + '--: '
+    #     else:
+    #         op += ' ' + str(colName) + ': '
+    #
+    #     value = getSampleValue(df, colName, 0)
+    #     if value is not None:
+    #         op += value + ', '
+    #     value = getSampleValue(df, colName, 1)
+    #     if value is not None:
+    #         op += value + ', '
+    #     value = getSampleValue(df, colName, 2)
+    #     if value is not None:
+    #         op += value
+    #     if len(df.index) > 3:
+    #         op += ', ...'
+    #     op += '\n'
     return op
 
 

@@ -6,10 +6,9 @@ from . import logger as logger
 
 class CtrlDB():
 
-    def __init__(self, conf):
+    def __init__(self, ctrlDatastore):
 
-        self.conf = conf
-        self.datastore = conf.app.DWH_DATABASES['CTL']
+        self.datastore = ctrlDatastore
 
     def insertNewExecutionToCtlTable(self, execId, bulkOrDelta):
         ctlDBCursor = self.datastore.cursor()
