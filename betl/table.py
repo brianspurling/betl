@@ -72,13 +72,6 @@ class Table():
 
         return tableDropStatement
 
-    def truncateTable(self):
-
-        truncateStatement = 'TRUNCATE ' + self.tableName + ' RESTART IDENTITY'
-        trgDbCursor = self.datastore.cursor()
-        trgDbCursor.execute(truncateStatement)
-        self.datastore.commit()
-
     def getTableType(self):
 
         tableType = 'UNKNOWN'
@@ -112,29 +105,7 @@ class TrgTable(Table):
         Table.__init__(self, conf, tableSchema,
                        datastore, dataLayerID, dataModelID)
 
-    def dropIndexes(self):
-
-        dropStatements = self.getSqlDropIndexStatements()
-
-        dbCursor = self.datastore.cursor()
-        for dropStatement in dropStatements:
-            dbCursor.execute(dropStatement)
-            self.datastore.commit()
-
-    def createIndexes(self):
-
-        createStatements = self.getSqlCreateIndexStatements()
-
-        dbCursor = self.datastore.cursor()
-        for createStatement in createStatements:
-            dbCursor.execute(createStatement)
-            self.datastore.commit()
-
-    def getSqlResetPrimaryKeySequence(self):
-
-        return self.surrogateKeyColumn.getSqlResetPrimaryKeySequence()
-
-    def getSqlDropIndexStatements(self):
+    def getSqlDropIndexes(self):
 
         sqlStatements = []
         for col in self.columns:
@@ -144,6 +115,14 @@ class TrgTable(Table):
                 sqlStatements.append(col.getSqlDropIndexStatement())
 
         return sqlStatements
+
+    def getSqlCreateIndexes(self):
+
+        return self.getSqlCreateIndexStatements()
+
+    def getSqlResetPrimaryKeySequence(self):
+
+        return self.surrogateKeyColumn.getSqlResetPrimaryKeySequence()
 
     def getSqlCreateIndexStatements(self):
         sqlStatements = []

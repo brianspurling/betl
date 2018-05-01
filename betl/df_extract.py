@@ -41,8 +41,6 @@ def defaultExtract_bulk(scheduler):
                 targetTableName=tableName,
                 dataLayerID='SRC')
 
-            dfl.close()
-
 
 def defaultExtract_delta(scheduler):
 
@@ -244,8 +242,6 @@ def setAuditCols_insert(self, df, sourceSystemId):
     df['audit_latest_delta_load_date'] = datetime.now()
     df['audit_latest_delta_load_operation'] = 'INSERT'
 
-    self.devLog.info("END")
-
     return df
 
 
@@ -255,8 +251,6 @@ def setAuditCols_update(self, df, sourceSystemId):
     df['audit_latest_delta_load_date'] = datetime.now()
     df['audit_latest_delta_load_operation'] = 'UPDATE'
 
-    self.devLog.info("END")
-
     return df
 
 
@@ -264,7 +258,5 @@ def setAuditCols_delete(self, df):
 
     df['audit_latest_delta_load_date'] = datetime.now()
     df['audit_latest_delta_load_operation'] = 'DELETE'
-
-    self.devLog.info("END")
 
     return df

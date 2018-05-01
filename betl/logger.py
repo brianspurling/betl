@@ -1,6 +1,9 @@
 import logging
 import inspect
 from datetime import datetime
+import pprint
+import traceback
+
 
 JOB_LOG = None
 
@@ -8,7 +11,6 @@ EXEC_ID = None
 LOG_LEVEL = logging.ERROR
 CONF = None
 JOB_LOG_FILE_NAME = None
-DEV_LOG_FILE_NAME = None
 
 EXE_START_TIME = None
 
@@ -23,7 +25,6 @@ def initialiseLogging(conf):
     global LOG_LEVEL
     global CONF
     global JOB_LOG_FILE_NAME
-    global DEV_LOG_FILE_NAME
 
     EXEC_ID = execId
     if logLevel is not None:
@@ -31,22 +32,13 @@ def initialiseLogging(conf):
     CONF = conf
 
     JOB_LOG_FILE_NAME = 'logs/' + str(EXEC_ID) + '_jobLog.log'
-    DEV_LOG_FILE_NAME = 'logs/' + str(EXEC_ID) + '_devLog.log'
-
-    # if (os.path.exists(JOB_LOG_FILE_NAME)):
-    #     os.remove(JOB_LOG_FILE_NAME)
-    # if (os.path.exists(DEV_LOG_FILE_NAME)):
-    #     os.remove(DEV_LOG_FILE_NAME)
 
     JOB_LOG = logging.getLogger('JOB_LOG')
     jobLogFileName = JOB_LOG_FILE_NAME
-    devLogFileName = DEV_LOG_FILE_NAME
     jobLogFileHandler = logging.FileHandler(jobLogFileName, mode='a')
-    devLogFileHandler = logging.FileHandler(devLogFileName, mode='a')
     streamHandler = logging.StreamHandler()
     JOB_LOG.setLevel(logging.DEBUG)  # Always log everything on this log
     JOB_LOG.addHandler(jobLogFileHandler)
-    JOB_LOG.addHandler(devLogFileHandler)
     JOB_LOG.addHandler(streamHandler)
 
 
@@ -54,74 +46,25 @@ def getLogger():
     return logging.getLogger('JOB_LOG')
 
 
-def getDevLog(moduleName):
-    logger = logging.getLogger(moduleName)
-    formatter = logging.Formatter('%(module)s.%(funcName)s: %(message)s')
-    logger.setLevel(logging.DEBUG)  # we set the handler-specific levels later
-    logFileName = DEV_LOG_FILE_NAME
-    devLogFileHandler = logging.FileHandler(logFileName, mode='a')
-    devLogFileHandler.setFormatter(formatter)
-    streamHandler = logging.StreamHandler()
-    streamHandler.setFormatter(formatter)
-
-    streamHandler.setLevel(LOG_LEVEL)
-    devLogFileHandler.setLevel(logging.DEBUG)
-
-    logger.addHandler(devLogFileHandler)
-    logger.addHandler(streamHandler)
-    return logging.getLogger(moduleName)
-
-
-def logExecutionStartFinish(startOrFinish='START', rerun=False):
+def logExecutionStart(rerun=False):
 
     global EXE_START_TIME
+    EXE_START_TIME = datetime.now()
 
-    if startOrFinish == 'START':
-        EXE_START_TIME = datetime.now()
-
-    print('')
     value = ''
-    if startOrFinish == 'START':
-        if rerun:
-            value = 'Restarted'
-        else:
-            value = 'Started  '
-    if startOrFinish == 'FINISH':
-        value = 'Finished '
+    if rerun:
+        value = 'Restarted'
+    else:
+        value = 'Started  '
 
-    op = ''
+    op = '\n'
     op += '                  *****************************' + '\n'
     op += '                  *                           *' + '\n'
     op += '                  *  BETL Execution ' + value + ' *' + '\n'
     op += '                  *                           *' + '\n'
     op += '                  *****************************' + '\n'
-    if startOrFinish == 'FINISH':
-        currentTime = datetime.now()
-        elapsedSecs = (currentTime - EXE_START_TIME).total_seconds()
-        elapsedMins = round(elapsedSecs / 60, 1)
-        op += '\n'
-        op += '                  Finished: ' + str(EXE_START_TIME)
-        op += '\n'
-        op += '                  Duration: ' + str(elapsedMins) + ' mins'
-        op += '\n\n'
-        op += '                       ' + JOB_LOG_FILE_NAME
-        op += '\n'
-        op += '                       ' + DEV_LOG_FILE_NAME
-        op += '\n'
-    # op += 'Arguments: ' + '\n'
-    # op += '\n'
-    # op += pprint.pformat(args)
-    # op += '\n'
+
     return(op)
-
-
-def logBetlSetupComplete():
-    op = ''
-    op += '\n'
-    op += '-------------------------' + '\n'
-    op += ' BETL setup successfully ' + '\n'
-    op += '-------------------------' + '\n'
-    return op
 
 
 def logExecutionOverview(execReport, rerun=False):
@@ -148,24 +91,17 @@ def logExecutionOverview(execReport, rerun=False):
     return op
 
 
-def logClearedTempData():
-    op = ''
-    op += '\n\n'
-    op += '-----------------------' + '\n'
-    op += ' Cleared all temp data ' + '\n'
-    op += '-----------------------' + '\n'
-    return op
-
-
 def logDFStart(desc, startTime):
 
     op = ''
     op += '\n'
     op += '******************************************************************'
     op += '\n'
+    stage = CONF.state.STAGE + ' | ' + '\n\n'
+    op += '******************************************************************'
     op += '\n'
 
-    stage = '[' + CONF.state.STAGE + '] \n\n'
+    op += pprint.pformat(traceback.print_stack())
 
     op += stage + desc + '\n\n'
 
@@ -211,27 +147,68 @@ def logStepEnd(report, duration, df=None):
 
 def describeDataFrame(df):
     op = ''
-    op += 'Shape: ' + str(df.shape) + '\n\n'
+    op += '   Shape of final dataset: ' + str(df.shape) + '\n\n'
     op += 'Columns:\n'
+    for colName in list(df.columns.values):
+        if len(str(colName)) > 30:
+            op += ' ' + str(colName)[:30] + '--: '
+        else:
+            op += ' ' + str(colName) + ': '
 
-    # for colName in list(df.columns.values):
-    #     if len(str(colName)) > 30:
-    #         op += ' ' + str(colName)[:30] + '--: '
-    #     else:
-    #         op += ' ' + str(colName) + ': '
-    #
-    #     value = getSampleValue(df, colName, 0)
-    #     if value is not None:
-    #         op += value + ', '
-    #     value = getSampleValue(df, colName, 1)
-    #     if value is not None:
-    #         op += value + ', '
-    #     value = getSampleValue(df, colName, 2)
-    #     if value is not None:
-    #         op += value
-    #     if len(df.index) > 3:
-    #         op += ', ...'
-    #     op += '\n'
+        value = getSampleValue(df, colName, 0)
+        if value is not None:
+            op += value + ', '
+        value = getSampleValue(df, colName, 1)
+        if value is not None:
+            op += value + ', '
+        value = getSampleValue(df, colName, 2)
+        if value is not None:
+            op += value
+        if len(df.index) > 3:
+            op += ', ...'
+        op += '\n'
+    return op
+
+
+def logExecutionFinish(rerun=False):
+
+    op = '\n'
+    op += '                  *****************************' + '\n'
+    op += '                  *                           *' + '\n'
+    op += '                  *  BETL Execution Finished  *' + '\n'
+    op += '                  *                           *' + '\n'
+    op += '                  *****************************' + '\n'
+
+    currentTime = datetime.now()
+    elapsedSecs = (currentTime - EXE_START_TIME).total_seconds()
+    elapsedMins = round(elapsedSecs / 60, 1)
+
+    op += '\n'
+    op += '                  Finished: ' + str(EXE_START_TIME)
+    op += '\n'
+    op += '                  Duration: ' + str(elapsedMins) + ' mins'
+    op += '\n\n'
+    op += '                       ' + JOB_LOG_FILE_NAME
+    op += '\n'
+
+    return(op)
+
+
+def logBetlSetupComplete():
+    op = ''
+    op += '\n'
+    op += '-------------------------' + '\n'
+    op += ' BETL setup successfully ' + '\n'
+    op += '-------------------------' + '\n'
+    return op
+
+
+def logClearedTempData():
+    op = ''
+    op += '\n\n'
+    op += '-----------------------' + '\n'
+    op += ' Cleared all temp data ' + '\n'
+    op += '-----------------------' + '\n'
     return op
 
 

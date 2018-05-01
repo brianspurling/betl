@@ -37,6 +37,8 @@ SETUP_WARNING = ("\nRunning SETUP will reset your control DB. " +
 INVALID_STAGE_FOR_SCHEDULE = ("You can only schedule functions in one of " +
                               "the three ETL stages: EXTRACT, TRANSFORM, LOAD")
 
+DATA_LIMIT_ROWS = 100
+
 HELP = ("\n" +
         "--------------------------------------------------------------\n" +
         "\n" +
@@ -68,6 +70,9 @@ HELP = ("\n" +
         "\n" +
         "> [cleartmpdata]\n" +
         "  Clear all temp data from previous jobs before executing\n" +
+        "\n" +
+        "> [limitdata]\n" +
+        "  Limit the data to " + str(DATA_LIMIT_ROWS) + "\n" +
         "\n" +
         "> [nowarnings]\n" +
         "  Turn off warnings - only recommended during development\n" +
@@ -134,7 +139,7 @@ def processArgs(args):
 
         'WRITE_TO_ETL_DB': False,
         'DELETE_TMP_DATA': False,
-        'TEST_DATA_LIMIT': None,
+        'DATA_LIMIT_ROWS': None,
 
         'RUN_DATAFLOWS': False,
 
@@ -186,8 +191,8 @@ def processArgs(args):
             params['WRITE_TO_ETL_DB'] = True
         elif arg == 'cleartmpdata':
             params['DELETE_TMP_DATA'] = True
-        elif arg == 'testdatalimit':
-            params['TEST_DATA_LIMIT'] = 100
+        elif arg == 'limitdata':
+            params['DATA_LIMIT_ROWS'] = DATA_LIMIT_ROWS
         elif arg == 'run':
             params['RUN_DATAFLOWS'] = True
         else:

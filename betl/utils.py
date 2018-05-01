@@ -15,12 +15,10 @@ from .conf import Conf
 from .scheduler import Scheduler
 
 JOB_LOG = None
-DEV_LOG = None
 
 
 def init(appConfigFile, runTimeParams, scheduleConfig=None):
     global JOB_LOG
-    global DEV_LOG
 
     ###############
     # LOGGING OFF #
@@ -47,11 +45,8 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
 
     logger.initialiseLogging(conf)
     JOB_LOG = logger.getLogger()
-    DEV_LOG = logger.getDevLog(__name__)
 
-    JOB_LOG.info(logger.logExecutionStartFinish(
-        'START',
-        rerun=conf.state.RERUN_PREV_JOB))
+    JOB_LOG.info(logger.logExecutionStart(rerun=conf.state.RERUN_PREV_JOB))
 
     if conf.exe.RUN_SETUP:
         JOB_LOG.info(logger.logBetlSetupComplete())
@@ -116,7 +111,7 @@ def run(conf):
                   "THE JOB COMPLETED SUCCESSFULLY " +
                   "(the executions table has been updated)\n\n")
         JOB_LOG.info(logStr)
-        JOB_LOG.info(logger.logExecutionStartFinish('FINISH'))
+        JOB_LOG.info(logger.logExecutionFinish())
 
 
 def getDetaulfScheduleConfig():

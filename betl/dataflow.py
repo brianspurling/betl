@@ -35,7 +35,7 @@ class DataFlow():
         startTime = datetime.now()
         logger.logStepStart(startTime, desc)
 
-        testDataLimit = self.conf.exe.TEST_DATA_LIMIT
+        limitdata = self.conf.exe.DATA_LIMIT_ROWS
         srcSysDatastore = self.conf.app.SRC_SYSTEMS[srcSysID]
 
         df = pd.DataFrame()
@@ -53,7 +53,7 @@ class DataFlow():
                                             sep=separator,
                                             quotechar=quotechar,
                                             isTmpData=False,
-                                            testDataLimit=testDataLimit)
+                                            limitdata=limitdata)
 
             else:
                 raise ValueError('Unhandled file extension for src system: ' +
@@ -71,12 +71,12 @@ class DataFlow():
             df = dbIO.readDataFromDB(tableName=srcTableName,
                                      conn=srcSysDatastore.conn,
                                      cols='*',
-                                     testDataLimit=testDataLimit)
+                                     limitdata=limitdata)
 
         elif srcSysDatastore.datastoreType == 'SPREADSHEET':
             df = gsheetIO.readDataFromWorksheet(
                 worksheet=srcSysDatastore.worksheets[tableName],
-                testDataLimit=testDataLimit)
+                limitdata=limitdata)
 
         else:
             raise ValueError('Extract for source systems type <'
@@ -92,10 +92,10 @@ class DataFlow():
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
         logger.logStepEnd(report, elapsedSeconds)
 
-    def read(self, tableName, dataLayer, forceDBRead=None):
+    def read(self, tableName, dataLayer, forceDBRead=False, desc=None):
 
         startTime = datetime.now()
-        logger.logStepStart(startTime, tableName)
+        logger.logStepStart(startTime, desc)
 
         if tableName in self.data:
             raise ValueError('There is already a dataset named ' + tableName +
@@ -105,10 +105,10 @@ class DataFlow():
         filename = tableName + '.csv'
 
         df = pd.DataFrame()
-        if forceDBRead is not None:
+        if forceDBRead:
             df = dbIO.readDataFromDB(
                 tableName=tableName,
-                conn=self.conf.app.DWH_DATABASES[forceDBRead].conn)
+                conn=self.conf.app.DWH_DATABASES[dataLayer].conn)
 
         else:
             df = fileIO.readDataFromCsv(conf=self.conf,
@@ -134,7 +134,7 @@ class DataFlow():
 
         # data can be a dictionary of columnName:value, where value is
         # hardcoded or an array. Or data can be a pandas dataframe.
-        if type(data) == 'pandas.core.frame.DataFrame':
+        if str(type(data)) == 'pandas.core.frame.DataFrame':
             df = data
         else:
             df = pd.DataFrame(columns=list(data.keys()))
@@ -157,8 +157,11 @@ class DataFlow():
               targetTableName,
               dataLayerID,
               forceDBWrite=False,
+              dtype=None,
               append_or_replace='replace',
-              desc=None):
+              writingDefaultRows=False,
+              desc=None,
+              keepDataflowOpen=False):
 
         startTime = datetime.now()
         logger.logStepStart(startTime, desc)
@@ -246,8 +249,7 @@ class DataFlow():
         # write to DB
         if writeToDB:
             dbEng = dataLayer.datastore.eng
-            # TODO: replace with direct call to dbIO
-            self.writeDataToDB(
+            dbIO.writeDataToDB(
                 self.trgDataset,
                 targetTableName,
                 dbEng,
@@ -258,9 +260,11 @@ class DataFlow():
         if append_or_replace.upper() == 'APPEND':
             mode = 'a'
 
-        # TODO
-        # if writingDefaultRows:
-        #    df.drop(df.columns[0], axis=1, inplace=True)
+        if writingDefaultRows:
+            self.trgDataset.drop(
+                self.trgDataset.columns[0],
+                axis=1,
+                inplace=True)
 
         path = (self.conf.app.TMP_DATA_PATH + dataLayerID + '/')
         if not os.path.exists(path):
@@ -279,6 +283,9 @@ class DataFlow():
         report = 'Data written to ' + targetTableName
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
         logger.logStepEnd(report, elapsedSeconds)
+
+        if not keepDataflowOpen:
+            self.close()
 
     def dropColumns(self,
                     dataset,
@@ -335,12 +342,28 @@ class DataFlow():
         # If so, it needs to be run on the dataframe with the apply() func
 
         for col in columns:
-            if type(col) == 'function':
+            if callable(columns[col]):
                 df[col] = df.apply(columns[col], axis=1)
             else:
                 df[col] = columns[col]
 
-        report = 'Added ' + str(len(columns)) + ' to dataset'
+        report = 'Assigned ' + str(len(columns)) + ' to dataset'
+        elapsedSeconds = (datetime.now() - startTime).total_seconds()
+        logger.logStepEnd(report, elapsedSeconds)
+
+    def setColumns(self, dataset, columns, desc=None):
+        # A wrapper for semantic purposes
+        self.addColumns(dataset, columns, desc)
+
+    def setNulls(self, dataset, columns, desc=None):
+        startTime = datetime.now()
+        logger.logStepStart(startTime, desc)
+        df = self.data[dataset]['df']
+
+        for col in columns:
+            df.loc[df[col].isnull()] = columns[col]
+
+        report = ''
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
         logger.logStepEnd(report, elapsedSeconds)
 
@@ -351,7 +374,21 @@ class DataFlow():
         originalLength = df.shape[0]
 
         for f in filters:
-            df = df.loc[df[f] == filters[f]]
+            if isinstance(filters[f], str):
+                df = df.loc[df[f] == filters[f]]
+            elif isinstance(filters[f], tuple):
+                if filters[f][0] == '>':
+                    df = df.loc[df[f] > filters[f][1]]
+                elif filters[f][0] == '<':
+                    df = df.loc[df[f] > filters[f][1]]
+                elif filters[f][0] == '==':
+                    df = df.loc[df[f] == filters[f][1]]
+                else:
+                    raise ValueError(
+                        'Filter currently only support ==, < or >')
+            else:
+                raise ValueError('filter value must be str or tuple (not ' +
+                                 str(type(filters[f])) + ')')
 
         newLength = df.shape[0]
         pcntChange = (originalLength - newLength) / originalLength
@@ -397,28 +434,56 @@ class DataFlow():
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
         logger.logStepEnd(report, elapsedSeconds)
 
-    def getColumn(self, dataset, columnName, desc=None):
+    def getColumns(self, dataset, columnNames, desc=None):
         startTime = datetime.now()
         logger.logStepStart(startTime, desc)
         df = self.data[dataset]['df']
 
-        col = df[columnName]
+        if isinstance(columnNames, str):
+            cols = df[columnNames]
+        elif isinstance(columnNames, list):
+            cols = {}
+            for columnName in columnNames:
+                cols[columnName] = df[columnName]
+        else:
+            raise ValueError('columnNames must be string or list')
 
         report = ''
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
         logger.logStepEnd(report, elapsedSeconds)
 
-        return col
+        return cols
+
+    def getDataFrames(self, datasets, desc=None):
+        startTime = datetime.now()
+        logger.logStepStart(startTime, desc)
+
+        if isinstance(datasets, str):
+            dfs = self.data[datasets]['df']
+        elif isinstance(datasets, list):
+            dfs = {}
+            for dataset in datasets:
+                dfs[dataset] = datasets[dataset]['df']
+        else:
+            raise ValueError('datasets must be string or list')
+
+        report = ''
+        elapsedSeconds = (datetime.now() - startTime).total_seconds()
+        logger.logStepEnd(report, elapsedSeconds)
+
+        return dfs
 
     def sortColumns(self, dataset, colList, desc=None):
         startTime = datetime.now()
         logger.logStepStart(startTime, desc)
         df = self.data[dataset]['df']
 
-        colList = colList + self.conf.auditColumns['colName'].tolist()
-        if len(set(colList).intersection(list(df))) != len(list(df)):
+        auditColList = self.conf.auditColumns['colName'].tolist()
+        if not set(auditColList).issubset(colList):
+            colList = colList + auditColList
+        if set(colList) != set(list(df)):
             raise ValueError('You have attempted to sort columns without ' +
-                             'providing a list of column that exactly ' +
+                             'providing a list of columns that exactly ' +
                              'matches the dataset. Dataset cols: ' +
                              str(list(df)) + '. sortColList: ' + str(colList))
         df = df[colList]
@@ -458,7 +523,7 @@ class DataFlow():
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
         logger.logStepEnd(report, elapsedSeconds)
 
-    def join(self, datasets, targetDataset, joinCol, keepCols, desc=None):
+    def join(self, datasets, targetDataset, joinCol, keepCols, how, desc=None):
         startTime = datetime.now()
         logger.logStepStart(startTime, desc)
 
@@ -470,7 +535,7 @@ class DataFlow():
         # TODO: this was initially written for dm_audit, which doesn't need
         # it's own audit columns. But if it's used for a normal table, we
         # will need to accommodate audit columns in this merge operation
-        df = pd.merge(df1, df2, on=joinCol)[keepCols]
+        df = pd.merge(df1, df2, on=joinCol, how=how)[keepCols]
 
         self.data[targetDataset] = {
             'name': targetDataset,
@@ -494,6 +559,67 @@ class DataFlow():
             df['audit_bulk_load_date'] = datetime.now()
             df['audit_latest_delta_load_date'] = None
             df['audit_latest_delta_load_operation'] = None
+
+        report = ''
+        elapsedSeconds = (datetime.now() - startTime).total_seconds()
+        logger.logStepEnd(report, elapsedSeconds)
+
+    def getColumnList(self, dataset, desc=None):
+        startTime = datetime.now()
+        logger.logStepStart(startTime, desc)
+        df = self.data[dataset]['df']
+
+        colList = list(df)
+
+        report = ''
+        elapsedSeconds = (datetime.now() - startTime).total_seconds()
+        logger.logStepEnd(report, elapsedSeconds)
+
+        return colList
+
+    def customSQL(self, sql, dataLayer, dataset=None, desc=None):
+        startTime = datetime.now()
+        logger.logStepStart(startTime, desc)
+
+        print(sql)
+
+        datastore = self.conf.state.LOGICAL_DATA_MODELS[dataLayer].datastore
+        df = dbIO.customSQL(sql, datastore)
+
+        if dataset is not None:
+            self.data[dataset] = {
+                'name': dataset,
+                'dataLayer': None,
+                'df': df}
+
+        report = ''
+        elapsedSeconds = (datetime.now() - startTime).total_seconds()
+        logger.logStepEnd(report, elapsedSeconds)
+
+    def iterate(self, dataset, function, desc=None):
+        startTime = datetime.now()
+        logger.logStepStart(startTime, desc)
+        df = self.data[dataset]['df']
+
+        for row in df.itertuples():
+            function(row)
+
+        report = ''
+        elapsedSeconds = (datetime.now() - startTime).total_seconds()
+        logger.logStepEnd(report, elapsedSeconds)
+
+    def truncate(self, dataset, dataLayerID, forceDBWrite=False, desc=None):
+        startTime = datetime.now()
+        logger.logStepStart(startTime, desc)
+
+        path = (self.conf.app.TMP_DATA_PATH + dataLayerID + '/')
+        filename = dataset + '.csv'
+
+        fileIO.truncateFile(self.conf, path, filename)
+
+        if forceDBWrite:
+            dataLayer = self.conf.state.LOGICAL_DATA_MODELS[dataLayerID]
+            dbIO.truncateTable(dataset, dataLayer.datastore)
 
         report = ''
         elapsedSeconds = (datetime.now() - startTime).total_seconds()

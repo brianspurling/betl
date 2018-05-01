@@ -19,7 +19,6 @@ class DataLayer():
             conf.app.SCHEMA_DESCRIPTION_GSHEETS[dbID]
         self.dataModels = self.buildLogicalDataModels()
 
-        self.devLog = logger.getDevLog(__name__)
         self.jobLog = logger.getLogger()
 
     #

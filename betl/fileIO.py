@@ -44,7 +44,7 @@ def readDataFromCsv(conf,
                     quotechar='"',
                     nrows=None,
                     isTmpData=True,
-                    testDataLimit=None,
+                    limitdata=None,
                     getFirstRow=False):
 
     _filename = filename
@@ -64,8 +64,8 @@ def readDataFromCsv(conf,
     for header in headerList:
         dtype[header] = str
 
-    if testDataLimit is not None:
-        nrows = testDataLimit
+    if limitdata is not None:
+        nrows = limitdata
     else:
         nrows = None
     if getFirstRow:

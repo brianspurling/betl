@@ -2,10 +2,11 @@ import pandas as pd
 import numpy as np
 from . import logger as logger
 import psycopg2
+from sqlalchemy.types import Text
 
 
 def writeDataToDB(df, tableName, eng, if_exists,
-                  emptyStingToNaN=True):
+                  emptyStingToNaN=True, dtype=None):
 
     if emptyStingToNaN:
         df.replace('', np.nan, inplace=True)
@@ -13,20 +14,23 @@ def writeDataToDB(df, tableName, eng, if_exists,
     df.to_sql(tableName,
               eng,
               if_exists=if_exists,
-              index=False)
+              index=False,
+              dtype={col_name: Text for col_name in df})
+    # TODO: can't do the above line for everything, surely?!
+    # It will clash with pre-made tables and overwrite them (I think)
 
 
-def readDataFromDB(tableName, conn, cols='*', testDataLimit=None):
+def readDataFromDB(tableName, conn, cols='*', limitdata=None):
 
-    if testDataLimit is not None:
-        limitText = ' LIMIT ' + str(testDataLimit)
+    if limitdata is not None:
+        limitText = ' LIMIT ' + str(limitdata)
     else:
         limitText = ''
     return pd.read_sql('SELECT ' + cols + ' FROM ' +
                        tableName + limitText, con=conn)
 
 
-def customSql(sql, datastore):
+def customSQL(sql, datastore):
     dbCursor = datastore.cursor()
     dbCursor.execute(sql)
     datastore.commit()
@@ -42,3 +46,10 @@ def customSql(sql, datastore):
         df = None
 
     return df
+
+
+def truncateTable(tableName, datastore):
+    truncateStatement = 'TRUNCATE ' + tableName + ' RESTART IDENTITY'
+    trgDbCursor = datastore.cursor()
+    trgDbCursor.execute(truncateStatement)
+    datastore.commit()

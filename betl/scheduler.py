@@ -11,7 +11,6 @@ class Scheduler():
 
     def __init__(self, conf):
 
-        self.devLog = logger.getDevLog(__name__)
         self.jobLog = logger.getLogger()
 
         self.logicalDataModels = conf.state.LOGICAL_DATA_MODELS
@@ -143,9 +142,7 @@ class Scheduler():
         # We set the conf.STAGE object so that, during execution of the
         # dataflow  we know which stage we're in
         self.conf.state.setStage(self.scheduleDic[dataflowName]['stage'])
-        self.devLog.info('Starting execution of dataflow: ' + dataflowName)
         self.scheduleDic[dataflowName]['dataflow'](self)
-        self.devLog.info('Completed execution of dataflow: ' + dataflowName)
 
     def handleDataflowException(self, schedule, counter, errorMessage):
             tb1 = traceback.format_exc()
@@ -168,7 +165,7 @@ class Scheduler():
                           "THE error was >>> \n\n"
                           + tb1 + "\n")
                 self.jobLog.critical(logStr)
-                self.jobLog.info(logger.logExecutionStartFinish('FINISH'))
+                self.jobLog.info(logger.logExecutionFinish())
 
             except Exception as e2:
                 tb2 = traceback.format_exc()
@@ -184,5 +181,4 @@ class Scheduler():
                           "The second error was >>> \n\n"
                           + tb2 + "\n")
                 logStr += ''
-                self.devLog.critical(logStr)
-                self.jobLog.info(logger.logExecutionStartFinish('FINISH'))
+                self.jobLog.info(logger.logExecutionFinish())

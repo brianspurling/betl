@@ -1,6 +1,3 @@
-from . import api
-
-
 class Column():
 
     def __init__(self, columnSchema):
@@ -70,9 +67,6 @@ class Column():
                 'REFERENCES ' + self.fkDimension + '(' + fkDimCol + ')')
 
         return sqlStatements
-
-    def getSKlookup(self):
-        return api.readData('sk_' + self.fkDimension, 'STG')
 
     def __str__(self):
         return '      ' + self.columnName + '\n'

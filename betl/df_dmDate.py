@@ -126,5 +126,3 @@ def transformDMDate(scheduler):
         dataset='trg_dm_date',
         targetTableName='trg_dm_date',
         dataLayerID='STG')
-
-    dfl.close()

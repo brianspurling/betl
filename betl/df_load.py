@@ -1,9 +1,7 @@
-from . import api
-from . import logger
+from . import api as betl
+
 import pandas as pd
 import numpy as np
-
-JOB_LOG = logger.getLogger()
 
 
 #
@@ -21,29 +19,22 @@ def defaultLoad(scheduler):
     nonDefaultStagingTables = \
         scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
-    # If it's a bulk load, drop the indexes to speed up writing. We do this
-    # here, because we need to drop fact indexes first (or, to be precise,
-    # the facts' foreign key constraints, because the dim ID indexes cant be
-    # dropped until the FKs that point to them are gone)
     if scheduler.bulkOrDelta == 'BULK':
+        dfl = betl.DataFlow(
+            desc="If it's a bulk load, drop the indexes to speed up " +
+                 "writing. We do this here, because we need to drop " +
+                 "fact indexes first (or, to be precise, the facts' " +
+                 "foreign key constraints, because the dim ID indexes " +
+                 " cant be dropped until the FKs that point to them are gone)")
         for tableName in trgTables:
             if (trgTables[tableName].getTableType() == 'FACT'):
                 if tableName not in nonDefaultStagingTables:
-                    JOB_LOG.info(
-                        logger.logStepStart('Dropping fact indexes for ' +
-                                            tableName))
-                    trgTables[tableName].dropIndexes()
-
-    # We'll need the default rows for a bulk load, so let's just hit the
-    # spreadsheet once
-    defaultRows = {}
-    if scheduler.bulkOrDelta == 'BULK':
-        worksheets = scheduler.conf.app.DEFAULT_ROW_SRC.worksheets
-        # Our defaultRows SS should contain a tab per dimension, each with 1+
-        # default rows defined. IDs are defined too - should all be negative
-        for wsTitle in worksheets:
-            # The worksheet name should be the table name
-            defaultRows[wsTitle] = worksheets[wsTitle].get_all_records()
+                    for sql in trgTables[tableName].getSqlDropIndexes():
+                        dfl.customSQL(
+                            sql,
+                            dataLayer='TRG',
+                            desc='Dropping fact indexes for ' + tableName)
+        dfl.close()
 
     # We must load the dimensions before the facts!
     loadSequence = []
@@ -58,109 +49,223 @@ def defaultLoad(scheduler):
                 if tableName not in nonDefaultStagingTables:
                     loadTable(table=trgTables[tableName],
                               bulkOrDelta=scheduler.bulkOrDelta,
-                              defaultRows=defaultRows,
-                              dataIO=scheduler.dataIO)
+                              conf=scheduler.conf)
 
 
-def loadTable(table, bulkOrDelta, defaultRows, dataIO):
+def loadTable(table, bulkOrDelta, conf):
 
     tableType = table.getTableType()
 
     if bulkOrDelta == 'BULK' and tableType == 'DIMENSION':
-        bulkLoadDimension(table=table, defaultRows=defaultRows, dataIO=dataIO)
+        bulkLoadDimension(conf=conf, table=table)
     elif bulkOrDelta == 'BULK' and tableType == 'FACT':
-        bulkLoadFact(table=table, dataIO=dataIO)
+        bulkLoadFact(conf=conf, table=table)
     elif bulkOrDelta == 'DELTA' and tableType == 'DIMENSION':
-        bulkLoadDimension(table=table)
+        bulkLoadDimension(conf=conf, table=table)
     elif bulkOrDelta == 'DELTA' and tableType == 'FACT':
-        deltaLoadFact(table=table)
+        deltaLoadFact(conf=conf, table=table)
 
 
-def bulkLoadDimension(table, defaultRows, dataIO):
+def bulkLoadDimension(conf, table):
 
-    # We assume that the final step in the TRANSFORM stage created a
-    # csv file trg_<tableName>.csv
+    dfl = betl.DataFlow(
+        desc='Loading dimension: ' + table.tableName)
 
-    df = api.readData('trg_' + table.tableName, 'STG')
+    # DATA
 
-    # Because it's a bulk load, clear out the data (which also
-    # restarts the SK sequences). Note, the indexes have already been
-    # removed
-    JOB_LOG.info(
-        logger.logStepStart('Truncating ' + table.tableName))
-    table.truncateTable()
-    dataIO.truncateFile(filename=table.tableName,
-                        dataLayerID=table.dataLayerID)
+    dfl.truncate(
+        dataset=table.tableName,
+        dataLayerID='TRG',
+        forceDBWrite=True,
+        desc='Because it is a bulk load, clear out the data (which also ' +
+             'restarts the SK sequences)')
 
-    # We can append rows, because we just truncated. This way, append
-    # guarantees we error if we don't load all the required columns
-    api.writeData(df, table.tableName, 'TRG', 'append')
+    dataset = 'trg_' + table.tableName
+    dfl.read(
+        tableName=dataset,
+        dataLayer='STG',
+        desc='Read the data we are going to load (the default load ' +
+             'assumes that the final step in the TRANSFORM ' +
+             'stage created a csv file trg_' + table.tableName + ')')
 
-    # Put the indexes back on
-    JOB_LOG.info(
-        logger.logStepStart('Creating indexes for ' + table.tableName))
-    table.createIndexes()
+    dfl.write(
+        dataset=dataset,
+        targetTableName=table.tableName,
+        dataLayerID='TRG',
+        forceDBWrite=True,
+        writingDefaultRows=True,
+        desc='Load data into the target model for ' + table.tableName,
+        keepDataflowOpen=True)
 
-    del df
+    # INDEXES
 
-    # Add the default rows
-    JOB_LOG.info(
-        logger.logStepStart('Generating default rows for ' + table.tableName))
+    for sql in table.getSqlCreateIndexes():
+        dfl.customSQL(
+            sql,
+            dataLayer='TRG',
+            desc='Creating index for ' + table.tableName)
 
-    # The app does not have to specify default rows if it doesn't want to
+    # DEFAULT ROWS
+
+    # Our defaultRows SS should contain a tab per dimension, each with 1+
+    # default rows defined. IDs are defined too - should all be negative
+    defaultRows = {}
+    worksheets = conf.app.DEFAULT_ROW_SRC.worksheets
+    for wsTitle in worksheets:
+        defaultRows[wsTitle] = worksheets[wsTitle].get_all_records()
+
+    # Default rows are not cumpulsory
     if table.tableName in defaultRows:
-        df = pd.DataFrame.from_dict(defaultRows[table.tableName])
-        # blank values in the spreadsheet come through as empty strings, but
+        # Blank values in the spreadsheet come through as empty strings, but
         # should be NULL in the DB
+        df = pd.DataFrame.from_dict(defaultRows[table.tableName])
         df.replace(r'^\s*$', np.nan, regex=True, inplace=True)
 
-        JOB_LOG.info(logger.logStepEnd(df))
+        dfl.createDataset(
+            dataset=table.tableName + '_defaultRows',
+            data=df)
 
-        # We skip the API for this call because we're telling dataIO that this
-        # is a defaultRows write, so it knows to remove the SK for the file
-        # write
-        dataIO.writeData(df, table.tableName, 'TRG', 'append',
-                         writingDefaultRows=True)
+        dfl.write(
+            dataset=table.tableName + '_defaultRows',
+            targetTableName=table.tableName,
+            dataLayerID='TRG',
+            forceDBWrite=True,
+            append_or_replace='append',
+            writingDefaultRows=True,
+            desc='Adding default rows to ' + table.tableName,
+            keepDataflowOpen=True)
 
-    # We will need the SKs we just created to write the facts later, so
-    # pull the sk/nks back out (this func writes them to a csv file)
-    api.getSKMapping(table.tableName,
-                     table.colNames_NKs,
-                     table.surrogateKeyColName)
+    # RETRIEVE SK/NK MAPPING (FOR LATER)
+
+    dfl.read(
+        tableName=table.tableName,
+        dataLayer='TRG',
+        forceDBRead=True,
+        desc='The SKs were generated as we wrote to the DB. We will need ' +
+             'these SKs (and their corresponding NKs) when we load the fact ' +
+             'table (later), so we pull the sk/nks mapping back out now)')
+
+    dfl.dropColumns(
+        dataset=table.tableName,
+        colsToKeep=[table.surrogateKeyColName] + table.colNames_NKs,
+        desc='Drop all cols except SK & NKs')
+
+    dfl.renameColumns(
+        dataset=table.tableName,
+        columns={table.surrogateKeyColName: 'sk'},
+        desc='Rename the SK column to "sk"')
+
+    dfl.addColumns(
+        dataset=table.tableName,
+        columns={'nk': concatenateNKs},
+        desc='Concatenate the NK columns into a single "nk" column')
+
+    dfl.dropColumns(
+        dataset=table.tableName,
+        colsToKeep=['sk', 'nk'],
+        desc='Drop all cols except the sk col and the new nk col')
+
+    dfl.write(
+        dataset=table.tableName,
+        targetTableName='sk_' + table.tableName,
+        dataLayerID='STG')
 
 
-def bulkLoadFact(table, dataIO):
-    df_ft = api.readData('trg_' + table.tableName, 'STG')
+def concatenateNKs(row):
+    nks = []
+    for col in row.columns.values:
+        if col == 'sk':
+            continue
+        if col == 'nk':
+            continue
+        else:
+            nks.append(str(row[col]))
+    return '_'.join(nks)
+
+
+def bulkLoadFact(conf, table):
+
+    dfl = betl.DataFlow(
+        desc='Loading fact: ' + table.tableName)
+
+    # READ DATA
+
+    dfl.truncate(
+        dataset=table.tableName,
+        dataLayerID='TRG',
+        forceDBWrite=True,
+        desc='Because it is a bulk load, clear out the data (which also ' +
+             'restarts the SK sequences)')
+
+    ftStgTableName = 'trg_' + table.tableName
+    dfl.read(
+        tableName=ftStgTableName,
+        dataLayer='STG',
+        desc='Read the data we are going to load (the default load ' +
+             'assumes that the final step in the TRANSFORM ' +
+             'stage created a csv file trg_' + table.tableName + ')')
+
+    # SK/NK MAPPINGS
+
     for column in table.columns:
         if column.isFK:
-            df_ft = api.mergeFactWithSks(df_ft, column)
+            keyMapTableName = 'sk_' + column.fkDimension
+            dfl.read(
+                tableName=keyMapTableName,
+                dataLayer='STG',
+                desc='Read the SK/NK mapping for column ' + column.columnName)
 
-    # Order the df's columns - the df doesn't hold the SK
-    df_ft = df_ft[table.colNames_withoutSK]
+            nkColName = column.columnName.replace('fk_', 'nk_')
 
-    # Because it's a bulk load, clear out the data (which also
-    # restarts the SK sequences). Note, the indexes have already been
-    # removed
-    JOB_LOG.info(
-        logger.logStepStart('Truncating ' + table.tableName))
-    table.truncateTable()
-    dataIO.truncateFile(filename=table.tableName,
-                        dataLayerID=table.dataLayerID)
-    # We can append rows, because, as we're running a bulk load, we will
-    # have just cleared out the TRG model and created. This way, append
-    # guarantees we error if we don't load all the required columns
-    api.writeData(df_ft, table.tableName, 'TRG', 'append')
+            dfl.renameColumns(
+                dataset=keyMapTableName,
+                columns={
+                    'sk': column.columnName,
+                    'nk': nkColName},
+                desc='Rename the columns of the ' + column.fkDimension + ' ' +
+                     'SK/NK mapping to match the fact table column names')
 
-    # Put the indexes back on
-    JOB_LOG.info(
-        logger.logStepStart('Creating indexes for ' + table.tableName))
-    table.createIndexes()
-    JOB_LOG.info(logger.logStepEnd())
+            dfl.join(
+                datasets=[keyMapTableName, ftStgTableName],
+                targetDataset=table.tableName,
+                joinCol=nkColName,
+                keepCols=['latest_delta_load_operation', 'data_quality_score'],
+                how='left',
+                desc="Merging dim's SK with fact for column " +
+                     column.columnName)
+
+            dfl.setNulls(
+                dataset=table.tableName,
+                columns={column.columnName: -1},
+                desc='Assigning all missing rows to default -1 row')
+
+            dfl.dropColumns(
+                dataset=table.tableName,
+                colsToDrop=['nkColName'],
+                desc='dropping unneeded column: ' + nkColName)
+
+    # WRITE DATA
+
+    dfl.write(
+        dataset=table.tableName,
+        targetTableName=table.tableName,
+        dataLayerID='TRG',
+        keepDataflowOpen=True)
+
+    # INDEXES
+
+    for sql in table.getSqlCreateIndexes():
+        dfl.customSQL(
+            sql,
+            dataLayer='TRG',
+            desc='Creating index for ' + table.tableName)
+
+    dfl.close()
 
 
-def deltaLoadDimension(self):
+def deltaLoadDimension(conf, table):
     raise ValueError("Code not yet written for delta dimension loads")
 
 
-def deltaLoadFact(self):
+def deltaLoadFact(conf, table):
     raise ValueError("Code not yet written for delta fact loads")

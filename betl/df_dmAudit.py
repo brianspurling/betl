@@ -58,11 +58,10 @@ def transformDMAudit(scheduler):
         targetDataset='trg_dm_audit',
         joinCol='temp_key',
         keepCols=['latest_delta_load_operation', 'data_quality_score'],
-        desc='Cartesian join the two datasets together on the temp_key')
+        desc='Cartesian join the two datasets together on the temp_key',
+        how='left')
 
     dfl.write(
         dataset='trg_dm_audit',
         targetTableName='trg_dm_audit',
         dataLayerID='STG')
-
-    dfl.close()

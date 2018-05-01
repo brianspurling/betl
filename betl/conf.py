@@ -159,7 +159,7 @@ class Exe():
 
         self.WRITE_TO_ETL_DB = params['WRITE_TO_ETL_DB']
 
-        self.TEST_DATA_LIMIT = params['TEST_DATA_LIMIT']
+        self.DATA_LIMIT_ROWS = params['DATA_LIMIT_ROWS']
 
 
 class State():
