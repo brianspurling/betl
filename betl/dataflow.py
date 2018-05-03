@@ -8,19 +8,23 @@ from . import dbIO
 from . import gsheetIO
 
 
+# TODO: need to go through and think carefully about copy vs views
+# on DF. For starters, probably get rid of the df = at the start of every
+# dataflow!
 class DataFlow():
 
     def __init__(self, conf, desc):
 
-        self.startTime = datetime.now()
-
         self.log = logger.getLogger()
-        logger.logDFStart(desc, self.startTime)
 
+        self.startTime = datetime.now()
         self.conf = conf
         self.description = desc
         self.data = {}
-        self.trgDataset = None  # Set to the last dataset written to disk
+        self.trgDataset = None
+        # trgDataset is always set to the most recent dataset written to disk
+
+        logger.logDFStart(self.description, self.startTime)
 
     def close(self, df=None):
         elapsedSeconds = (datetime.now() - self.startTime).total_seconds()
@@ -90,16 +94,25 @@ class DataFlow():
 
         report = 'Read ' + str(df.shape[0]) + ' rows from source: ' + tableName
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+        logger.logStepEnd(report, elapsedSeconds, tableName, df)
 
-    def read(self, tableName, dataLayer, forceDBRead=False, desc=None):
+    def read(self,
+             tableName,
+             dataLayer,
+             targetDataset=None,
+             forceDBRead=False,
+             desc=None):
 
         startTime = datetime.now()
         logger.logStepStart(startTime, desc)
 
-        if tableName in self.data:
-            raise ValueError('There is already a dataset named ' + tableName +
-                             'loaded into this dataflow')
+        _targetDataset = tableName
+        if targetDataset is not None:
+            _targetDataset = targetDataset
+
+        if _targetDataset in self.data:
+            raise ValueError('There is already a dataset named ' +
+                             _targetDataset + ' in this dataflow')
 
         path = (self.conf.app.TMP_DATA_PATH + dataLayer + '/')
         filename = tableName + '.csv'
@@ -117,16 +130,18 @@ class DataFlow():
                                         sep=',',
                                         quotechar='"')
 
-        self.data[tableName] = {
-            'name': tableName,
+        self.data[_targetDataset] = {
+            'name': _targetDataset,
             'dataLayer': dataLayer,
             'df': df}
 
         shape = df.shape
         report = 'Read (' + str(shape[0]) + ', ' + str(shape[1]) + ') ' + \
                  'from ' + tableName
+        if targetDataset is not None:
+            report += ' and saved to ' + _targetDataset
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds, df)
+        logger.logStepEnd(report, elapsedSeconds, _targetDataset, df)
 
     def createDataset(self, dataset, data, desc=None):
         startTime = datetime.now()
@@ -150,7 +165,7 @@ class DataFlow():
         report = 'Created ' + dataset + ' table with ' + str(df.shape[0]) + \
                  ' rows'
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+        logger.logStepEnd(report, elapsedSeconds, dataset, df)
 
     def write(self,
               dataset,
@@ -164,8 +179,8 @@ class DataFlow():
               keepDataflowOpen=False):
 
         startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
         self.trgDataset = self.data[dataset]['df']
+        logger.logStepStart(startTime, desc, dataset, self.trgDataset)
 
         # Work out whether we need to write to DB as well as CSV
         writeToDB = False
@@ -209,13 +224,13 @@ class DataFlow():
                     logDataModelColNames_sks.append(col.columnName)
             logDataModelColNames_all_plus_audit = \
                 logDataModelColNames_all + \
-                self.conf.auditColumns['colName'].tolist()
+                self.conf.auditColumns['colNames'].tolist()
             colsIncludeSKs = False
             colsIncludeAudit = False
             for colName in list(self.trgDataset):
                 if colName in logDataModelColNames_sks:
                     colsIncludeSKs = True
-                if colName in self.conf.auditColumns['colName'].tolist():
+                if colName in self.conf.auditColumns['colNames'].tolist():
                     colsIncludeAudit = True
 
                 if colName not in logDataModelColNames_all_plus_audit:
@@ -233,7 +248,7 @@ class DataFlow():
                     colsToSortBy = logDataModelColNames_all
                 if not colsIncludeSKs and colsIncludeAudit:
                     colsToSortBy = logDataModelColNames_noSKs + \
-                        self.conf.auditColumns['colName'].tolist()
+                        self.conf.auditColumns['colNames'].tolist()
                 if not colsIncludeSKs and not colsIncludeAudit:
                     colsToSortBy = logDataModelColNames_noSKs
                 self.trgDataset = self.trgDataset[colsToSortBy]
@@ -280,7 +295,8 @@ class DataFlow():
             headers=True,
             mode=mode)
 
-        report = 'Data written to ' + targetTableName
+        report = str(self.trgDataset.shape[0]) + ' rows written to '
+        report += targetTableName
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
         logger.logStepEnd(report, elapsedSeconds)
 
@@ -296,18 +312,16 @@ class DataFlow():
         startTime = datetime.now()
         logger.logStepStart(startTime, desc)
         df = self.data[dataset]['df']
-        report = ''
 
         if colsToDrop is not None and colsToKeep is not None:
             raise ValueError("Nope!")
 
         if colsToKeep is not None:
             colsToKeep = colsToKeep + \
-                self.conf.auditColumns['colName'].tolist()
-            report = 'Dropped all columns except: ' + ', '.join(colsToKeep)
+                self.conf.auditColumns['colNames'].tolist()
             colsToDrop = [col for col in list(df) if col not in colsToKeep]
-        else:
-            report = 'Dropped columns: ' + ', '.join(colsToDrop)
+
+        report = 'Dropped ' + str(len(colsToDrop)) + ' columns'
 
         df.drop(
             colsToDrop,
@@ -315,7 +329,7 @@ class DataFlow():
             inplace=True)
 
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+        logger.logStepEnd(report, elapsedSeconds, dataset, df)
 
     def renameColumns(self, dataset, columns, desc=None):
 
@@ -329,7 +343,7 @@ class DataFlow():
 
         report = 'Renamed ' + str(len(columns)) + ' columns'
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+        logger.logStepEnd(report, elapsedSeconds, dataset, df)
 
     def addColumns(self, dataset, columns, desc=None):
         startTime = datetime.now()
@@ -347,9 +361,18 @@ class DataFlow():
             else:
                 df[col] = columns[col]
 
+        # If the dataset has audit cols, then we just added after them,
+        # so do a quick sort to be sure.
+        auditColList = self.conf.auditColumns['colNames'].tolist()
+        if set(auditColList).issubset(list(df.columns.values)):
+            colList = [col for col in list(df.columns.values)
+                       if col not in auditColList]
+        colList = colList + auditColList
+        df = df[colList]
+
         report = 'Assigned ' + str(len(columns)) + ' to dataset'
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+        logger.logStepEnd(report, elapsedSeconds, dataset, df)
 
     def setColumns(self, dataset, columns, desc=None):
         # A wrapper for semantic purposes
@@ -396,7 +419,7 @@ class DataFlow():
         report = 'Filtered dataset from ' + str(originalLength) + ' to ' + \
                  str(newLength) + ' rows (' + str(pcntChange) + ')'
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+        logger.logStepEnd(report, elapsedSeconds, dataset, df, shapeOnly=True)
 
     def cleanColumn(self,
                     dataset,
@@ -406,15 +429,25 @@ class DataFlow():
                     desc=None):
         startTime = datetime.now()
         logger.logStepStart(startTime, desc)
-        df = self.data[dataset]['df']
 
         if cleanedColumn is None:
             cleanedColumn = column
-        df[cleanedColumn] = cleaningFunc(df[column])
 
-        report = ''
+        self.data[dataset]['df'][cleanedColumn] = \
+            cleaningFunc(self.data[dataset]['df'][column])
+
+        # If the dataset has audit cols, then we just added after them,
+        # so do a quick sort to be sure.
+        auditColList = self.conf.auditColumns['colNames'].tolist()
+        if set(auditColList).issubset(list(self.data[dataset]['df'])):
+            colList = [col for col in list(self.data[dataset]['df'])
+                       if col not in auditColList]
+        colList = colList + auditColList
+        df_reordered = self.data[dataset]['df'][colList]
+
+        report = 'Cleaned ' + column + ' to ' + cleanedColumn
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+        logger.logStepEnd(report, elapsedSeconds, dataset, df_reordered)
 
     def union(self, datasets, targetDataset, desc=None):
         startTime = datetime.now()
@@ -432,7 +465,7 @@ class DataFlow():
         report = 'Concatenated ' + str(len(dfsToConcat)) + \
                  ' dfs, totalling ' + str(df.shape[0]) + ' rows'
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+        logger.logStepEnd(report, elapsedSeconds, dataset, df)
 
     def getColumns(self, dataset, columnNames, desc=None):
         startTime = datetime.now()
@@ -478,10 +511,14 @@ class DataFlow():
         logger.logStepStart(startTime, desc)
         df = self.data[dataset]['df']
 
-        auditColList = self.conf.auditColumns['colName'].tolist()
-        if not set(auditColList).issubset(colList):
-            colList = colList + auditColList
-        if set(colList) != set(list(df)):
+        auditColList = self.conf.auditColumns['colNames'].tolist()
+        if set(auditColList).issubset(colList):
+            # Remove the audit cols then add them at the end, to be sure
+            # they're always last
+            colList = [col for col in colList if col not in auditColList]
+        colList = colList + auditColList
+
+        if set(colList) != set(list(df.columns.values)):
             raise ValueError('You have attempted to sort columns without ' +
                              'providing a list of columns that exactly ' +
                              'matches the dataset. Dataset cols: ' +
@@ -490,7 +527,7 @@ class DataFlow():
 
         report = ''
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+        logger.logStepEnd(report, elapsedSeconds, dataset, df)
 
     def duplicateDataset(self, dataset, targetDatasets, desc=None):
         startTime = datetime.now()
@@ -521,9 +558,15 @@ class DataFlow():
 
         report = ''
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+        logger.logStepEnd(report, elapsedSeconds, dataset, df)
 
-    def join(self, datasets, targetDataset, joinCol, keepCols, how, desc=None):
+    def join(self,
+             datasets,
+             targetDataset,
+             joinCol,
+             how,
+             keepCols=None,
+             desc=None):
         startTime = datetime.now()
         logger.logStepStart(startTime, desc)
 
@@ -535,7 +578,9 @@ class DataFlow():
         # TODO: this was initially written for dm_audit, which doesn't need
         # it's own audit columns. But if it's used for a normal table, we
         # will need to accommodate audit columns in this merge operation
-        df = pd.merge(df1, df2, on=joinCol, how=how)[keepCols]
+        df = pd.merge(df1, df2, on=joinCol, how=how)
+        if keepCols is not None:
+            df = df[keepCols]
 
         self.data[targetDataset] = {
             'name': targetDataset,
@@ -547,7 +592,7 @@ class DataFlow():
                  str(df2.shape[0]) + ' rows) into ' + targetDataset + ' (' + \
                  str(df.shape[0]) + ' rows)'
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+        logger.logStepEnd(report, elapsedSeconds, targetDataset, df)
 
     def setAuditCols(self, dataset, bulkOrDelta, sourceSystem, desc=None):
         startTime = datetime.now()
@@ -577,11 +622,9 @@ class DataFlow():
 
         return colList
 
-    def customSQL(self, sql, dataLayer, dataset=None, desc=None):
+    def customSQL(self, sql, dataLayer, dataset=None, desc=''):
         startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
-
-        print(sql)
+        logger.logStepStart(startTime, desc, additionalDesc=sql)
 
         datastore = self.conf.state.LOGICAL_DATA_MODELS[dataLayer].datastore
         df = dbIO.customSQL(sql, datastore)
@@ -594,7 +637,7 @@ class DataFlow():
 
         report = ''
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+        logger.logStepEnd(report, elapsedSeconds, dataset, df)
 
     def iterate(self, dataset, function, desc=None):
         startTime = datetime.now()
@@ -634,7 +677,7 @@ class DataFlow():
 
         report = ''
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+        logger.logStepEnd(report, elapsedSeconds, dataset, df)
 
     def __str__(self):
         op = ''
@@ -648,5 +691,4 @@ class DataFlow():
         op += '\n'
         return op
 
-
-# self.log.info(logger.logClearedTempData())
+# logger.logClearedTempData()

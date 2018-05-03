@@ -56,7 +56,7 @@ class Table():
         if self.getTableType() != 'FACT':
             for i, auditColRow in self.conf.auditColumns.iterrows():
                 colsCreateStatements.append(
-                    auditColRow['colName'] +
+                    auditColRow['colNames'] +
                     ' ' +
                     auditColRow['dataType'])
 

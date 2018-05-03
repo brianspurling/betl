@@ -30,9 +30,10 @@ BULK_LOAD_WARNING = ("\nRunning BULK load will completely wipe your " +
                      "data warehouse's history.\nAll changes stored " +
                      "by your deltas will be lost.\nSure? (Y or N)  ")
 
-SETUP_WARNING = ("\nRunning SETUP will reset your control DB. " +
-                 "\nAll execution logs in the DB will be lost (log files " +
-                 "will be archived).\nSure? (Y or N)  ")
+SETUP_WARNING = ("\nRunning SETUP will completely reset BETL. " +
+                 "\nAll execution logs in the Control DB will be lost, " +
+                 "\nall tempoary data will be deleted, and log files will " +
+                 "\nbe archived. \nSure? (Y or N)  ")
 
 INVALID_STAGE_FOR_SCHEDULE = ("You can only schedule functions in one of " +
                               "the three ETL stages: EXTRACT, TRANSFORM, LOAD")

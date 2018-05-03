@@ -164,8 +164,7 @@ class Scheduler():
                           "updated)\n\n" +
                           "THE error was >>> \n\n"
                           + tb1 + "\n")
-                self.jobLog.critical(logStr)
-                self.jobLog.info(logger.logExecutionFinish())
+                logger.logExecutionFinish(logStr)
 
             except Exception as e2:
                 tb2 = traceback.format_exc()
@@ -181,4 +180,4 @@ class Scheduler():
                           "The second error was >>> \n\n"
                           + tb2 + "\n")
                 logStr += ''
-                self.jobLog.info(logger.logExecutionFinish())
+                logger.logExecutionFinish(logStr)

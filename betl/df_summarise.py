@@ -19,15 +19,12 @@ def defaultSummarisePrep(scheduler):
             if (sumTables[tableName].getTableType() == 'SUMMARY'):
                 # If it's a bulk load, drop facts' foreign key constraints
                 # to speed up writing.
-                JOB_LOG.info(
-                    logger.logStepStart('Dropping fact indexes for ' +
-                                        tableName))
+                logger.logStepStart('Dropping fact indexes for ' + tableName)
                 sumTables[tableName].dropIndexes()
 
                 # Because it's a bulk load, clear out the data (which also
                 # restarts the SK sequences).
-                JOB_LOG.info(
-                    logger.logStepStart('Truncating ' + tableName))
+                logger.logStepStart('Truncating ' + tableName)
                 sumTables[tableName].truncateTable()
 
 

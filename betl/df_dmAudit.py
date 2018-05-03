@@ -57,9 +57,9 @@ def transformDMAudit(scheduler):
         datasets=['ops', 'dq_scores'],
         targetDataset='trg_dm_audit',
         joinCol='temp_key',
+        how='left',
         keepCols=['latest_delta_load_operation', 'data_quality_score'],
-        desc='Cartesian join the two datasets together on the temp_key',
-        how='left')
+        desc='Cartesian join the two datasets together on the temp_key')
 
     dfl.write(
         dataset='trg_dm_audit',

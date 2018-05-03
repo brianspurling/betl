@@ -3,10 +3,12 @@ import shutil
 import os
 import datetime
 import time
+import ast
+import json
+import tempfile
 
 from . import cli
 from . import logger
-from . import fileIO
 from .dataLayer import SrcDataLayer
 from .dataLayer import StgDataLayer
 from .dataLayer import TrgDataLayer
@@ -18,13 +20,17 @@ JOB_LOG = None
 
 
 def init(appConfigFile, runTimeParams, scheduleConfig=None):
+
     global JOB_LOG
 
     ###############
     # LOGGING OFF #
     ###############
 
+    logExecutionPrepStart()
+
     if scheduleConfig is None:
+
         scheduleConfig = getDetaulfScheduleConfig()
 
     # We can't log anything until we've checked the last execution ID #
@@ -46,36 +52,69 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
     logger.initialiseLogging(conf)
     JOB_LOG = logger.getLogger()
 
-    JOB_LOG.info(logger.logExecutionStart(rerun=conf.state.RERUN_PREV_JOB))
+    logger.logExecutionStart(rerun=conf.state.RERUN_PREV_JOB)
 
     if conf.exe.RUN_SETUP:
-        JOB_LOG.info(logger.logBetlSetupComplete())
-        JOB_LOG.info(logger.logExecutionOverview(lastExecReport))
+        logger.logBetlSetupComplete()
+        logger.logExecutionOverview(lastExecReport)
     else:
         if conf.state.RERUN_PREV_JOB:
-            JOB_LOG.info(logger.logExecutionOverview(lastExecReport,
-                                                     rerun=True))
+            logger.logExecutionOverview(lastExecReport, rerun=True)
         else:
-            JOB_LOG.info(logger.logExecutionOverview(lastExecReport))
+            logger.logExecutionOverview(lastExecReport)
 
     if conf.exe.DELETE_TMP_DATA:
-        fileIO.deleteTempoaryData(conf.app.TMP_DATA_PATH)
+        deleteTempoaryData(conf.app.TMP_DATA_PATH)
     else:
         conf.state.populateFileNameMap(conf.app.TMP_DATA_PATH)
 
-    # Pull the schema descriptions from the gsheets and our logical data models
-    logicalDataModels = buildLogicalDataModels(conf)
-    conf.state.setLogicalDataModels(logicalDataModels)
+    # Get the schema descriptions from schemas/, or from Google Sheets, if
+    # the sheets have been edited since they were last saved to csv
 
-    for dmID in logicalDataModels:
-        JOB_LOG.info(logicalDataModels[dmID].__str__())
+    # Get the last modified dates of the versions saved to csv
+    modTimesFile = open('schemas/lastModifiedTimes.txt', 'r')
+    fileContent = modTimesFile.read()
+    if fileContent == '':
+        lastModifiedTimes = {}
+    else:
+        lastModifiedTimes = ast.literal_eval(fileContent)
+    oneOrMoreLastModTimesChanged = False
+    lastModTimesChanged = {}
+
+    # Check the last modified time of the Google Sheets
+    for dbID in conf.app.SCHEMA_DESCRIPTION_GSHEETS:
+        sheet = conf.app.SCHEMA_DESCRIPTION_GSHEETS[dbID]
+        if (sheet.filename not in lastModifiedTimes
+           or sheet.lastModifiedTime != lastModifiedTimes[sheet.filename]):
+            oneOrMoreLastModTimesChanged = True
+            lastModTimesChanged[dbID] = True
+
+    if oneOrMoreLastModTimesChanged:
+        logger.logRefreshingSchemaDescsFromGsheets(len(lastModTimesChanged))
+        for dbID in lastModTimesChanged:
+            sheet = conf.app.SCHEMA_DESCRIPTION_GSHEETS[dbID]
+            refreshSchemaDescCSVs(sheet, dbID)
+            lastModifiedTimes[sheet.filename] = sheet.lastModifiedTime
+
+    if lastModTimesChanged:
+        modTimesFile = open('schemas/lastModifiedTimes.txt', 'w')
+        modTimesFile.write(json.dumps(lastModifiedTimes))
+
+    logger.logLogicalDataModelBuild()
+    logicalDataModels = {}
+    logicalDataModels['SRC'] = SrcDataLayer(conf)
+    logicalDataModels['STG'] = StgDataLayer(conf)
+    logicalDataModels['TRG'] = TrgDataLayer(conf)
+    logicalDataModels['SUM'] = SumDataLayer(conf)
+    conf.state.setLogicalDataModels(logicalDataModels)
+    logger.logLogicalDataModelBuild_done()
 
     if conf.exe.RUN_REBUILD_ALL or \
        conf.exe.RUN_REBUILD_SRC or \
        conf.exe.RUN_REBUILD_STG or \
        conf.exe.RUN_REBUILD_TRG or \
        conf.exe.RUN_REBUILD_SUM:
-        JOB_LOG.info(logger.logPhysicalDataModelBuildStart())
+        logger.logPhysicalDataModelBuild()
 
     if conf.exe.RUN_REBUILD_ALL:
         for dataModelID in logicalDataModels:
@@ -107,11 +146,10 @@ def run(conf):
             execId=conf.state.EXEC_ID,
             status='SUCCESSFUL',
             statusMessage='')
-        logStr = ("\n\n" +
+        logStr = ("\n" +
                   "THE JOB COMPLETED SUCCESSFULLY " +
                   "(the executions table has been updated)\n\n")
-        JOB_LOG.info(logStr)
-        JOB_LOG.info(logger.logExecutionFinish())
+        logger.logExecutionFinish(logStr)
 
 
 def getDetaulfScheduleConfig():
@@ -203,6 +241,7 @@ def getDetailsOfLastExecution(ctlDB):
 def setupBetl(conf):
     conf.app.CTRL_DB.dropAllCtlTables()
     archiveLogFiles(conf)
+    setupSchemaDir(conf)
     conf.app.CTRL_DB.createExecutionsTable()
     conf.app.CTRL_DB.createSchedulesTable()
 
@@ -225,39 +264,29 @@ def archiveLogFiles(conf):
             shutil.move(source+f, dest)
 
 
-def buildLogicalDataModels(conf):
+def setupSchemaDir(conf):
 
-    logicalDataModels = {}
+    dir = 'schemas/'
+    shutil.rmtree(dir)
+    os.makedirs(dir)
+    open(dir + 'lastModifiedTimes.txt', 'a').close()
 
-    print('\n', end='')
-    print('*** Building the logical data models ***', end='')
-    print('\n\n', end='')
 
-    print('  - Building the logical data models for the SRC data layer... ',
-          end='')
-    sys.stdout.flush()
-    logicalDataModels['SRC'] = SrcDataLayer(conf)
-    print('Done!')
+def deleteTempoaryData(tmpDataPath):
 
-    print('  - Building the logical data models for the STG data layer... ',
-          end='')
-    sys.stdout.flush()
-    logicalDataModels['STG'] = StgDataLayer(conf)
-    print('Done!')
+    path = tmpDataPath.replace('/', '')
 
-    print('  - Building the logical data models for the TRG data layer... ',
-          end='')
-    sys.stdout.flush()
-    logicalDataModels['TRG'] = TrgDataLayer(conf)
-    print('Done!')
-
-    print('  - Building the logical data models for the SUM data layer... ',
-          end='')
-    sys.stdout.flush()
-    logicalDataModels['SUM'] = SumDataLayer(conf)
-    print('Done!')
-
-    return logicalDataModels
+    if (os.path.exists(path)):
+        # `tempfile.mktemp` Returns an absolute pathname of a file that
+        # did not exist at the time the call is made. We pass
+        # dir=os.path.dirname(dir_name) here to ensure we will move
+        # to the same filesystem. Otherwise, shutil.copy2 will be used
+        # internally and the problem remains: we're still deleting the
+        # folder when we come to recreate it
+        tmp = tempfile.mktemp(dir=os.path.dirname(path))
+        shutil.move(path, tmp)  # rename
+        shutil.rmtree(tmp)  # delete
+    os.makedirs(path)  # create the new folder
 
 
 def checkDBsForSuperflousTables(conf):
@@ -287,3 +316,84 @@ def checkDBsForSuperflousTables(conf):
     if len(superflousTableNames) > 0:
         JOB_LOG.warn(
             logger.superflousTableWarning(',\n  '.join(superflousTableNames)))
+
+
+def refreshSchemaDescCSVs(datastore, dbID):
+
+    dbSchemaDesc = {}
+
+    logger.logLoadingDBSchemaDescsFromGsheets(dbID)
+
+    for gWorksheetTitle in datastore.worksheets:
+
+        # skip any sheets that don't start, e.g. ETL. or TRG.
+        if gWorksheetTitle[0:4] != dbID + '.':
+            continue
+
+        ws = datastore.worksheets[gWorksheetTitle]
+        # Get the dataLayer, dataModel and table name from the worksheet title
+        dataLayerID = ws.title[ws.title.find('.')+1:ws.title.rfind('.')]
+        dataLayerID = dataLayerID[:dataLayerID.rfind('.')]
+        dataModelID = ws.title[ws.title.find('.')+1:ws.title.rfind('.')]
+        dataModelID = dataModelID[dataModelID.find('.')+1:]
+        tableName = ws.title[ws.title.rfind('.')+1:]
+
+        # If needed, create a new item in our db schema desc for
+        # this data layer, and a new item in our dl schema desc for
+        # this data model.
+        # (there is a worksheet per table, many tables per data model,
+        # and many data models per database)
+        if dataLayerID not in dbSchemaDesc:
+            dbSchemaDesc[dataLayerID] = {
+                'dataLayerID': dataLayerID,
+                'dataModelSchemas': {}
+            }
+        dlSchemaDesc = dbSchemaDesc[dataLayerID]
+        if dataModelID not in dlSchemaDesc['dataModelSchemas']:
+            dlSchemaDesc['dataModelSchemas'][dataModelID] = {
+                'dataModelID': dataModelID,
+                'tableSchemas': {}
+            }
+        dmSchemaDesc = dlSchemaDesc['dataModelSchemas'][dataModelID]
+
+        # Create a new table schema description
+        tableSchema = {
+            'tableName': tableName,
+            'columnSchemas': {}
+        }
+
+        # Pull out the column schema descriptions from the Google
+        # worksheeet and restructure a little
+        colSchemaDescsFromWS = ws.get_all_records()
+        for colSchemaDescFromWS in colSchemaDescsFromWS:
+            colName = colSchemaDescFromWS['Column Name']
+            fkDimension = 'None'
+            if 'FK Dimension' in colSchemaDescFromWS:
+                fkDimension = colSchemaDescFromWS['FK Dimension']
+
+            # append this column schema desc to our tableSchema object
+            tableSchema['columnSchemas'][colName] = {
+                'tableName':   tableName,
+                'columnName':  colName,
+                'dataType':    colSchemaDescFromWS['Data Type'],
+                'columnType':  colSchemaDescFromWS['Column Type'],
+                'fkDimension': fkDimension
+            }
+
+        # Finally, add the tableSchema to our data dataModel schema desc
+        dmSchemaDesc['tableSchemas'][tableName] = tableSchema
+
+    with open('schemas/dbSchemaDesc_' + dbID + '.txt', 'w') as file:
+        file.write(json.dumps(dbSchemaDesc))
+
+
+def logExecutionPrepStart():
+
+    op = '\n'
+    op += '                  *****************************' + '\n'
+    op += '                  *                           *' + '\n'
+    op += '                  *  Preparing BETL Execution *' + '\n'
+    op += '                  *                           *' + '\n'
+    op += '                  *****************************' + '\n'
+
+    print(op)

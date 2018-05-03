@@ -1,9 +1,7 @@
 import logging
 import inspect
 from datetime import datetime
-import pprint
-import traceback
-
+import os
 
 JOB_LOG = None
 
@@ -64,7 +62,7 @@ def logExecutionStart(rerun=False):
     op += '                  *                           *' + '\n'
     op += '                  *****************************' + '\n'
 
-    return(op)
+    JOB_LOG.info(op)
 
 
 def logExecutionOverview(execReport, rerun=False):
@@ -82,30 +80,75 @@ def logExecutionOverview(execReport, rerun=False):
 
     op = ''
     op += '----------------------------------------------------------------'
-    op += '-----' + '\n'
+    op += '-------' + '\n'
     op += ' ' + introText + ': ' + str(execReport['execId']) + '\n'
     op += '   - Started: ' + str(EXE_START_TIME) + '\n'
     op += '   - ' + lastExecStatusMsg + '\n'
     op += '-----------------------------------------------------------------'
-    op += '-----' + '\n'
-    return op
+    op += '-------' + '\n'
+
+    JOB_LOG.info(op)
 
 
 def logDFStart(desc, startTime):
 
+    stage = CONF.state.STAGE
+    filename = os.path.basename(inspect.stack()[3][1]).replace('.py', '')
+    funcname = inspect.stack()[3][3].replace("'", "")
+
+    startStr = startTime.strftime('%H:%M:%S')
+
+    callstack = stage + ' | ' + filename + '.' + funcname + ' | ' + startStr
+    spacer = ' ' * (62 - len(callstack))
+    spacer2 = ' ' * (59 - len(desc))
+
     op = ''
     op += '\n'
-    op += '******************************************************************'
+    op += '*****************************************************************\n'
+    op += '*                                                               *\n'
+    op += '* ' + callstack + spacer + '*\n'
+    op += '*    ' + desc + spacer2 + '*\n'
+    op += '*                                                               *\n'
+    op += '*****************************************************************\n'
     op += '\n'
-    stage = CONF.state.STAGE + ' | ' + '\n\n'
-    op += '******************************************************************'
-    op += '\n'
 
-    op += pprint.pformat(traceback.print_stack())
+    JOB_LOG.info(op)
 
-    op += stage + desc + '\n\n'
 
-    op += '[Started dataflow at: ' + str(startTime) + ']' + '\n'
+def logStepStart(startTime,
+                 desc=None,
+                 datasetName=None,
+                 df=None,
+                 additionalDesc=None):
+
+    op = ''
+    op += '   -------------------------------------------------------\n'
+    op += '   | Operation: ' + str(inspect.stack()[1][3]) + '\n'
+    if desc is not None:
+        op += '   | Desc: "' + desc + '"\n'
+    if additionalDesc is not None:
+        op += '   | "' + additionalDesc + '"\n'
+    if df is not None:
+        op += describeDataFrame(df, datasetName, isPartOfStepLog=True)
+    startStr = startTime.strftime('%H:%M:%S')
+    op += '   | [Started step: ' + startStr + ']'
+
+    JOB_LOG.info(op)
+
+
+def logStepEnd(report, duration, datasetName=None, df=None, shapeOnly=False):
+    op = ''
+    op += '   | [Completed in: ' + str(round(duration, 2)) + ' seconds] \n'
+    if report is not None and len(report) > 0:
+        op += '   | Report: ' + report + '\n'
+
+    if df is not None:
+        op += describeDataFrame(
+            df,
+            datasetName,
+            isPartOfStepLog=True,
+            shapeOnly=shapeOnly)
+    op += '   -------------------------------------------------------\n'
 
     JOB_LOG.info(op)
 
@@ -113,7 +156,7 @@ def logDFStart(desc, startTime):
 def logDFEnd(durationSeconds, df=None):
 
     op = ''
-    op += '[Completed dataflow in: '
+    op += '\n[Completed dataflow in: '
     op += str(round(durationSeconds, 2)) + ' seconds] \n\n'
 
     if df is not None:
@@ -122,57 +165,59 @@ def logDFEnd(durationSeconds, df=None):
     JOB_LOG.info(op)
 
 
-def logStepStart(startTime, desc=None):
+def describeDataFrame(df,
+                      datasetName=None,
+                      isPartOfStepLog=False,
+                      shapeOnly=False):
+
+    firstChar = ''
+    if isPartOfStepLog:
+        firstChar = '| '
+
+    tableContainsAuditCols = False
+    numberOfColumns = len(df.columns.values)
+    if set(CONF.auditColumns['colNames']).issubset(list(df.columns.values)):
+        tableContainsAuditCols = True
+        numberOfColumns = numberOfColumns - len(CONF.auditColumns['colNames'])
 
     op = ''
-    op += '   ' + str(inspect.stack()[1][3])
-    if desc is not None:
-        op += ': ' + desc + '\n'
-    else:
-        op += '\n'
-    op += '   [Started at: ' + str(startTime) + ']'
+    op += '   ' + firstChar + 'Output: ' + str(df.shape[0]) + ' rows, '
+    op += str(numberOfColumns) + ' cols'
+    if tableContainsAuditCols:
+        op += ' (& audit cols)'
+    if datasetName is not None:
+        op += ' [' + datasetName + ']'
+    op += '\n'
+    if not shapeOnly:
+        op += '   ' + firstChar + 'Columns:\n'
+        for colName in list(df.columns.values):
+            if colName not in CONF.auditColumns['colNames'].tolist():
+                if len(str(colName)) > 30:
+                    op += '   ' + firstChar + '   '
+                    op += str(colName)[:30] + '--: '
+                else:
+                    op += '   ' + firstChar + '   ' + str(colName) + ': '
 
-    JOB_LOG.info(op)
-
-
-def logStepEnd(report, duration, df=None):
-    op = ''
-    op += '   [Completed step in: ' + str(round(duration, 2)) + ' seconds] \n'
-    op += '   ' + report + '\n'
-    if df is not None:
-        op += describeDataFrame(df)
-
-    JOB_LOG.info(op)
-
-
-def describeDataFrame(df):
-    op = ''
-    op += '   Shape of final dataset: ' + str(df.shape) + '\n\n'
-    op += 'Columns:\n'
-    for colName in list(df.columns.values):
-        if len(str(colName)) > 30:
-            op += ' ' + str(colName)[:30] + '--: '
-        else:
-            op += ' ' + str(colName) + ': '
-
-        value = getSampleValue(df, colName, 0)
-        if value is not None:
-            op += value + ', '
-        value = getSampleValue(df, colName, 1)
-        if value is not None:
-            op += value + ', '
-        value = getSampleValue(df, colName, 2)
-        if value is not None:
-            op += value
-        if len(df.index) > 3:
-            op += ', ...'
-        op += '\n'
+                value = getSampleValue(df, colName, 0)
+                if value is not None:
+                    op += value + ', '
+                # value = getSampleValue(df, colName, 1)
+                # if value is not None:
+                #     op += value + ', '
+                # value = getSampleValue(df, colName, 2)
+                # if value is not None:
+                #     op += value
+                if len(df.index) > 1:
+                    op += ', ...'
+                op += '\n'
     return op
 
 
-def logExecutionFinish(rerun=False):
+def logExecutionFinish(logStr):
 
-    op = '\n'
+    op = ''
+    op += logStr
+    op += '\n'
     op += '                  *****************************' + '\n'
     op += '                  *                           *' + '\n'
     op += '                  *  BETL Execution Finished  *' + '\n'
@@ -191,25 +236,29 @@ def logExecutionFinish(rerun=False):
     op += '                       ' + JOB_LOG_FILE_NAME
     op += '\n'
 
-    return(op)
+    JOB_LOG.info(op)
 
 
 def logBetlSetupComplete():
+
     op = ''
     op += '\n'
     op += '-------------------------' + '\n'
     op += ' BETL setup successfully ' + '\n'
     op += '-------------------------' + '\n'
-    return op
+
+    JOB_LOG.info(op)
 
 
 def logClearedTempData():
+
     op = ''
     op += '\n\n'
     op += '-----------------------' + '\n'
     op += ' Cleared all temp data ' + '\n'
     op += '-----------------------' + '\n'
-    return op
+
+    JOB_LOG.info(op)
 
 
 def getSampleValue(df, colName, rowNum):
@@ -243,8 +292,54 @@ def logUnableToReadFromCtlDB(errorMessage):
     return op
 
 
+def logRefreshingSchemaDescsFromGsheets(dbCount):
+    op = ''
+    op += '*** Refreshing the schema descriptions for ' + str(dbCount) + ' '
+    op += 'databases from Google Sheets ***'
+    op += '\n'
+    JOB_LOG.info(op)
+
+
+def logLoadingDBSchemaDescsFromGsheets(dbID):
+    op = ''
+    op += '  - Loading schema descriptions for the ' + dbID + ' database...'
+    op += '\n'
+    JOB_LOG.info(op)
+
+
+def logLogicalDataModelBuild():
+    op = ''
+    op += '*** Building the logical data model ***'
+    op += '\n'
+    JOB_LOG.info(op)
+
+
+def logLogicalDataModelBuild_done(logicalDataModels=None):
+    op = ''
+    op += '  - Built the logical data model'
+    op += '\n'
+    if logicalDataModels is not None:
+        for dmID in logicalDataModels:
+            op += logicalDataModels[dmID].__str__()
+    JOB_LOG.info(op)
+
+
+def logPhysicalDataModelBuild():
+    op = ''
+    op += '*** Rebuilding the physical data models ***'
+    op += '\n'
+    JOB_LOG.info(op)
+
+
+def logRebuildingPhysicalDataModel(dataLayerID):
+    op = ''
+    op += '  - Rebuilding the ' + dataLayerID + ' physical data models... '
+    op += '\n'
+    JOB_LOG.info(op)
+
+
 def superflousTableWarning(tableNamesStr):
-    op = '\n'
+    op = ''
     op += '*** WARNING! Superfluous tables in DB *** \n'
     op += '\n'
     op += '  The following tables were found in one of the databases \n'
@@ -254,17 +349,4 @@ def superflousTableWarning(tableNamesStr):
     op += '\n'
     op += '  ' + tableNamesStr
     op += '  \n'
-    return op
-
-
-def logPhysicalDataModelBuildStart():
-    op = ''
-    op += '*** Rebuilding the physical data models ***'
-    op += '\n'
-    return op
-
-
-def logPhysicalDataModelBuild_dataLayerDone(dataLayerID):
-    op = ''
-    op += '  - Rebuilt the ' + dataLayerID + ' physical data models... '
     return op

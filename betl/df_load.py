@@ -19,7 +19,17 @@ def defaultLoad(scheduler):
     nonDefaultStagingTables = \
         scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
+    # We must load the dimensions before the facts!
+    loadSequence = []
+    if (scheduler.conf.exe.RUN_DM_LOAD):
+        loadSequence.append('DIMENSION')
+    if (scheduler.conf.exe.RUN_FT_LOAD):
+        loadSequence.append('FACT')
+
     if scheduler.bulkOrDelta == 'BULK':
+
+        # DROP INDEXES
+
         dfl = betl.DataFlow(
             desc="If it's a bulk load, drop the indexes to speed up " +
                  "writing. We do this here, because we need to drop " +
@@ -36,38 +46,51 @@ def defaultLoad(scheduler):
                             desc='Dropping fact indexes for ' + tableName)
         dfl.close()
 
-    # We must load the dimensions before the facts!
-    loadSequence = []
-    if (scheduler.conf.exe.RUN_DM_LOAD):
-        loadSequence.append('DIMENSION')
-    if (scheduler.conf.exe.RUN_FT_LOAD):
-        loadSequence.append('FACT')
+        # GET ALL DEFAULT ROWS
 
-    for tableType in loadSequence:
-        for tableName in trgTables:
-            if (trgTables[tableName].getTableType() == tableType):
-                if tableName not in nonDefaultStagingTables:
-                    loadTable(table=trgTables[tableName],
-                              bulkOrDelta=scheduler.bulkOrDelta,
-                              conf=scheduler.conf)
+        # Our defaultRows SS should contain a tab per dimension, each with 1+
+        # default rows defined. IDs are defined too - should all be negative
+        defaultRows = {}
+        worksheets = scheduler.conf.app.DEFAULT_ROW_SRC.worksheets
+        for wsTitle in worksheets:
+            defaultRows[wsTitle] = worksheets[wsTitle].get_all_records()
+
+        for dimOrFactLoad in loadSequence:
+            for tableName in trgTables:
+                tableType = trgTables[tableName].getTableType()
+                if (tableType == dimOrFactLoad):
+                    if tableName not in nonDefaultStagingTables:
+                        bulkLoadTable(table=trgTables[tableName],
+                                      tableType=tableType,
+                                      defaultRows=defaultRows,
+                                      conf=scheduler.conf)
+
+    if scheduler.bulkOrDelta == 'DELTA':
+        for tableType in loadSequence:
+            for tableName in trgTables:
+                tableType = trgTables[tableName].getTableType()
+                if (tableType == tableType):
+                    if tableName not in nonDefaultStagingTables:
+                        deltaLoadTable(table=trgTables[tableName],
+                                       tableType=tableType,
+                                       conf=scheduler.conf)
 
 
-def loadTable(table, bulkOrDelta, conf):
-
-    tableType = table.getTableType()
-
-    if bulkOrDelta == 'BULK' and tableType == 'DIMENSION':
-        bulkLoadDimension(conf=conf, table=table)
-    elif bulkOrDelta == 'BULK' and tableType == 'FACT':
+def bulkLoadTable(table, tableType, defaultRows, conf):
+    if tableType == 'DIMENSION':
+        bulkLoadDimension(conf=conf, defaultRows=defaultRows, table=table)
+    elif tableType == 'FACT':
         bulkLoadFact(conf=conf, table=table)
-    elif bulkOrDelta == 'DELTA' and tableType == 'DIMENSION':
-        bulkLoadDimension(conf=conf, table=table)
-    elif bulkOrDelta == 'DELTA' and tableType == 'FACT':
+
+
+def deltaLoadTable(table, tableType, conf):
+    if tableType == 'DIMENSION':
+        deltaLoadDimension(conf=conf, table=table)
+    elif tableType == 'FACT':
         deltaLoadFact(conf=conf, table=table)
 
 
-def bulkLoadDimension(conf, table):
-
+def bulkLoadDimension(conf, defaultRows, table):
     dfl = betl.DataFlow(
         desc='Loading dimension: ' + table.tableName)
 
@@ -84,15 +107,15 @@ def bulkLoadDimension(conf, table):
     dfl.read(
         tableName=dataset,
         dataLayer='STG',
-        desc='Read the data we are going to load (the default load ' +
-             'assumes that the final step in the TRANSFORM ' +
-             'stage created a csv file trg_' + table.tableName + ')')
+        desc='Read the data we are going to load to TRG (from file trg_' +
+             table.tableName + ')')
 
     dfl.write(
         dataset=dataset,
         targetTableName=table.tableName,
         dataLayerID='TRG',
         forceDBWrite=True,
+        append_or_replace='append',  # stops it altering table & removing SK!
         writingDefaultRows=True,
         desc='Load data into the target model for ' + table.tableName,
         keepDataflowOpen=True)
@@ -107,23 +130,19 @@ def bulkLoadDimension(conf, table):
 
     # DEFAULT ROWS
 
-    # Our defaultRows SS should contain a tab per dimension, each with 1+
-    # default rows defined. IDs are defined too - should all be negative
-    defaultRows = {}
-    worksheets = conf.app.DEFAULT_ROW_SRC.worksheets
-    for wsTitle in worksheets:
-        defaultRows[wsTitle] = worksheets[wsTitle].get_all_records()
+    if table.tableName in defaultRows:  # Default rows are not compulsory
 
-    # Default rows are not cumpulsory
-    if table.tableName in defaultRows:
         # Blank values in the spreadsheet come through as empty strings, but
         # should be NULL in the DB
+        # TODO: this should be a dataflow op, part of effort to tidy up the
+        # apply functions
         df = pd.DataFrame.from_dict(defaultRows[table.tableName])
         df.replace(r'^\s*$', np.nan, regex=True, inplace=True)
 
         dfl.createDataset(
             dataset=table.tableName + '_defaultRows',
-            data=df)
+            data=df,
+            desc='Loading the default rows into the dataflow')
 
         dfl.write(
             dataset=table.tableName + '_defaultRows',
@@ -172,14 +191,14 @@ def bulkLoadDimension(conf, table):
 
 
 def concatenateNKs(row):
+    # TODO not sure why row is a series here, this is a temp solution
+    rowDict = row.to_dict()
     nks = []
-    for col in row.columns.values:
-        if col == 'sk':
-            continue
-        if col == 'nk':
+    for col in rowDict:
+        if col in ('sk', 'nk'):
             continue
         else:
-            nks.append(str(row[col]))
+            nks.append(str(rowDict[col]))
     return '_'.join(nks)
 
 
@@ -197,13 +216,12 @@ def bulkLoadFact(conf, table):
         desc='Because it is a bulk load, clear out the data (which also ' +
              'restarts the SK sequences)')
 
-    ftStgTableName = 'trg_' + table.tableName
     dfl.read(
-        tableName=ftStgTableName,
+        tableName='trg_' + table.tableName,
         dataLayer='STG',
-        desc='Read the data we are going to load (the default load ' +
-             'assumes that the final step in the TRANSFORM ' +
-             'stage created a csv file trg_' + table.tableName + ')')
+        targetDataset=table.tableName,
+        desc='Read the data we are going to load to TRG (from file ' +
+             'trg_' + table.tableName + ')')
 
     # SK/NK MAPPINGS
 
@@ -212,13 +230,20 @@ def bulkLoadFact(conf, table):
             keyMapTableName = 'sk_' + column.fkDimension
             dfl.read(
                 tableName=keyMapTableName,
+                targetDataset=keyMapTableName + '.' + column.columnName,
                 dataLayer='STG',
                 desc='Read the SK/NK mapping for column ' + column.columnName)
+
+            dfl.dropColumns(
+                dataset=keyMapTableName + '.' + column.columnName,
+                colsToDrop=conf.auditColumns['colNames'],
+                desc='Drop the audit columns - we do not carry dimension ' +
+                     'audit data onto the fact')
 
             nkColName = column.columnName.replace('fk_', 'nk_')
 
             dfl.renameColumns(
-                dataset=keyMapTableName,
+                dataset=keyMapTableName + '.' + column.columnName,
                 columns={
                     'sk': column.columnName,
                     'nk': nkColName},
@@ -226,10 +251,11 @@ def bulkLoadFact(conf, table):
                      'SK/NK mapping to match the fact table column names')
 
             dfl.join(
-                datasets=[keyMapTableName, ftStgTableName],
+                datasets=[
+                    table.tableName,
+                    keyMapTableName + '.' + column.columnName],
                 targetDataset=table.tableName,
                 joinCol=nkColName,
-                keepCols=['latest_delta_load_operation', 'data_quality_score'],
                 how='left',
                 desc="Merging dim's SK with fact for column " +
                      column.columnName)
@@ -241,15 +267,24 @@ def bulkLoadFact(conf, table):
 
             dfl.dropColumns(
                 dataset=table.tableName,
-                colsToDrop=['nkColName'],
-                desc='dropping unneeded column: ' + nkColName)
+                colsToDrop=[nkColName],
+                desc='Dropping the natural key column: ' + nkColName)
 
     # WRITE DATA
+
+    # TODO: Need to join audit cols to dimension as part of standard nk/sk
+    # and do the same for dates . In the mean time, dropping cols...
+
+    dfl.dropColumns(
+        dataset=table.tableName,
+        colsToDrop=conf.auditColumns['colNames'],
+        desc='Dropping the natural key column: ' + nkColName)
 
     dfl.write(
         dataset=table.tableName,
         targetTableName=table.tableName,
         dataLayerID='TRG',
+        append_or_replace='append',  # stops it altering table & removing SK!
         keepDataflowOpen=True)
 
     # INDEXES

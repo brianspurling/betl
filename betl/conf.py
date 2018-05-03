@@ -22,7 +22,7 @@ class Conf():
         self.state = State()
         self.schedule = Schedule(scheduleConfig)
         auditColumns_data = {
-            'colName': [
+            'colNames': [
                 'audit_source_system',
                 'audit_bulk_load_date',
                 'audit_latest_delta_load_date',
@@ -46,9 +46,10 @@ class App():
         self.TMP_DATA_PATH = configObj['TMP_DATA_PATH']
         self.LOG_PATH = configObj['LOG_PATH']
 
+        self.logInitialisingDatastores()
+
         apiUrl = configObj['schema_descriptions']['GOOGLE_SHEETS_API_URL']
         apiKey = configObj['schema_descriptions']['GOOGLE_SHEETS_API_KEY_FILE']
-
         self.SCHEMA_DESCRIPTION_GSHEETS = {}
         self.SCHEMA_DESCRIPTION_GSHEETS['ETL'] = \
             SpreadsheetDatastore(
@@ -62,7 +63,6 @@ class App():
                 apiUrl=apiUrl,
                 apiKey=apiKey,
                 filename=configObj['schema_descriptions']['TRG_FILENAME'])
-
         self.DWH_DATABASES = {}
         for dbID in configObj['dbs']:
             dbConfigObj = configObj['dbs'][dbID]
@@ -74,19 +74,15 @@ class App():
                     user=dbConfigObj['USER'],
                     password=dbConfigObj['PASSWORD'],
                     createIfNotFound=True)
-
         self.DEFAULT_ROW_SRC = \
             SpreadsheetDatastore(
                 ssID='DR',
                 apiUrl=configObj['default_rows']['GOOGLE_SHEETS_API_URL'],
                 apiKey=configObj['default_rows']['GOOGLE_SHEETS_API_KEY_FILE'],
                 filename=configObj['default_rows']['FILENAME'])
-
         self.CTRL_DB = CtrlDB(self.DWH_DATABASES['CTL'])
-
         self.SRC_SYSTEMS = {}
         for srcSysID in configObj['src_sys']:
-
             cnfgObj = configObj['src_sys'][srcSysID]
 
             if cnfgObj['TYPE'] == 'POSTGRES':
@@ -127,6 +123,12 @@ class App():
                         apiKey=apiKey,
                         filename=cnfgObj['FILENAME'],
                         isSrcSys=True)
+
+    def logInitialisingDatastores(self):
+        op = ''
+        op += '*** Initialising all datastores ***'
+        op += '\n'
+        print(op)
 
 
 class Exe():

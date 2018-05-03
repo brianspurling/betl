@@ -1,9 +1,11 @@
+from . import logger
 from .dataModel import DataModel
 from .dataModel import SrcDataModel
 from .table import TrgTable
 from . import df_dmDate
 from . import df_dmAudit
-from . import logger as logger
+
+import ast
 
 
 class DataLayer():
@@ -19,95 +21,27 @@ class DataLayer():
             conf.app.SCHEMA_DESCRIPTION_GSHEETS[dbID]
         self.dataModels = self.buildLogicalDataModels()
 
-        self.jobLog = logger.getLogger()
-
-    #
-    # Logical Data Model (Gsheets)
-    #
-
     def buildLogicalDataModels(self):
 
-        dataModelSchemas = self.getSchemaDescriptionForThisDataLayer()
-
+        file = open('schemas/dbSchemaDesc_' + self.databaseID + '.txt', 'r')
+        dbSchemaDesc = ast.literal_eval(file.read())
+        dlSchemaDesc = dbSchemaDesc[self.dataLayerID]
         dataModels = {}
-        for dataModelID in dataModelSchemas:
+        for dataModelID in dlSchemaDesc['dataModelSchemas']:
             if self.dataLayerID == 'SRC':
                 dataModels[dataModelID] = \
                     SrcDataModel(self.conf,
-                                 dataModelSchemas[dataModelID],
+                                 dlSchemaDesc['dataModelSchemas'][dataModelID],
                                  self.datastore,
                                  self.dataLayerID)
             else:
                 dataModels[dataModelID] = \
                     DataModel(self.conf,
-                              dataModelSchemas[dataModelID],
+                              dlSchemaDesc['dataModelSchemas'][dataModelID],
                               self.datastore,
                               self.dataLayerID)
 
         return dataModels
-
-    def getSchemaDescriptionForThisDataLayer(self):
-
-        dbSchemaDescWorksheets = self.schemaDescSpreadsheetDatastore.worksheets
-
-        # One database can have many data layers, so filter down to only the
-        # datalayer we're interested in (the code will be in the worksheet
-        # title)
-        dlSchemaDescWorksheets = []
-        for gWorksheetTitle in dbSchemaDescWorksheets:
-            if gWorksheetTitle.find('.' + self.dataLayerID + '.') > -1:
-                dlSchemaDescWorksheets.append(
-                    dbSchemaDescWorksheets[gWorksheetTitle])
-
-        dataLayerSchemaDesc = {}
-
-        for ws in dlSchemaDescWorksheets:
-
-            # Get the datamodel ID and table name from the worksheet title
-            dataModelID = ws.title[ws.title.find('.')+1:ws.title.rfind('.')]
-            dataModelID = dataModelID[dataModelID.find('.')+1:]
-            tableName = ws.title[ws.title.rfind('.')+1:]
-
-            # If needed, create a new item in our dl schema description for
-            # this data model (there is a worksheet per table, and many tables
-            # per data model)
-            if dataModelID not in dataLayerSchemaDesc:
-                dataLayerSchemaDesc[dataModelID] = {
-                    'dataModelID': dataModelID,
-                    'tableSchemas': {}
-                }
-
-            # Create a new table schema description
-            tableSchema = {
-                'tableName': tableName,
-                'columnSchemas': {}
-            }
-
-            # Pull out the column schema descriptions from the Google
-            # worksheeet and restructure a little
-            colSchemaDescsFromWS = ws.get_all_records()
-            for colSchemaDescFromWS in colSchemaDescsFromWS:
-                colName = colSchemaDescFromWS['Column Name']
-                fkDimension = None
-                if 'FK Dimension' in colSchemaDescFromWS:
-                    fkDimension = colSchemaDescFromWS['FK Dimension']
-
-                # append this column schema desc to our tableSchema object
-                tableSchema['columnSchemas'][colName] = {
-                    'tableName':   tableName,
-                    'columnName':  colName,
-                    'dataType':    colSchemaDescFromWS['Data Type'],
-                    'columnType':  colSchemaDescFromWS['Column Type'],
-                    'fkDimension': fkDimension
-                }
-
-            # Finally, add the tableSchema to our data dataLayer schema desc
-            dataLayerSchemaDesc[dataModelID]['tableSchemas'][tableName] = \
-                tableSchema
-
-        return dataLayerSchemaDesc
-
-    # Physical Data Model (Postgres)
 
     def buildPhysicalDataModel(self):
 
@@ -120,8 +54,7 @@ class DataLayer():
             dbCursor.execute(createStatement)
             self.datastore.commit()
 
-        self.jobLog.info(
-            logger.logPhysicalDataModelBuild_dataLayerDone(self.dataLayerID))
+        logger.logRebuildingPhysicalDataModel(self.dataLayerID)
 
     def dropPhysicalDataModel(self):
 

@@ -1,18 +1,29 @@
+from . import logger
+
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import sqlalchemy
 import sqlite3
+from apiclient.discovery import build
+import httplib2
 
 
 class Datastore():
 
     def __init__(self, datastoreID, datastoreType, isSrcSys):
 
+        self.logInitialisingDatastore(datastoreID, datastoreType)
         self.datatoreID = datastoreID
         self.datastoreType = datastoreType
         self.isSrcSys = isSrcSys
+
+    def logInitialisingDatastore(self, datastoreID, datastoreType):
+        op = ''
+        op += '  - Initialising ' + datastoreID
+        op += ' datastore (' + datastoreType + ')'
+        print(op)
 
 
 class PostgresDatastore(Datastore):
@@ -136,19 +147,23 @@ class SpreadsheetDatastore(Datastore):
                            datastoreType='SPREADSHEET',
                            isSrcSys=isSrcSys)
 
+        # TODO don't do all this on init, it slows down the start
+        # of the job, which has a diproportionate effect on dev time.
         self.ssID = ssID
         self.apiUrl = apiUrl
         self.apiKey = apiKey
         self.filename = filename
         self.conn = self.getGsheetConnection()
         self.worksheets = self.getWorksheets()
+        self.gdriveConn = self.getGdriveConnection()
+        self.lastModifiedTime = self.getLastModifiedTime()
 
     def getGsheetConnection(self):
-        client = gspread.authorize(
+        _client = gspread.authorize(
             ServiceAccountCredentials.from_json_keyfile_name(
                 self.apiKey,
                 self.apiUrl))
-        return client.open(self.filename)
+        return _client.open(self.filename)
         # except SpreadsheetNotFound:
         #     log.error('Failed to establish a connection to the ETL Schema ' +
         #               'spreadsheet: ' + conf.ETL_DB_SCHEMA_FILE_NAME + '. ' +
@@ -157,11 +172,23 @@ class SpreadsheetDatastore(Datastore):
         #               'auth file (client_email)')
         #     raise
 
+    def getGdriveConnection(self):
+        creds = ServiceAccountCredentials.from_json_keyfile_name(
+            self.apiKey,
+            'https://www.googleapis.com/auth/drive.metadata.readonly')
+        return build('drive', 'v3', http=creds.authorize(httplib2.Http()))
+
     def getWorksheets(self):
         worksheets = {}
         for ws in self.conn.worksheets():
             worksheets[ws.title] = ws
         return worksheets
+
+    def getLastModifiedTime(self):
+        result = self.gdriveConn.files().get(
+            fileId=self.conn.id,
+            fields='modifiedTime').execute()
+        return result['modifiedTime']
 
     def __str__(self):
         string = ('\n\n' + '*** Datastore: ' +

@@ -13,33 +13,35 @@ from .table import TrgTable
 
 class DataModel():
 
-    def __init__(self, conf, dataModelSchema, datastore, dataLayerID):
+    def __init__(self, conf, dataModelSchemaDesc, datastore, dataLayerID):
 
         self.conf = conf
 
         self.dataLayerID = dataLayerID
-        self.dataModelID = dataModelSchema['dataModelID']
+        self.dataModelID = dataModelSchemaDesc['dataModelID']
         self.datastore = datastore
 
         self.tables = {}
         self.isSchemaDefined = True
 
-        if (len(dataModelSchema) == 0):
+        if (len(dataModelSchemaDesc) == 0):
             self.isSchemaDefined = False
 
-        for tableName in dataModelSchema['tableSchemas']:
+        for tableName in dataModelSchemaDesc['tableSchemas']:
             if self.dataModelID in ('TRG', 'SUM'):
-                table = TrgTable(self.conf,
-                                 dataModelSchema['tableSchemas'][tableName],
-                                 self.datastore,
-                                 self.dataLayerID,
-                                 self.dataModelID)
+                table = TrgTable(
+                    self.conf,
+                    dataModelSchemaDesc['tableSchemas'][tableName],
+                    self.datastore,
+                    self.dataLayerID,
+                    self.dataModelID)
             else:
-                table = Table(self.conf,
-                              dataModelSchema['tableSchemas'][tableName],
-                              self.datastore,
-                              self.dataLayerID,
-                              self.dataModelID)
+                table = Table(
+                    self.conf,
+                    dataModelSchemaDesc['tableSchemas'][tableName],
+                    self.datastore,
+                    self.dataLayerID,
+                    self.dataModelID)
             self.tables[tableName] = table
 
     def getSqlCreateStatements(self):
@@ -87,10 +89,15 @@ class SrcDataModel(DataModel):
     # the spreadsheet. but why dont' i need it for files?? maybe I do - not
     # tested  No it's beecause the spreadsheet func is writtend differnetly,
     # because it's the schema func
-    def __init__(self, conf, dataModelSchema, datastore, dataLayerID):
+    def __init__(self, conf, dataModelSchemaDesc, datastore, dataLayerID):
 
-        DataModel.__init__(self, conf, dataModelSchema, datastore, dataLayerID)
+        DataModel.__init__(
+            self,
+            conf,
+            dataModelSchemaDesc,
+            datastore,
+            dataLayerID)
 
         self.conf = conf
         self.srcSysDatastore = \
-            conf.app.SRC_SYSTEMS[dataModelSchema['dataModelID']]
+            conf.app.SRC_SYSTEMS[dataModelSchemaDesc['dataModelID']]

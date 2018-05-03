@@ -77,20 +77,3 @@ def readDataFromCsv(conf,
                        dtype=dtype,
                        na_filter=False,
                        nrows=nrows)
-
-
-def deleteTempoaryData(tmpDataPath):
-
-    path = tmpDataPath.replace('/', '')
-
-    if (os.path.exists(path)):
-        # `tempfile.mktemp` Returns an absolute pathname of a file that
-        # did not exist at the time the call is made. We pass
-        # dir=os.path.dirname(dir_name) here to ensure we will move
-        # to the same filesystem. Otherwise, shutil.copy2 will be used
-        # internally and the problem remains: we're still deleting the
-        # folder when we come to recreate it
-        tmp = tempfile.mktemp(dir=os.path.dirname(path))
-        shutil.move(path, tmp)  # rename
-        shutil.rmtree(tmp)  # delete
-    os.makedirs(path)  # create the new folder
