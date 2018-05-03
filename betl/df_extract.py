@@ -240,7 +240,7 @@ def setAuditCols_insert(self, df, sourceSystemId):
     df['audit_source_system'] = sourceSystemId
     df['audit_bulk_load_date'] = None
     df['audit_latest_delta_load_date'] = datetime.now()
-    df['audit_latest_delta_load_operation'] = 'INSERT'
+    df['audit_latest_load_operation'] = 'INSERT'
 
     return df
 
@@ -249,7 +249,7 @@ def setAuditCols_update(self, df, sourceSystemId):
 
     df['audit_source_system'] = sourceSystemId
     df['audit_latest_delta_load_date'] = datetime.now()
-    df['audit_latest_delta_load_operation'] = 'UPDATE'
+    df['audit_latest_load_operation'] = 'UPDATE'
 
     return df
 
@@ -257,6 +257,6 @@ def setAuditCols_update(self, df, sourceSystemId):
 def setAuditCols_delete(self, df):
 
     df['audit_latest_delta_load_date'] = datetime.now()
-    df['audit_latest_delta_load_operation'] = 'DELETE'
+    df['audit_latest_load_operation'] = 'DELETE'
 
     return df

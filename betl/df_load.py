@@ -167,7 +167,8 @@ def bulkLoadDimension(conf, defaultRows, table):
     dfl.dropColumns(
         dataset=table.tableName,
         colsToKeep=[table.surrogateKeyColName] + table.colNames_NKs,
-        desc='Drop all cols except SK & NKs')
+        desc='Drop all cols except SK & NKs (including audit cols)',
+        dropAuditCols=True)
 
     dfl.renameColumns(
         dataset=table.tableName,
@@ -223,6 +224,17 @@ def bulkLoadFact(conf, table):
         desc='Read the data we are going to load to TRG (from file ' +
              'trg_' + table.tableName + ')')
 
+    dfl.createAuditNKs(
+        dataset=table.tableName,
+        desc='Collapse the audit columns into their NK')
+
+    dfl.write(
+        dataset=table.tableName,
+        targetTableName='trg_' + table.tableName,
+        dataLayerID='STG',
+        desc='Write it back to ' + table.tableName + ' for debug',
+        keepDataflowOpen=True)
+
     # SK/NK MAPPINGS
 
     for column in table.columns:
@@ -233,12 +245,6 @@ def bulkLoadFact(conf, table):
                 targetDataset=keyMapTableName + '.' + column.columnName,
                 dataLayer='STG',
                 desc='Read the SK/NK mapping for column ' + column.columnName)
-
-            dfl.dropColumns(
-                dataset=keyMapTableName + '.' + column.columnName,
-                colsToDrop=conf.auditColumns['colNames'],
-                desc='Drop the audit columns - we do not carry dimension ' +
-                     'audit data onto the fact')
 
             nkColName = column.columnName.replace('fk_', 'nk_')
 
@@ -260,6 +266,7 @@ def bulkLoadFact(conf, table):
                 desc="Merging dim's SK with fact for column " +
                      column.columnName)
 
+            # TODO: this breaks degenerate dimensions!!
             dfl.setNulls(
                 dataset=table.tableName,
                 columns={column.columnName: -1},
@@ -271,14 +278,6 @@ def bulkLoadFact(conf, table):
                 desc='Dropping the natural key column: ' + nkColName)
 
     # WRITE DATA
-
-    # TODO: Need to join audit cols to dimension as part of standard nk/sk
-    # and do the same for dates . In the mean time, dropping cols...
-
-    dfl.dropColumns(
-        dataset=table.tableName,
-        colsToDrop=conf.auditColumns['colNames'],
-        desc='Dropping the natural key column: ' + nkColName)
 
     dfl.write(
         dataset=table.tableName,

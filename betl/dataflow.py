@@ -307,7 +307,8 @@ class DataFlow():
                     dataset,
                     colsToDrop=None,
                     colsToKeep=None,
-                    desc=None):
+                    desc=None,
+                    dropAuditCols=False):
 
         startTime = datetime.now()
         logger.logStepStart(startTime, desc)
@@ -316,18 +317,20 @@ class DataFlow():
         if colsToDrop is not None and colsToKeep is not None:
             raise ValueError("Nope!")
 
+        auditCols = self.conf.auditColumns['colNames'].tolist()
         if colsToKeep is not None:
-            colsToKeep = colsToKeep + \
-                self.conf.auditColumns['colNames'].tolist()
+            colsToKeep = colsToKeep + auditCols
             colsToDrop = [col for col in list(df) if col not in colsToKeep]
 
-        report = 'Dropped ' + str(len(colsToDrop)) + ' columns'
+        if dropAuditCols and set(auditCols).issubset(list(df)):
+            colsToDrop += auditCols
 
         df.drop(
             colsToDrop,
             axis=1,
             inplace=True)
 
+        report = 'Dropped ' + str(len(colsToDrop)) + ' columns'
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
         logger.logStepEnd(report, elapsedSeconds, dataset, df)
 
@@ -362,12 +365,15 @@ class DataFlow():
                 df[col] = columns[col]
 
         # If the dataset has audit cols, then we just added after them,
-        # so do a quick sort to be sure.
+        # so sort the audit cols back to the end
         auditColList = self.conf.auditColumns['colNames'].tolist()
-        if set(auditColList).issubset(list(df.columns.values)):
+        colList = list(df.columns.values)
+        isAuditColsInDataset = \
+            set(auditColList).issubset(list(df.columns.values))
+        if isAuditColsInDataset:
             colList = [col for col in list(df.columns.values)
                        if col not in auditColList]
-        colList = colList + auditColList
+            colList = list(df.columns.values) + auditColList
         df = df[colList]
 
         report = 'Assigned ' + str(len(columns)) + ' to dataset'
@@ -384,7 +390,7 @@ class DataFlow():
         df = self.data[dataset]['df']
 
         for col in columns:
-            df.loc[df[col].isnull()] = columns[col]
+            df.loc[df[col].isnull(), col] = columns[col]
 
         report = ''
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
@@ -437,12 +443,15 @@ class DataFlow():
             cleaningFunc(self.data[dataset]['df'][column])
 
         # If the dataset has audit cols, then we just added after them,
-        # so do a quick sort to be sure.
+        # so sort the audit cols back to the end
         auditColList = self.conf.auditColumns['colNames'].tolist()
-        if set(auditColList).issubset(list(self.data[dataset]['df'])):
+        colList = list(self.data[dataset]['df'])
+        isAuditColsInDataset = \
+            set(auditColList).issubset(list(self.data[dataset]['df']))
+        if isAuditColsInDataset:
             colList = [col for col in list(self.data[dataset]['df'])
                        if col not in auditColList]
-        colList = colList + auditColList
+            colList = list(self.data[dataset]['df']) + auditColList
         df_reordered = self.data[dataset]['df'][colList]
 
         report = 'Cleaned ' + column + ' to ' + cleanedColumn
@@ -511,23 +520,26 @@ class DataFlow():
         logger.logStepStart(startTime, desc)
         df = self.data[dataset]['df']
 
+        # If the dataset has audit cols, then we just added after them,
+        # so sort the audit cols back to the end
         auditColList = self.conf.auditColumns['colNames'].tolist()
-        if set(auditColList).issubset(colList):
-            # Remove the audit cols then add them at the end, to be sure
-            # they're always last
+        isAuditColsInDataset = \
+            set(auditColList).issubset(list(df))
+        if isAuditColsInDataset:
             colList = [col for col in colList if col not in auditColList]
-        colList = colList + auditColList
+            colList = list(df.columns.values) + auditColList
 
         if set(colList) != set(list(df.columns.values)):
             raise ValueError('You have attempted to sort columns without ' +
                              'providing a list of columns that exactly ' +
                              'matches the dataset. Dataset cols: ' +
                              str(list(df)) + '. sortColList: ' + str(colList))
-        df = df[colList]
+
+        df_reordered = df[colList]
 
         report = ''
         elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds, dataset, df)
+        logger.logStepEnd(report, elapsedSeconds, dataset, df_reordered)
 
     def duplicateDataset(self, dataset, targetDatasets, desc=None):
         startTime = datetime.now()
@@ -603,7 +615,28 @@ class DataFlow():
             df['audit_source_system'] = sourceSystem
             df['audit_bulk_load_date'] = datetime.now()
             df['audit_latest_delta_load_date'] = None
-            df['audit_latest_delta_load_operation'] = None
+            df['audit_latest_load_operation'] = 'BULK'
+
+        report = ''
+        elapsedSeconds = (datetime.now() - startTime).total_seconds()
+        logger.logStepEnd(report, elapsedSeconds)
+
+    def createAuditNKs(self, dataset, desc):
+        startTime = datetime.now()
+        logger.logStepStart(startTime, desc)
+        df = self.data[dataset]['df']
+
+        # TODO will improve this over time. Basic solution as PoC
+        df['nk_audit'] = \
+            df['audit_latest_load_operation'] + '_' + '10'
+
+        df.drop(
+            ['audit_source_system',
+             'audit_bulk_load_date',
+             'audit_latest_delta_load_date',
+             'audit_latest_load_operation'],
+            axis=1,
+            inplace=True)
 
         report = ''
         elapsedSeconds = (datetime.now() - startTime).total_seconds()

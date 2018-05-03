@@ -43,7 +43,8 @@ def transformDMAudit(scheduler):
 
     dfl.createDataset(
         dataset='ops',
-        data={'latest_delta_load_operation': ['INSERT', 'UPDATE', 'DELETE'],
+        data={'latest_delta_load_operation':
+              ['INSERT', 'UPDATE', 'DELETE', 'BULK'],
               'temp_key': 1},
         desc='A row for insert, update and delete operations')
 

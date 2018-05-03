@@ -27,14 +27,14 @@ class Conf():
         self.schedule = Schedule(scheduleConfig)
         self.data = Data(self.configObj)
 
-        self.JOB_LOG = logger.initialiseLogging(self)
+        self.JOB_LOG = None
 
         auditColumns_data = {
             'colNames': [
                 'audit_source_system',
                 'audit_bulk_load_date',
                 'audit_latest_delta_load_date',
-                'audit_latest_delta_load_operation'
+                'audit_latest_load_operation'
             ],
             'dataType': [
                 'TEXT',
@@ -44,6 +44,13 @@ class Conf():
             ],
         }
         self.auditColumns = pd.DataFrame(auditColumns_data)
+
+    # We need the conf to init the ctrl db, and we need the ctrl db to
+    # get the exec Id, and we need the exec ID to init the logging
+    # TODO: would be better to log instantly, with a temp file name, then
+    # update the filename when the exec ID is known.
+    def initialiseLogging(self):
+        self.JOB_LOG = logger.initialiseLogging(self)
 
 
 class Ctrl():

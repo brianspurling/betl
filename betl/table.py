@@ -42,6 +42,22 @@ class Table():
             if col.isFK:
                 self.colNames_FKs.append(col.columnName)
 
+        # The fact tables get a FK to the audit dimension
+        if self.getTableType() == 'FACT':
+            columnSchema = {
+                'tableName':   self.tableName,
+                'columnName':  'fk_audit',
+                'dataType':    'INTEGER',
+                'columnType':  'Foreign key',
+                'fkDimension': 'dm_audit'
+            }
+            col = Column(columnSchema)
+            self.columns.append(col)
+            self.colNames.append(col.columnName)
+            self.colNames_withoutNKs.append(col.columnName)
+            self.colNames_withoutSK.append(col.columnName)
+            self.colNames_FKs.append(col.columnName)
+
     def getSqlCreateStatement(self):
 
         tableCreateStatement = 'CREATE TABLE ' + self.tableName + ' ('
@@ -51,9 +67,9 @@ class Table():
             colsCreateStatements.append(columnObject.getSqlCreateStatement())
 
         # For all tables except fact and summary tables in the TRG Layer,
-        # we add audit columns (the fact and summary tables in TRG get their
-        # own dimension to hold this info)
-        if self.getTableType() != 'FACT':
+        # and DM_AUDIT, we add audit columns
+        tableType = self.getTableType()
+        if tableType != 'FACT' and self.tableName != 'dm_audit':
             for i, auditColRow in self.conf.auditColumns.iterrows():
                 colsCreateStatements.append(
                     auditColRow['colNames'] +

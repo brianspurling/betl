@@ -321,7 +321,6 @@ def logRefreshingSchemaDescsFromGsheets(dbCount):
 def logLoadingDBSchemaDescsFromGsheets(dbID):
     op = ''
     op += '    - Loading schema descriptions for the ' + dbID + ' database...'
-    op += '\n'
     JOB_LOG.info(op)
 
 
@@ -351,12 +350,12 @@ def logPhysicalDataModelBuild():
 def logRebuildingPhysicalDataModel(dataLayerID):
     op = ''
     op += '  - Rebuilding the ' + dataLayerID + ' physical data models... '
-    op += '\n'
     JOB_LOG.info(op)
 
 
 def superflousTableWarning(tableNamesStr):
     op = ''
+    op += '\n'
     op += '*** WARNING! Superfluous tables in DB *** \n'
     op += '\n'
     op += '  The following tables were found in one of the databases \n'

@@ -39,6 +39,8 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
     # This sets the EXEC_ID in conf.state
     lastExecReport = setUpExecution(conf)
 
+    conf.initialiseLogging()
+    
     ##############
     # LOGGING ON #
     ##############
@@ -100,7 +102,7 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
     logicalDataModels['TRG'] = TrgDataLayer(conf)
     logicalDataModels['SUM'] = SumDataLayer(conf)
     conf.data.setLogicalDataModels(logicalDataModels)
-    logger.logLogicalDataModelBuild_done()
+    logger.logLogicalDataModelBuild_done(logicalDataModels)
 
     if conf.exe.RUN_REBUILD_ALL or \
        conf.exe.RUN_REBUILD_SRC or \
