@@ -99,5 +99,5 @@ class SrcDataModel(DataModel):
             dataLayerID)
 
         self.conf = conf
-        self.srcSysDatastore = \
-            conf.data.getSrcSysDatastore(dataModelSchemaDesc['dataModelID'])
+        # self.srcSysDatastore = \
+        #    conf.data.getSrcSysDatastore(dataModelSchemaDesc['dataModelID'])

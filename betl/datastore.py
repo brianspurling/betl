@@ -12,9 +12,18 @@ import httplib2
 
 class Datastore():
 
-    def __init__(self, datastoreID, datastoreType, isSrcSys):
+    def __init__(self,
+                 datastoreID,
+                 datastoreType,
+                 isSrcSys,
+                 isSchemaDesc=False):
 
-        logger.logInitialiseDatastore(datastoreID, datastoreType)
+        if not isSrcSys:
+            logger.logInitialiseDatastore(
+                datastoreID,
+                datastoreType,
+                isSchemaDesc)
+
         self.datatoreID = datastoreID
         self.datastoreType = datastoreType
         self.isSrcSys = isSrcSys
@@ -134,12 +143,19 @@ class FileDatastore(Datastore):
 
 class SpreadsheetDatastore(Datastore):
 
-    def __init__(self, ssID, apiUrl, apiKey, filename, isSrcSys=False):
+    def __init__(self,
+                 ssID,
+                 apiUrl,
+                 apiKey,
+                 filename,
+                 isSrcSys=False,
+                 isSchemaDesc=False):
 
         Datastore.__init__(self,
                            datastoreID=ssID,
                            datastoreType='SPREADSHEET',
-                           isSrcSys=isSrcSys)
+                           isSrcSys=isSrcSys,
+                           isSchemaDesc=isSchemaDesc)
 
         # TODO don't do all this on init, it slows down the start
         # of the job, which has a diproportionate effect on dev time.

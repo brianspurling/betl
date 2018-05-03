@@ -18,7 +18,7 @@ def defaultExtract(scheduler):
 def defaultExtract_bulk(scheduler):
 
     srcTablesToExclude = scheduler.srcTablesToExcludeFromExtract
-    srcLayer = scheduler.logicalDataModels['SRC']
+    srcLayer = scheduler.conf.getLogicalDataModel('SRC')
 
     for dmID in srcLayer.dataModels:
         for tableName in srcLayer.dataModels[dmID].tables:
@@ -47,7 +47,7 @@ def defaultExtract_delta(scheduler):
     # TODO not been refactored since dataframe class added to betl
 
     srcTablesToExclude = scheduler.srcTablesToExcludeFromExtract
-    srcLayer = scheduler.logicalDataModels['SRC']
+    srcLayer = scheduler.conf.getLogicalDataModel('SRC')
 
     for dmID in srcLayer.dataModels:
         for tableName in srcLayer.dataModels[dmID].tables:

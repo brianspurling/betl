@@ -8,6 +8,10 @@ from .datastore import PostgresDatastore
 from .datastore import SqliteDatastore
 from .datastore import SpreadsheetDatastore
 from .datastore import FileDatastore
+from .dataLayer import SrcDataLayer
+from .dataLayer import StgDataLayer
+from .dataLayer import TrgDataLayer
+from .dataLayer import SumDataLayer
 from .ctrlDB import CtrlDB
 
 
@@ -27,6 +31,8 @@ class Conf():
         self.schedule = Schedule(scheduleConfig)
         self.data = Data(self.configObj)
 
+        self.LOGICAL_DATA_MODELS = {}
+
         self.JOB_LOG = None
 
         auditColumns_data = {
@@ -45,12 +51,31 @@ class Conf():
         }
         self.auditColumns = pd.DataFrame(auditColumns_data)
 
+        self.DATA_LAYERS = ['SRC', 'STG', 'TRG', 'SUM']
+
     # We need the conf to init the ctrl db, and we need the ctrl db to
     # get the exec Id, and we need the exec ID to init the logging
     # TODO: would be better to log instantly, with a temp file name, then
     # update the filename when the exec ID is known.
     def initialiseLogging(self):
         self.JOB_LOG = logger.initialiseLogging(self)
+
+    def getLogicalDataModel(self, dataLayerID):
+        if dataLayerID not in self.LOGICAL_DATA_MODELS:
+            self.LOGICAL_DATA_MODELS[dataLayerID] = \
+                self.buildLogicalDataModel(dataLayerID)
+        return self.LOGICAL_DATA_MODELS[dataLayerID]
+
+    def buildLogicalDataModel(self, dataLayerID):
+        if dataLayerID == 'SRC':
+            self.LOGICAL_DATA_MODELS['SRC'] = SrcDataLayer(self)
+        elif dataLayerID == 'STG':
+            self.LOGICAL_DATA_MODELS['STG'] = StgDataLayer(self)
+        elif dataLayerID == 'TRG':
+            self.LOGICAL_DATA_MODELS['TRG'] = TrgDataLayer(self)
+        elif dataLayerID == 'SUM':
+            self.LOGICAL_DATA_MODELS['SUM'] = SumDataLayer(self)
+        return self.LOGICAL_DATA_MODELS[dataLayerID]
 
 
 class Ctrl():
@@ -77,14 +102,16 @@ class Ctrl():
                     apiUrl=self.apiUrl,
                     apiKey=self.apiKey,
                     filename=self.configObj['schema_descriptions']
-                    ['ETL_FILENAME'])
+                    ['ETL_FILENAME'],
+                    isSchemaDesc=True)
             self.SCHEMA_DESCRIPTION_GSHEETS['TRG'] = \
                 SpreadsheetDatastore(
                     ssID='TRG',
                     apiUrl=self.apiUrl,
                     apiKey=self.apiKey,
                     filename=self.configObj['schema_descriptions']
-                    ['TRG_FILENAME'])
+                    ['TRG_FILENAME'],
+                    isSchemaDesc=True)
 
         return self.SCHEMA_DESCRIPTION_GSHEETS
 
@@ -99,10 +126,6 @@ class Data():
         self.SRC_SYSTEMS = {}
         self.DEFAULT_ROW_SRC = None
         self.DWH_DATABASES = {}
-        self.LOGICAL_DATA_MODELS = None
-
-    def setLogicalDataModels(self, logicalDataModels):
-        self.LOGICAL_DATA_MODELS = logicalDataModels
 
     def getDatastore(self, dbID):
         if dbID not in self.DWH_DATABASES:
@@ -120,6 +143,7 @@ class Data():
 
     def getDefaultRowsDatastore(self):
         if self.DEFAULT_ROW_SRC is None:
+
             self.DEFAULT_ROW_SRC = \
                 SpreadsheetDatastore(
                     ssID='DR',
@@ -133,6 +157,10 @@ class Data():
     def getSrcSysDatastore(self, srcSysID):
         if srcSysID not in self.SRC_SYSTEMS:
             srcSysConfigObj = self.configObj['src_sys'][srcSysID]
+
+            logger.logInitialiseSrcSysDatastore(
+                datastoreID=srcSysID,
+                datastoreType=srcSysConfigObj['TYPE'])
 
             if srcSysConfigObj['TYPE'] == 'POSTGRES':
                 self.SRC_SYSTEMS[srcSysID] = \

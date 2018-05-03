@@ -17,8 +17,6 @@ class DataLayer():
         self.dataLayerID = dataLayerID
 
         self.datastore = conf.data.getDatastore(dbID)
-        self.schemaDescSpreadsheetDatastore = \
-            conf.ctrl.getSchemaDescGSheetDatastores()[dbID]
         self.dataModels = self.buildLogicalDataModels()
 
     def buildLogicalDataModels(self):
@@ -27,8 +25,10 @@ class DataLayer():
         dbSchemaDesc = ast.literal_eval(file.read())
         dlSchemaDesc = dbSchemaDesc[self.dataLayerID]
         dataModels = {}
+
         for dataModelID in dlSchemaDesc['dataModelSchemas']:
             if self.dataLayerID == 'SRC':
+                # Each dataModel in the SRC dataLayer is a source system
                 dataModels[dataModelID] = \
                     SrcDataModel(self.conf,
                                  dlSchemaDesc['dataModelSchemas'][dataModelID],

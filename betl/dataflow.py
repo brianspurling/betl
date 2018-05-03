@@ -34,11 +34,12 @@ class DataFlow():
 
     def getDataFromSrc(self, tableName, srcSysID, desc=None):
 
+        srcSysDatastore = self.conf.data.getSrcSysDatastore(srcSysID)
+
         startTime = datetime.now()
         logger.logStepStart(startTime, desc)
 
         limitdata = self.conf.exe.DATA_LIMIT_ROWS
-        srcSysDatastore = self.conf.data.getSrcSysDatastore(srcSysID)
 
         df = pd.DataFrame()
 
@@ -191,7 +192,7 @@ class DataFlow():
         else:
             writeToDB = self.conf.exe.WRITE_TO_ETL_DB
 
-        dataLayer = self.conf.data.LOGICAL_DATA_MODELS[dataLayerID]
+        dataLayer = self.conf.getLogicalDataModel(dataLayerID)
         if (targetTableName not in dataLayer.getListOfTables()
            and not forceDBWrite):
             writeToDB = False
@@ -659,7 +660,7 @@ class DataFlow():
         startTime = datetime.now()
         logger.logStepStart(startTime, desc, additionalDesc=sql)
 
-        datastore = self.conf.data.LOGICAL_DATA_MODELS[dataLayer].datastore
+        datastore = self.conf.getLogicalDataModel(dataLayer).datastore
         df = dbIO.customSQL(sql, datastore)
 
         if dataset is not None:
@@ -694,7 +695,7 @@ class DataFlow():
         fileIO.truncateFile(self.conf, path, filename)
 
         if forceDBWrite:
-            dataLayer = self.conf.data.LOGICAL_DATA_MODELS[dataLayerID]
+            dataLayer = self.conf.getLogicalDataModel(dataLayerID)
             dbIO.truncateTable(dataset, dataLayer.datastore)
 
         report = ''

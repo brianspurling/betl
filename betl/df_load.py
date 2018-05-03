@@ -13,7 +13,7 @@ import numpy as np
 #
 def defaultLoad(scheduler):
 
-    trgLayer = scheduler.logicalDataModels['TRG']
+    trgLayer = scheduler.conf.getLogicalDataModel('TRG')
 
     trgTables = trgLayer.dataModels['TRG'].tables
     nonDefaultStagingTables = \
@@ -266,7 +266,6 @@ def bulkLoadFact(conf, table):
                 desc="Merging dim's SK with fact for column " +
                      column.columnName)
 
-            # TODO: this breaks degenerate dimensions!!
             dfl.setNulls(
                 dataset=table.tableName,
                 columns={column.columnName: -1},

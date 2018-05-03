@@ -9,10 +9,6 @@ import tempfile
 
 from . import logger
 from . import cli
-from .dataLayer import SrcDataLayer
-from .dataLayer import StgDataLayer
-from .dataLayer import TrgDataLayer
-from .dataLayer import SumDataLayer
 from .conf import Conf
 from .scheduler import Scheduler
 
@@ -40,7 +36,7 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
     lastExecReport = setUpExecution(conf)
 
     conf.initialiseLogging()
-    
+
     ##############
     # LOGGING ON #
     ##############
@@ -74,10 +70,11 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
     oneOrMoreLastModTimesChanged = False
     lastModTimesChanged = {}
 
-    logger.logLogicalDataModelBuild()
+    logger.logSchemaDescsLoad()
 
     # Check the last modified time of the Google Sheets
     schemaDescGsheets = conf.ctrl.getSchemaDescGSheetDatastores()
+
     for dbID in schemaDescGsheets:
         sheet = schemaDescGsheets[dbID]
         if (sheet.filename not in lastModifiedTimes
@@ -91,18 +88,11 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
             sheet = schemaDescGsheets[dbID]
             refreshSchemaDescCSVs(sheet, dbID)
             lastModifiedTimes[sheet.filename] = sheet.lastModifiedTime
+        logger.logRefreshingSchemaDescsFromGsheets_done()
 
     if lastModTimesChanged:
         modTimesFile = open('schemas/lastModifiedTimes.txt', 'w')
         modTimesFile.write(json.dumps(lastModifiedTimes))
-
-    logicalDataModels = {}
-    logicalDataModels['SRC'] = SrcDataLayer(conf)
-    logicalDataModels['STG'] = StgDataLayer(conf)
-    logicalDataModels['TRG'] = TrgDataLayer(conf)
-    logicalDataModels['SUM'] = SumDataLayer(conf)
-    conf.data.setLogicalDataModels(logicalDataModels)
-    logger.logLogicalDataModelBuild_done(logicalDataModels)
 
     if conf.exe.RUN_REBUILD_ALL or \
        conf.exe.RUN_REBUILD_SRC or \
@@ -112,19 +102,18 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
         logger.logPhysicalDataModelBuild()
 
     if conf.exe.RUN_REBUILD_ALL:
-        for dataModelID in logicalDataModels:
-            logicalDataModels[dataModelID].buildPhysicalDataModel()
+        for dataLayerID in conf.DATA_LAYERS:
+            conf.getLogicalDataModel(dataLayerID).buildPhysicalDataModel()
     else:
         if conf.exe.RUN_REBUILD_SRC:
-            logicalDataModels['SRC'].buildPhysicalDataModel()
+            conf.getLogicalDataModel('SRC').buildPhysicalDataModel()
         if conf.exe.RUN_REBUILD_STG:
-            logicalDataModels['STG'].buildPhysicalDataModel()
+            conf.getLogicalDataModel('STG').buildPhysicalDataModel()
         if conf.exe.RUN_REBUILD_TRG:
-            logicalDataModels['TRG'].buildPhysicalDataModel()
+            conf.getLogicalDataModel('TRG').buildPhysicalDataModel()
         if conf.exe.RUN_REBUILD_SUM:
-            logicalDataModels['SUM'].buildPhysicalDataModel()
+            conf.getLogicalDataModel('SUM').buildPhysicalDataModel()
 
-    checkDBsForSuperflousTables(conf)
     return conf
 
 
@@ -137,6 +126,9 @@ def run(conf):
         response = scheduler.executeSchedule()
 
     if response == 'SUCCESS':
+
+        checkDBsForSuperflousTables(conf)
+
         conf.ctrl.CTRL_DB.updateExecutionInCtlTable(
             execId=conf.state.EXEC_ID,
             status='SUCCESSFUL',
@@ -299,9 +291,9 @@ def checkDBsForSuperflousTables(conf):
     allTables.extend([item[0] for item in trgDBCursor.fetchall()])
 
     dataModelTables = []
-    for dataLayerID in conf.data.LOGICAL_DATA_MODELS:
+    for dataLayerID in conf.DATA_LAYERS:
         dataModelTables.extend(
-            conf.data.LOGICAL_DATA_MODELS[dataLayerID].getListOfTables())
+            conf.getLogicalDataModel(dataLayerID).getListOfTables())
 
     superflousTableNames = []
     for tableName in allTables:

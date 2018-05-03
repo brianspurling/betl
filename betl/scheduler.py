@@ -13,7 +13,6 @@ class Scheduler():
 
         self.jobLog = logger.getLogger()
 
-        self.logicalDataModels = conf.data.LOGICAL_DATA_MODELS
         self.scheduleList = []
         self.scheduleDic = {}
         self.srcTablesToExcludeFromExtract = []

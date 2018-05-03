@@ -92,19 +92,33 @@ def logExecutionOverview(execReport, rerun=False):
     JOB_LOG.info(op)
 
 
-def logInitialiseDatastore(datastoreID, datastoreType):
+def logInitialiseDatastore(datastoreID, datastoreType, isSchemaDesc=False):
 
     if datastoreID in ['CTL']:
         pass
     else:
+        desc = 'Connecting to the ' + datastoreID + ' ' + \
+             datastoreType + ' datastore'
+        if isSchemaDesc:
+            desc = 'Connecting to the ' + datastoreID + ' schema ' + \
+                'description spreadsheet'
         op = ''
-        op += '  - Initialising ' + datastoreID
-        op += ' datastore (' + datastoreType + ')'
+        op += desc
 
         if JOB_LOG is not None:
             JOB_LOG.info(op)
         else:
             print(op)
+
+
+def logInitialiseSrcSysDatastore(datastoreID, datastoreType):
+
+    op = ''
+    op += '   *** Connecting to source system datastore: ' + datastoreID
+    op += ' (' + datastoreType + ') ***'
+    op += '\n'
+
+    JOB_LOG.info(op)
 
 
 def logDFStart(desc, startTime):
@@ -127,7 +141,6 @@ def logDFStart(desc, startTime):
     op += '*    ' + desc + spacer2 + '*\n'
     op += '*                                                               *\n'
     op += '*****************************************************************\n'
-    op += '\n'
 
     JOB_LOG.info(op)
 
@@ -312,32 +325,33 @@ def logUnableToReadFromCtlDB(errorMessage):
 def logRefreshingSchemaDescsFromGsheets(dbCount):
     op = ''
     op += '\n'
-    op += '  - Refreshing the schema descriptions for ' + str(dbCount) + ' '
-    op += 'databases from Google Sheets'
+    op += '*** Refreshing the schema descriptions for ' + str(dbCount) + ' '
+    op += 'databases from Google Sheets ***'
     op += '\n'
     JOB_LOG.info(op)
 
 
 def logLoadingDBSchemaDescsFromGsheets(dbID):
     op = ''
-    op += '    - Loading schema descriptions for the ' + dbID + ' database...'
+    op += 'Loading schema descriptions for the ' + dbID + ' database...'
     JOB_LOG.info(op)
 
 
-def logLogicalDataModelBuild():
+def logRefreshingSchemaDescsFromGsheets_done():
     op = ''
-    op += '*** Building the logical data model ***'
+    op += '\n'
+    JOB_LOG.info(op)
+
+
+def logSchemaDescsLoad():
+    op = ''
+    op += '*** Loading the schema descriptions ***'
     op += '\n'
     JOB_LOG.info(op)
 
-
-def logLogicalDataModelBuild_done(logicalDataModels=None):
-    op = ''
-    op += '\n'
-    if logicalDataModels is not None:
-        for dmID in logicalDataModels:
-            op += logicalDataModels[dmID].__str__()
-    JOB_LOG.info(op)
+    # if logicalDataModels is not None:
+    #     for dmID in logicalDataModels:
+    #         op += logicalDataModels[dmID].__str__()
 
 
 def logPhysicalDataModelBuild():

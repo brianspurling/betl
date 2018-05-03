@@ -10,7 +10,7 @@ JOB_LOG = logger.getLogger()
 #
 def defaultSummarisePrep(scheduler):
 
-    sumLayer = scheduler.logicalDataModels['SUM']
+    sumLayer = scheduler.conf.getLogicalDataModel('SUM')
 
     sumTables = sumLayer.dataModels['SUM'].tables
 
@@ -30,7 +30,7 @@ def defaultSummarisePrep(scheduler):
 
 def defaultSummariseFinish(scheduler):
 
-    sumLayer = scheduler.logicalDataModels['SUM']
+    sumLayer = scheduler.conf.getLogicalDataModel('SUM')
 
     sumTables = sumLayer.dataModels['SUM'].tables
 
