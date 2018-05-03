@@ -2,6 +2,8 @@ import datetime
 import pandas as pd
 import os
 from configobj import ConfigObj
+
+from . import logger
 from .datastore import PostgresDatastore
 from .datastore import SqliteDatastore
 from .datastore import SpreadsheetDatastore
@@ -17,10 +19,16 @@ class Conf():
 
     def __init__(self, appConfigFile, runTimeParams, scheduleConfig):
 
-        self.app = App(ConfigObj(appConfigFile))
+        self.configObj = ConfigObj(appConfigFile)
+
+        self.ctrl = Ctrl(self.configObj)
         self.exe = Exe(runTimeParams)
         self.state = State()
         self.schedule = Schedule(scheduleConfig)
+        self.data = Data(self.configObj)
+
+        self.JOB_LOG = logger.initialiseLogging(self)
+
         auditColumns_data = {
             'colNames': [
                 'audit_source_system',
@@ -38,34 +46,60 @@ class Conf():
         self.auditColumns = pd.DataFrame(auditColumns_data)
 
 
-class App():
+class Ctrl():
 
     def __init__(self, configObj):
 
+        self.configObj = configObj
+        self.LOG_PATH = configObj['LOG_PATH']
+        self.CTRL_DB = CtrlDB(configObj['ctldb'])
         self.DWH_ID = configObj['DWH_ID']
         self.TMP_DATA_PATH = configObj['TMP_DATA_PATH']
-        self.LOG_PATH = configObj['LOG_PATH']
+        self.SCHEMA_DESCRIPTION_GSHEETS = None
+        self.apiUrl = \
+            configObj['schema_descriptions']['GOOGLE_SHEETS_API_URL']
+        self.apiKey = \
+            configObj['schema_descriptions']['GOOGLE_SHEETS_API_KEY_FILE']
 
-        self.logInitialisingDatastores()
+    def getSchemaDescGSheetDatastores(self):
+        if self.SCHEMA_DESCRIPTION_GSHEETS is None:
+            self.SCHEMA_DESCRIPTION_GSHEETS = {}
+            self.SCHEMA_DESCRIPTION_GSHEETS['ETL'] = \
+                SpreadsheetDatastore(
+                    ssID='ETL',
+                    apiUrl=self.apiUrl,
+                    apiKey=self.apiKey,
+                    filename=self.configObj['schema_descriptions']
+                    ['ETL_FILENAME'])
+            self.SCHEMA_DESCRIPTION_GSHEETS['TRG'] = \
+                SpreadsheetDatastore(
+                    ssID='TRG',
+                    apiUrl=self.apiUrl,
+                    apiKey=self.apiKey,
+                    filename=self.configObj['schema_descriptions']
+                    ['TRG_FILENAME'])
 
-        apiUrl = configObj['schema_descriptions']['GOOGLE_SHEETS_API_URL']
-        apiKey = configObj['schema_descriptions']['GOOGLE_SHEETS_API_KEY_FILE']
-        self.SCHEMA_DESCRIPTION_GSHEETS = {}
-        self.SCHEMA_DESCRIPTION_GSHEETS['ETL'] = \
-            SpreadsheetDatastore(
-                ssID='ETL',
-                apiUrl=apiUrl,
-                apiKey=apiKey,
-                filename=configObj['schema_descriptions']['ETL_FILENAME'])
-        self.SCHEMA_DESCRIPTION_GSHEETS['TRG'] = \
-            SpreadsheetDatastore(
-                ssID='TRG',
-                apiUrl=apiUrl,
-                apiKey=apiKey,
-                filename=configObj['schema_descriptions']['TRG_FILENAME'])
+        return self.SCHEMA_DESCRIPTION_GSHEETS
+
+
+class Data():
+
+    def __init__(self, configObj):
+        self.configObj = configObj
+
+        # We init these as-and-when we need them, to avoid
+        # long delays at the start of very execution
+        self.SRC_SYSTEMS = {}
+        self.DEFAULT_ROW_SRC = None
         self.DWH_DATABASES = {}
-        for dbID in configObj['dbs']:
-            dbConfigObj = configObj['dbs'][dbID]
+        self.LOGICAL_DATA_MODELS = None
+
+    def setLogicalDataModels(self, logicalDataModels):
+        self.LOGICAL_DATA_MODELS = logicalDataModels
+
+    def getDatastore(self, dbID):
+        if dbID not in self.DWH_DATABASES:
+            dbConfigObj = self.configObj['dbs'][dbID]
             self.DWH_DATABASES[dbID] = \
                 PostgresDatastore(
                     dbID=dbID,
@@ -74,61 +108,65 @@ class App():
                     user=dbConfigObj['USER'],
                     password=dbConfigObj['PASSWORD'],
                     createIfNotFound=True)
-        self.DEFAULT_ROW_SRC = \
-            SpreadsheetDatastore(
-                ssID='DR',
-                apiUrl=configObj['default_rows']['GOOGLE_SHEETS_API_URL'],
-                apiKey=configObj['default_rows']['GOOGLE_SHEETS_API_KEY_FILE'],
-                filename=configObj['default_rows']['FILENAME'])
-        self.CTRL_DB = CtrlDB(self.DWH_DATABASES['CTL'])
-        self.SRC_SYSTEMS = {}
-        for srcSysID in configObj['src_sys']:
-            cnfgObj = configObj['src_sys'][srcSysID]
 
-            if cnfgObj['TYPE'] == 'POSTGRES':
+        return self.DWH_DATABASES[dbID]
+
+    def getDefaultRowsDatastore(self):
+        if self.DEFAULT_ROW_SRC is None:
+            self.DEFAULT_ROW_SRC = \
+                SpreadsheetDatastore(
+                    ssID='DR',
+                    apiUrl=self.configObj['default_rows']
+                    ['GOOGLE_SHEETS_API_URL'],
+                    apiKey=self.configObj['default_rows']
+                    ['GOOGLE_SHEETS_API_KEY_FILE'],
+                    filename=self.configObj['default_rows']['FILENAME'])
+        return self.DEFAULT_ROW_SRC
+
+    def getSrcSysDatastore(self, srcSysID):
+        if srcSysID not in self.SRC_SYSTEMS:
+            srcSysConfigObj = self.configObj['src_sys'][srcSysID]
+
+            if srcSysConfigObj['TYPE'] == 'POSTGRES':
                 self.SRC_SYSTEMS[srcSysID] = \
                     PostgresDatastore(
                         dbID=srcSysID,
-                        host=cnfgObj['HOST'],
-                        dbName=cnfgObj['DBNAME'],
-                        user=cnfgObj['USER'],
-                        password=cnfgObj['PASSWORD'],
+                        host=srcSysConfigObj['HOST'],
+                        dbName=srcSysConfigObj['DBNAME'],
+                        user=srcSysConfigObj['USER'],
+                        password=srcSysConfigObj['PASSWORD'],
                         isSrcSys=True)
 
-            elif cnfgObj['TYPE'] == 'SQLITE':
+            elif srcSysConfigObj['TYPE'] == 'SQLITE':
                 self.SRC_SYSTEMS[srcSysID] = \
                     SqliteDatastore(
                         dbID=srcSysID,
-                        path=cnfgObj['PATH'],
-                        filename=cnfgObj['FILENAME'],
+                        path=srcSysConfigObj['PATH'],
+                        filename=srcSysConfigObj['FILENAME'],
                         isSrcSys=True)
 
-            elif cnfgObj['TYPE'] == 'FILESYSTEM':
+            elif srcSysConfigObj['TYPE'] == 'FILESYSTEM':
                 self.SRC_SYSTEMS[srcSysID] = \
                     FileDatastore(
                         fileSysID=srcSysID,
-                        path=cnfgObj['PATH'],
-                        fileExt=cnfgObj['FILE_EXT'],
-                        delim=cnfgObj['DELIMITER'],
-                        quotechar=cnfgObj['QUOTECHAR'],
+                        path=srcSysConfigObj['PATH'],
+                        fileExt=srcSysConfigObj['FILE_EXT'],
+                        delim=srcSysConfigObj['DELIMITER'],
+                        quotechar=srcSysConfigObj['QUOTECHAR'],
                         isSrcSys=True)
 
-            elif cnfgObj['TYPE'] == 'SPREADSHEET':
-                apiUrl = cnfgObj['GOOGLE_SHEETS_API_URL']
-                apiKey = cnfgObj['GOOGLE_SHEETS_API_KEY_FILE']
+            elif srcSysConfigObj['TYPE'] == 'SPREADSHEET':
+                apiUrl = srcSysConfigObj['GOOGLE_SHEETS_API_URL']
+                apiKey = srcSysConfigObj['GOOGLE_SHEETS_API_KEY_FILE']
                 self.SRC_SYSTEMS[srcSysID] = \
                     SpreadsheetDatastore(
                         ssID=srcSysID,
                         apiUrl=apiUrl,
                         apiKey=apiKey,
-                        filename=cnfgObj['FILENAME'],
+                        filename=srcSysConfigObj['FILENAME'],
                         isSrcSys=True)
 
-    def logInitialisingDatastores(self):
-        op = ''
-        op += '*** Initialising all datastores ***'
-        op += '\n'
-        print(op)
+        return self.SRC_SYSTEMS[srcSysID]
 
 
 class Exe():
@@ -180,8 +218,6 @@ class State():
         self.LATEST_DATE_IN_DATA = (datetime.date.today() +
                                     datetime.timedelta(days=365))
 
-        self.LOGICAL_DATA_MODELS = None
-
         self.fileNameMap = {}
         self.nextFilePrefix = 1
         self.filePrefixLength = 4
@@ -202,9 +238,6 @@ class State():
 
     def setExecID(self, execID):
         self.EXEC_ID = execID
-
-    def setLogicalDataModels(self, logicalDataModels):
-        self.LOGICAL_DATA_MODELS = logicalDataModels
 
 
 class Schedule():

@@ -16,9 +16,9 @@ class DataLayer():
         self.databaseID = dbID
         self.dataLayerID = dataLayerID
 
-        self.datastore = conf.app.DWH_DATABASES[dbID]
+        self.datastore = conf.data.getDatastore(dbID)
         self.schemaDescSpreadsheetDatastore = \
-            conf.app.SCHEMA_DESCRIPTION_GSHEETS[dbID]
+            conf.ctrl.getSchemaDescGSheetDatastores()[dbID]
         self.dataModels = self.buildLogicalDataModels()
 
     def buildLogicalDataModels(self):

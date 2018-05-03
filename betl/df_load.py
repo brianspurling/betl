@@ -51,7 +51,7 @@ def defaultLoad(scheduler):
         # Our defaultRows SS should contain a tab per dimension, each with 1+
         # default rows defined. IDs are defined too - should all be negative
         defaultRows = {}
-        worksheets = scheduler.conf.app.DEFAULT_ROW_SRC.worksheets
+        worksheets = scheduler.conf.data.getDefaultRowsDatastore().worksheets
         for wsTitle in worksheets:
             defaultRows[wsTitle] = worksheets[wsTitle].get_all_records()
 

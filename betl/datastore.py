@@ -14,16 +14,10 @@ class Datastore():
 
     def __init__(self, datastoreID, datastoreType, isSrcSys):
 
-        self.logInitialisingDatastore(datastoreID, datastoreType)
+        logger.logInitialiseDatastore(datastoreID, datastoreType)
         self.datatoreID = datastoreID
         self.datastoreType = datastoreType
         self.isSrcSys = isSrcSys
-
-    def logInitialisingDatastore(self, datastoreID, datastoreType):
-        op = ''
-        op += '  - Initialising ' + datastoreID
-        op += ' datastore (' + datastoreType + ')'
-        print(op)
 
 
 class PostgresDatastore(Datastore):

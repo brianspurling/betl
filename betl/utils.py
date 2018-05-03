@@ -7,8 +7,8 @@ import ast
 import json
 import tempfile
 
-from . import cli
 from . import logger
+from . import cli
 from .dataLayer import SrcDataLayer
 from .dataLayer import StgDataLayer
 from .dataLayer import TrgDataLayer
@@ -16,18 +16,12 @@ from .dataLayer import SumDataLayer
 from .conf import Conf
 from .scheduler import Scheduler
 
-JOB_LOG = None
-
 
 def init(appConfigFile, runTimeParams, scheduleConfig=None):
-
-    global JOB_LOG
 
     ###############
     # LOGGING OFF #
     ###############
-
-    logExecutionPrepStart()
 
     if scheduleConfig is None:
 
@@ -49,9 +43,6 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
     # LOGGING ON #
     ##############
 
-    logger.initialiseLogging(conf)
-    JOB_LOG = logger.getLogger()
-
     logger.logExecutionStart(rerun=conf.state.RERUN_PREV_JOB)
 
     if conf.exe.RUN_SETUP:
@@ -64,9 +55,9 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
             logger.logExecutionOverview(lastExecReport)
 
     if conf.exe.DELETE_TMP_DATA:
-        deleteTempoaryData(conf.app.TMP_DATA_PATH)
+        deleteTempoaryData(conf.ctrl.DWH_ID)
     else:
-        conf.state.populateFileNameMap(conf.app.TMP_DATA_PATH)
+        conf.state.populateFileNameMap(conf.ctrl.DWH_ID)
 
     # Get the schema descriptions from schemas/, or from Google Sheets, if
     # the sheets have been edited since they were last saved to csv
@@ -81,9 +72,12 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
     oneOrMoreLastModTimesChanged = False
     lastModTimesChanged = {}
 
+    logger.logLogicalDataModelBuild()
+
     # Check the last modified time of the Google Sheets
-    for dbID in conf.app.SCHEMA_DESCRIPTION_GSHEETS:
-        sheet = conf.app.SCHEMA_DESCRIPTION_GSHEETS[dbID]
+    schemaDescGsheets = conf.ctrl.getSchemaDescGSheetDatastores()
+    for dbID in schemaDescGsheets:
+        sheet = schemaDescGsheets[dbID]
         if (sheet.filename not in lastModifiedTimes
            or sheet.lastModifiedTime != lastModifiedTimes[sheet.filename]):
             oneOrMoreLastModTimesChanged = True
@@ -92,7 +86,7 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
     if oneOrMoreLastModTimesChanged:
         logger.logRefreshingSchemaDescsFromGsheets(len(lastModTimesChanged))
         for dbID in lastModTimesChanged:
-            sheet = conf.app.SCHEMA_DESCRIPTION_GSHEETS[dbID]
+            sheet = schemaDescGsheets[dbID]
             refreshSchemaDescCSVs(sheet, dbID)
             lastModifiedTimes[sheet.filename] = sheet.lastModifiedTime
 
@@ -100,13 +94,12 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
         modTimesFile = open('schemas/lastModifiedTimes.txt', 'w')
         modTimesFile.write(json.dumps(lastModifiedTimes))
 
-    logger.logLogicalDataModelBuild()
     logicalDataModels = {}
     logicalDataModels['SRC'] = SrcDataLayer(conf)
     logicalDataModels['STG'] = StgDataLayer(conf)
     logicalDataModels['TRG'] = TrgDataLayer(conf)
     logicalDataModels['SUM'] = SumDataLayer(conf)
-    conf.state.setLogicalDataModels(logicalDataModels)
+    conf.data.setLogicalDataModels(logicalDataModels)
     logger.logLogicalDataModelBuild_done()
 
     if conf.exe.RUN_REBUILD_ALL or \
@@ -142,7 +135,7 @@ def run(conf):
         response = scheduler.executeSchedule()
 
     if response == 'SUCCESS':
-        conf.app.CTRL_DB.updateExecutionInCtlTable(
+        conf.ctrl.CTRL_DB.updateExecutionInCtlTable(
             execId=conf.state.EXEC_ID,
             status='SUCCESSFUL',
             statusMessage='')
@@ -172,7 +165,7 @@ def getDetaulfScheduleConfig():
 def setUpExecution(conf):
 
     # Log in to the CTL DB and check the status of the last run
-    lastExecDetails = getDetailsOfLastExecution(conf.app.CTRL_DB)
+    lastExecDetails = getDetailsOfLastExecution(conf.ctrl.CTRL_DB)
     lastExecStatus = lastExecDetails['lastExecStatus']
     lastExecId = lastExecDetails['lastExecId']
 
@@ -212,7 +205,7 @@ def setUpExecution(conf):
     conf.state.setExecID(execId)
 
     if not conf.state.RERUN_PREV_JOB:
-        conf.app.CTRL_DB.insertNewExecutionToCtlTable(
+        conf.ctrl.CTRL_DB.insertNewExecutionToCtlTable(
             execId,
             conf.exe.BULK_OR_DELTA)
 
@@ -239,11 +232,11 @@ def getDetailsOfLastExecution(ctlDB):
 
 
 def setupBetl(conf):
-    conf.app.CTRL_DB.dropAllCtlTables()
+    conf.ctrl.CTRL_DB.dropAllCtlTables()
     archiveLogFiles(conf)
     setupSchemaDir(conf)
-    conf.app.CTRL_DB.createExecutionsTable()
-    conf.app.CTRL_DB.createSchedulesTable()
+    conf.ctrl.CTRL_DB.createExecutionsTable()
+    conf.ctrl.CTRL_DB.createSchedulesTable()
 
 
 def archiveLogFiles(conf):
@@ -252,8 +245,8 @@ def archiveLogFiles(conf):
         time.time()
     ).strftime('%Y%m%d%H%M%S')
 
-    source = conf.app.LOG_PATH
-    dest = conf.app.LOG_PATH + 'archive_' + timestamp + '/'
+    source = conf.ctrl.LOG_PATH
+    dest = conf.ctrl.LOG_PATH + 'archive_' + timestamp + '/'
 
     if not os.path.exists(dest):
         os.makedirs(dest)
@@ -293,9 +286,9 @@ def checkDBsForSuperflousTables(conf):
     query = ("SELECT table_name FROM information_schema.tables " +
              "WHERE table_schema = 'public'")
 
-    etlDBCursor = conf.app.DWH_DATABASES['ETL'].cursor()
+    etlDBCursor = conf.data.getDatastore('ETL').cursor()
     etlDBCursor.execute(query)
-    trgDBCursor = conf.app.DWH_DATABASES['TRG'].cursor()
+    trgDBCursor = conf.data.getDatastore('TRG').cursor()
     trgDBCursor.execute(query)
 
     # query returns list of tuples, (<tablename>, )
@@ -304,9 +297,9 @@ def checkDBsForSuperflousTables(conf):
     allTables.extend([item[0] for item in trgDBCursor.fetchall()])
 
     dataModelTables = []
-    for dataLayerID in conf.state.LOGICAL_DATA_MODELS:
+    for dataLayerID in conf.data.LOGICAL_DATA_MODELS:
         dataModelTables.extend(
-            conf.state.LOGICAL_DATA_MODELS[dataLayerID].getListOfTables())
+            conf.data.LOGICAL_DATA_MODELS[dataLayerID].getListOfTables())
 
     superflousTableNames = []
     for tableName in allTables:
@@ -314,7 +307,7 @@ def checkDBsForSuperflousTables(conf):
             superflousTableNames.append(tableName)
 
     if len(superflousTableNames) > 0:
-        JOB_LOG.warn(
+        conf.JOB_LOG.warn(
             logger.superflousTableWarning(',\n  '.join(superflousTableNames)))
 
 
@@ -385,15 +378,3 @@ def refreshSchemaDescCSVs(datastore, dbID):
 
     with open('schemas/dbSchemaDesc_' + dbID + '.txt', 'w') as file:
         file.write(json.dumps(dbSchemaDesc))
-
-
-def logExecutionPrepStart():
-
-    op = '\n'
-    op += '                  *****************************' + '\n'
-    op += '                  *                           *' + '\n'
-    op += '                  *  Preparing BETL Execution *' + '\n'
-    op += '                  *                           *' + '\n'
-    op += '                  *****************************' + '\n'
-
-    print(op)

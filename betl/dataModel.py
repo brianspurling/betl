@@ -100,4 +100,4 @@ class SrcDataModel(DataModel):
 
         self.conf = conf
         self.srcSysDatastore = \
-            conf.app.SRC_SYSTEMS[dataModelSchemaDesc['dataModelID']]
+            conf.data.getSrcSysDatastore(dataModelSchemaDesc['dataModelID'])

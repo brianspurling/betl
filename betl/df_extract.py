@@ -225,7 +225,7 @@ def defaultExtract_delta(scheduler):
             etlDbCursor.execute("UPDATE src_ipa_addresses "
                                 + nonNkSetClause + " "
                                 + nkWhereClause)
-        scheduler.conf.app.DWH_DATABASES['ETL'].commit()
+        scheduler.conf.data.getDatastore('ETL').commit()
     else:
         pass
 

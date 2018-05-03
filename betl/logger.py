@@ -18,16 +18,16 @@ def initialiseLogging(conf):
     execId = conf.state.EXEC_ID
     logLevel = conf.exe.LOG_LEVEL
 
+    global CONF
     global JOB_LOG
     global EXEC_ID
     global LOG_LEVEL
-    global CONF
     global JOB_LOG_FILE_NAME
 
+    CONF = conf
     EXEC_ID = execId
     if logLevel is not None:
         LOG_LEVEL = logLevel
-    CONF = conf
 
     JOB_LOG_FILE_NAME = 'logs/' + str(EXEC_ID) + '_jobLog.log'
 
@@ -38,6 +38,8 @@ def initialiseLogging(conf):
     JOB_LOG.setLevel(logging.DEBUG)  # Always log everything on this log
     JOB_LOG.addHandler(jobLogFileHandler)
     JOB_LOG.addHandler(streamHandler)
+
+    return logging.getLogger('JOB_LOG')
 
 
 def getLogger():
@@ -88,6 +90,21 @@ def logExecutionOverview(execReport, rerun=False):
     op += '-------' + '\n'
 
     JOB_LOG.info(op)
+
+
+def logInitialiseDatastore(datastoreID, datastoreType):
+
+    if datastoreID in ['CTL']:
+        pass
+    else:
+        op = ''
+        op += '  - Initialising ' + datastoreID
+        op += ' datastore (' + datastoreType + ')'
+
+        if JOB_LOG is not None:
+            JOB_LOG.info(op)
+        else:
+            print(op)
 
 
 def logDFStart(desc, startTime):
@@ -294,15 +311,16 @@ def logUnableToReadFromCtlDB(errorMessage):
 
 def logRefreshingSchemaDescsFromGsheets(dbCount):
     op = ''
-    op += '*** Refreshing the schema descriptions for ' + str(dbCount) + ' '
-    op += 'databases from Google Sheets ***'
+    op += '\n'
+    op += '  - Refreshing the schema descriptions for ' + str(dbCount) + ' '
+    op += 'databases from Google Sheets'
     op += '\n'
     JOB_LOG.info(op)
 
 
 def logLoadingDBSchemaDescsFromGsheets(dbID):
     op = ''
-    op += '  - Loading schema descriptions for the ' + dbID + ' database...'
+    op += '    - Loading schema descriptions for the ' + dbID + ' database...'
     op += '\n'
     JOB_LOG.info(op)
 
@@ -316,7 +334,6 @@ def logLogicalDataModelBuild():
 
 def logLogicalDataModelBuild_done(logicalDataModels=None):
     op = ''
-    op += '  - Built the logical data model'
     op += '\n'
     if logicalDataModels is not None:
         for dmID in logicalDataModels:

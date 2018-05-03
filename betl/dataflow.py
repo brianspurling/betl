@@ -15,8 +15,6 @@ class DataFlow():
 
     def __init__(self, conf, desc):
 
-        self.log = logger.getLogger()
-
         self.startTime = datetime.now()
         self.conf = conf
         self.description = desc
@@ -40,7 +38,7 @@ class DataFlow():
         logger.logStepStart(startTime, desc)
 
         limitdata = self.conf.exe.DATA_LIMIT_ROWS
-        srcSysDatastore = self.conf.app.SRC_SYSTEMS[srcSysID]
+        srcSysDatastore = self.conf.data.getSrcSysDatastore(srcSysID)
 
         df = pd.DataFrame()
 
@@ -114,14 +112,15 @@ class DataFlow():
             raise ValueError('There is already a dataset named ' +
                              _targetDataset + ' in this dataflow')
 
-        path = (self.conf.app.TMP_DATA_PATH + dataLayer + '/')
+        path = (self.conf.ctrl.DWH_ID + dataLayer + '/')
         filename = tableName + '.csv'
 
         df = pd.DataFrame()
         if forceDBRead:
             df = dbIO.readDataFromDB(
                 tableName=tableName,
-                conn=self.conf.app.DWH_DATABASES[dataLayer].conn)
+                # TODO: Can't do this! dbs labelled by db id, not datalayer
+                conn=self.conf.data.getDatastore(dataLayer).conn)
 
         else:
             df = fileIO.readDataFromCsv(conf=self.conf,
@@ -192,7 +191,7 @@ class DataFlow():
         else:
             writeToDB = self.conf.exe.WRITE_TO_ETL_DB
 
-        dataLayer = self.conf.state.LOGICAL_DATA_MODELS[dataLayerID]
+        dataLayer = self.conf.data.LOGICAL_DATA_MODELS[dataLayerID]
         if (targetTableName not in dataLayer.getListOfTables()
            and not forceDBWrite):
             writeToDB = False
@@ -202,6 +201,7 @@ class DataFlow():
         # check down to the connection itself, but this doesn't apply to csv
         # or spreadsheet, and nor does it cover sqlalchemy's engine (used by
         # Pandas). Hence the check here.
+
         if dataLayer.datastore.isSrcSys:
             raise ValueError("You just attempted to write to a source system!")
 
@@ -281,7 +281,7 @@ class DataFlow():
                 axis=1,
                 inplace=True)
 
-        path = (self.conf.app.TMP_DATA_PATH + dataLayerID + '/')
+        path = (self.conf.ctrl.DWH_ID + dataLayerID + '/')
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -626,7 +626,7 @@ class DataFlow():
         startTime = datetime.now()
         logger.logStepStart(startTime, desc, additionalDesc=sql)
 
-        datastore = self.conf.state.LOGICAL_DATA_MODELS[dataLayer].datastore
+        datastore = self.conf.data.LOGICAL_DATA_MODELS[dataLayer].datastore
         df = dbIO.customSQL(sql, datastore)
 
         if dataset is not None:
@@ -655,13 +655,13 @@ class DataFlow():
         startTime = datetime.now()
         logger.logStepStart(startTime, desc)
 
-        path = (self.conf.app.TMP_DATA_PATH + dataLayerID + '/')
+        path = (self.conf.ctrl.DWH_ID + dataLayerID + '/')
         filename = dataset + '.csv'
 
         fileIO.truncateFile(self.conf, path, filename)
 
         if forceDBWrite:
-            dataLayer = self.conf.state.LOGICAL_DATA_MODELS[dataLayerID]
+            dataLayer = self.conf.data.LOGICAL_DATA_MODELS[dataLayerID]
             dbIO.truncateTable(dataset, dataLayer.datastore)
 
         report = ''

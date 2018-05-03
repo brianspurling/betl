@@ -13,7 +13,7 @@ class Scheduler():
 
         self.jobLog = logger.getLogger()
 
-        self.logicalDataModels = conf.state.LOGICAL_DATA_MODELS
+        self.logicalDataModels = conf.data.LOGICAL_DATA_MODELS
         self.scheduleList = []
         self.scheduleDic = {}
         self.srcTablesToExcludeFromExtract = []
@@ -21,7 +21,7 @@ class Scheduler():
         self.bulkOrDelta = conf.exe.BULK_OR_DELTA
 
         self.conf = conf
-        self.ctrlDB = self.conf.app.CTRL_DB
+        self.ctrlDB = self.conf.ctrl.CTRL_DB
 
         # We must construct the scheduler even if we're re-running the prev
         # load. constructSchedule puts all the actual funcs into the dict,

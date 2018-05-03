@@ -12,7 +12,7 @@ LAST_EXE_FAILED = (
     "It is strongly recommended you complete the execution\n" +
     "before running a new load.\n\n" +
     "To ignore this warning and run a brand new load, enter\n" +
-    "'ignore'. To rerun the previous job press any key\n")
+    "'ignore'. To rerun the previous job press any key\n\n")
 
 CANT_RERUN_WITH_SETUP_OR_REBUILD = (
     "\nYou can't rerun a previous job at the same time as\n" +
