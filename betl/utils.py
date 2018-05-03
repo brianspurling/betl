@@ -55,9 +55,9 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
             logger.logExecutionOverview(lastExecReport)
 
     if conf.exe.DELETE_TMP_DATA:
-        deleteTempoaryData(conf.ctrl.DWH_ID)
+        deleteTempoaryData(conf.ctrl.TMP_DATA_PATH)
     else:
-        conf.state.populateFileNameMap(conf.ctrl.DWH_ID)
+        conf.state.populateFileNameMap(conf.ctrl.TMP_DATA_PATH)
 
     # Get the schema descriptions from schemas/, or from Google Sheets, if
     # the sheets have been edited since they were last saved to csv

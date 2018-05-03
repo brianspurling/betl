@@ -112,7 +112,7 @@ class DataFlow():
             raise ValueError('There is already a dataset named ' +
                              _targetDataset + ' in this dataflow')
 
-        path = (self.conf.ctrl.DWH_ID + dataLayer + '/')
+        path = (self.conf.ctrl.TMP_DATA_PATH + dataLayer + '/')
         filename = tableName + '.csv'
 
         df = pd.DataFrame()
@@ -281,7 +281,7 @@ class DataFlow():
                 axis=1,
                 inplace=True)
 
-        path = (self.conf.ctrl.DWH_ID + dataLayerID + '/')
+        path = (self.conf.ctrl.TMP_DATA_PATH + dataLayerID + '/')
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -655,7 +655,7 @@ class DataFlow():
         startTime = datetime.now()
         logger.logStepStart(startTime, desc)
 
-        path = (self.conf.ctrl.DWH_ID + dataLayerID + '/')
+        path = (self.conf.ctrl.TMP_DATA_PATH + dataLayerID + '/')
         filename = dataset + '.csv'
 
         fileIO.truncateFile(self.conf, path, filename)
