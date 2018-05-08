@@ -18,3 +18,8 @@ def run():
 
 def DataFlow(desc):
     return dataflow.DataFlow(CONF, desc)
+
+
+def getConf():
+    global CONF
+    return CONF
