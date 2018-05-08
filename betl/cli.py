@@ -85,18 +85,12 @@ HELP = ("\n" +
         "* betl instructions *\n" +
         "*********************\n" +
         "\n" +
-        # TODO: this is no longer right!
-        "- In your script, first call betl.processArgs(sys.argv)\n" +
-        "- Then pass config details to betl with betl.loadAppConfig()\n" +
-        "  Refer to betl.conf.py for the configuration required\n" +
-        "- Add your bespoke data flows to the schedule with\n" +
-        "  betl.scheduleDataFlow(function,stage,pos)\n" +
-        "- If the SRC schema def is empty, betl will auto-populate\n" +
-        "  it from the source system(s)\n" +
-        "- You will then need to identify the natural keys manually, in\n" +
-        "  the spreadsheet\n" +
-        "- Use betl.useDefaultExtract() to use a standard extract:\n" +
-        "  (It will use full table comparisons on the NKs to get deltas\n" +
+        "- In your main script, first setup your scheduleConfig \n" +
+        "  dictionary (see documentation). This contains a list of all \n" +
+        "  the bespoke dataflows your ETL script needs to run. \n" +
+        "- Then call betl.init, passing in your appConfig file, your \n" +
+        "  runtime parameters (sys.argv), and your scheduleConfig. \n" +
+        " - Finally, call betl.run() \n" +
         "\n" +
         "--------------------------------------------------------------\n" +
         "\n")
