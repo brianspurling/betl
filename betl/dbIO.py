@@ -16,8 +16,10 @@ def writeDataToDB(df, tableName, eng, if_exists,
               if_exists=if_exists,
               index=False,
               dtype={col_name: Text for col_name in df})
-    # TODO: can't do the above line for everything, surely?!
-    # It will clash with pre-made tables and overwrite them (I think)
+    # TODO: why do I need to do the above line? It was put in to solve a bug
+    # but I would have thought it wasn't ok, because it will clash with
+    # pre-made tables and overwrite them. However it doesn't appear to be
+    # doing that... :s
 
 
 def readDataFromDB(tableName, conn, cols='*', limitdata=None):

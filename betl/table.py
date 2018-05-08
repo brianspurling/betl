@@ -92,7 +92,7 @@ class Table():
 
         tableType = 'UNKNOWN'
 
-        if self.dataLayerID != 'TRG':
+        if self.dataLayerID not in ('TRG', 'SUM'):
             tableType = 'Not TRG Layer'
         elif self.tableName[:3] == 'dm_':
             tableType = 'DIMENSION'

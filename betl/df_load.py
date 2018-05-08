@@ -11,12 +11,17 @@ import numpy as np
 # called dm_a_dimension.csv. If that isn't the case, pass in to
 # nonDefaultStagingTables a key,value pair of <dimension name>,<staging csv>
 #
+# TODO: need separate functions for dims and facts, otherwise the whole thing
+# has to rerun
 def defaultLoad(scheduler):
 
     trgLayer = scheduler.conf.getLogicalDataModel('TRG')
+    sumLayer = scheduler.conf.getLogicalDataModel('SUM')
 
     trgTables = trgLayer.dataModels['TRG'].tables
-    nonDefaultStagingTables = \
+    sumTables = sumLayer.dataModels['SUM'].tables
+
+    nonDefaultTrgTables = \
         scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
     # We must load the dimensions before the facts!
@@ -30,16 +35,18 @@ def defaultLoad(scheduler):
 
         # DROP INDEXES
 
+        trgAndSumTbls = {**trgTables, **sumTables}
+
         dfl = betl.DataFlow(
             desc="If it's a bulk load, drop the indexes to speed up " +
                  "writing. We do this here, because we need to drop " +
                  "fact indexes first (or, to be precise, the facts' " +
                  "foreign key constraints, because the dim ID indexes " +
                  " cant be dropped until the FKs that point to them are gone)")
-        for tableName in trgTables:
-            if (trgTables[tableName].getTableType() == 'FACT'):
-                if tableName not in nonDefaultStagingTables:
-                    for sql in trgTables[tableName].getSqlDropIndexes():
+        for tableName in trgAndSumTbls:
+            if trgAndSumTbls[tableName].getTableType() in ('FACT', 'SUMMARY'):
+                if tableName not in nonDefaultTrgTables:
+                    for sql in trgAndSumTbls[tableName].getSqlDropIndexes():
                         dfl.customSQL(
                             sql,
                             dataLayer='TRG',
@@ -59,7 +66,7 @@ def defaultLoad(scheduler):
             for tableName in trgTables:
                 tableType = trgTables[tableName].getTableType()
                 if (tableType == dimOrFactLoad):
-                    if tableName not in nonDefaultStagingTables:
+                    if tableName not in nonDefaultTrgTables:
                         bulkLoadTable(table=trgTables[tableName],
                                       tableType=tableType,
                                       defaultRows=defaultRows,
@@ -70,7 +77,7 @@ def defaultLoad(scheduler):
             for tableName in trgTables:
                 tableType = trgTables[tableName].getTableType()
                 if (tableType == tableType):
-                    if tableName not in nonDefaultStagingTables:
+                    if tableName not in nonDefaultTrgTables:
                         deltaLoadTable(table=trgTables[tableName],
                                        tableType=tableType,
                                        conf=scheduler.conf)
@@ -223,10 +230,6 @@ def bulkLoadFact(conf, table):
         targetDataset=table.tableName,
         desc='Read the data we are going to load to TRG (from file ' +
              'trg_' + table.tableName + ')')
-
-    dfl.createAuditNKs(
-        dataset=table.tableName,
-        desc='Collapse the audit columns into their NK')
 
     dfl.write(
         dataset=table.tableName,

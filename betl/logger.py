@@ -2,6 +2,7 @@ import logging
 import inspect
 from datetime import datetime
 import os
+import psutil
 
 JOB_LOG = None
 
@@ -9,6 +10,7 @@ EXEC_ID = None
 LOG_LEVEL = logging.ERROR
 CONF = None
 JOB_LOG_FILE_NAME = None
+PREVIOUS_MEM_USAGE = None
 
 EXE_START_TIME = None
 
@@ -23,6 +25,7 @@ def initialiseLogging(conf):
     global EXEC_ID
     global LOG_LEVEL
     global JOB_LOG_FILE_NAME
+    global MEM_USAGE_AT_START
 
     CONF = conf
     EXEC_ID = execId
@@ -38,6 +41,8 @@ def initialiseLogging(conf):
     JOB_LOG.setLevel(logging.DEBUG)  # Always log everything on this log
     JOB_LOG.addHandler(jobLogFileHandler)
     JOB_LOG.addHandler(streamHandler)
+
+    MEM_USAGE_AT_START = psutil.Process(os.getpid()).memory_info().rss
 
     return logging.getLogger('JOB_LOG')
 
@@ -63,6 +68,8 @@ def logExecutionStart(rerun=False):
     op += '                  *  BETL Execution ' + value + ' *' + '\n'
     op += '                  *                           *' + '\n'
     op += '                  *****************************' + '\n'
+
+    op += logMemoryUsage()
 
     JOB_LOG.info(op)
 
@@ -142,6 +149,8 @@ def logDFStart(desc, startTime):
     op += '*                                                               *\n'
     op += '*****************************************************************\n'
 
+    op += logMemoryUsage()
+
     JOB_LOG.info(op)
 
 
@@ -163,6 +172,20 @@ def logStepStart(startTime,
     startStr = startTime.strftime('%H:%M:%S')
     op += '   | [Started step: ' + startStr + ']'
 
+    op += logMemoryUsage()
+
+    JOB_LOG.info(op)
+
+
+def logStepError(str):
+
+    op = ''
+    op += '\n'
+    op += '\n'
+    op += str
+    op += '\n'
+    op += '\n'
+
     JOB_LOG.info(op)
 
 
@@ -180,6 +203,8 @@ def logStepEnd(report, duration, datasetName=None, df=None, shapeOnly=False):
             shapeOnly=shapeOnly)
     op += '   -------------------------------------------------------\n'
 
+    op += logMemoryUsage()
+
     JOB_LOG.info(op)
 
 
@@ -191,6 +216,8 @@ def logDFEnd(durationSeconds, df=None):
 
     if df is not None:
         op += describeDataFrame(df)
+
+    op += logMemoryUsage()
 
     JOB_LOG.info(op)
 
@@ -208,13 +235,20 @@ def describeDataFrame(df,
     numberOfColumns = len(df.columns.values)
     if set(CONF.auditColumns['colNames']).issubset(list(df.columns.values)):
         tableContainsAuditCols = True
-        numberOfColumns = numberOfColumns - len(CONF.auditColumns['colNames'])
+        # We should be able to predict the number of audit cols, but that
+        # doesn't help much with debugging (which, at this stage, is pretty
+        # necessary with the audit functionality).
+        numberOfAuditCols = 0
+        for col in list(df.columns.values):
+            if col in list(CONF.auditColumns['colNames']):
+                numberOfAuditCols += 1
+        numberOfColumns = numberOfColumns - numberOfAuditCols
 
     op = ''
     op += '   ' + firstChar + 'Output: ' + str(df.shape[0]) + ' rows, '
     op += str(numberOfColumns) + ' cols'
     if tableContainsAuditCols:
-        op += ' (& audit cols)'
+        op += ' (& ' + str(numberOfAuditCols) + ' audit cols)'
     if datasetName is not None:
         op += ' [' + datasetName + ']'
     op += '\n'
@@ -379,4 +413,17 @@ def superflousTableWarning(tableNamesStr):
     op += '\n'
     op += '  ' + tableNamesStr
     op += '  \n'
+    return op
+
+
+def logMemoryUsage():
+    op = ''
+    if CONF.MONITOR_MEMORY_USAGE:
+
+        currentMemUsage = psutil.Process(os.getpid()).memory_info().rss
+        percent = round(currentMemUsage / MEM_USAGE_AT_START * 100)
+
+        op += '\n'
+        op += 'Used Memory: ' + str(percent)
+        op += '% (% of use at start) \n'
     return op

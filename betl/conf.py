@@ -31,6 +31,7 @@ class Conf():
         self.schedule = Schedule(scheduleConfig)
         self.data = Data(self.configObj)
 
+        self.MONITOR_MEMORY_USAGE = True
         self.LOGICAL_DATA_MODELS = {}
 
         self.JOB_LOG = None
@@ -55,8 +56,6 @@ class Conf():
 
     # We need the conf to init the ctrl db, and we need the ctrl db to
     # get the exec Id, and we need the exec ID to init the logging
-    # TODO: would be better to log instantly, with a temp file name, then
-    # update the filename when the exec ID is known.
     def initialiseLogging(self):
         self.JOB_LOG = logger.initialiseLogging(self)
 
@@ -279,11 +278,12 @@ class Schedule():
 
     def __init__(self, scheduleConfig):
         self.DEFAULT_EXTRACT = scheduleConfig['DEFAULT_EXTRACT']
-        self.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT = \
-            scheduleConfig['SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT']
+        self.DEFAULT_TRANSFORM = scheduleConfig['DEFAULT_TRANSFORM']
         self.DEFAULT_LOAD = scheduleConfig['DEFAULT_LOAD']
         self.DEFAULT_SUMMARISE = scheduleConfig['DEFAULT_SUMMARISE']
         self.DEFAULT_DM_DATE = scheduleConfig['DEFAULT_DM_DATE']
+        self.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT = \
+            scheduleConfig['SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT']
         self.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD = \
             scheduleConfig['TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD']
         self.EXTRACT_DFS = scheduleConfig['EXTRACT_DFS']

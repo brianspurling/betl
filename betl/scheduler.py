@@ -1,10 +1,11 @@
 import traceback
 from . import logger as logger
 from . import df_extract
-from . import df_dmDate
-from . import df_dmAudit
+from . import df_transform
 from . import df_load
 from . import df_summarise
+from . import df_dmDate
+from . import df_dmAudit
 
 
 class Scheduler():
@@ -35,6 +36,7 @@ class Scheduler():
     def constructSchedule(self):
 
         schedule = self.conf.schedule
+
         if self.conf.exe.RUN_EXTRACT:
             if schedule.DEFAULT_EXTRACT:
                 self.scheduleDataflow(df_extract.defaultExtract, 'EXTRACT')
@@ -47,13 +49,18 @@ class Scheduler():
 
         if self.conf.exe.RUN_TRANSFORM:
 
-            if schedule.DEFAULT_DM_DATE:
-                self.scheduleDataflow(df_dmDate.transformDMDate, 'TRANSFORM')
-
             for dataflow in schedule.TRANSFORM_DFS:
                 self.scheduleDataflow(dataflow, 'TRANSFORM')
 
+            if schedule.DEFAULT_DM_DATE:
+                self.scheduleDataflow(df_dmDate.transformDMDate, 'TRANSFORM')
+
             self.scheduleDataflow(df_dmAudit.transformDMAudit, 'TRANSFORM')
+
+            if schedule.DEFAULT_TRANSFORM:
+                self.scheduleDataflow(
+                    df_transform.defaultTransform,
+                    'TRANSFORM')
 
         if self.conf.exe.RUN_LOAD:
 

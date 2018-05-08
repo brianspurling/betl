@@ -1,3 +1,4 @@
+from . import api as betl
 from . import logger
 
 JOB_LOG = logger.getLogger()
@@ -13,19 +14,28 @@ def defaultSummarisePrep(scheduler):
     sumLayer = scheduler.conf.getLogicalDataModel('SUM')
 
     sumTables = sumLayer.dataModels['SUM'].tables
+    nonDefaultTrgTables = \
+        scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
     if scheduler.bulkOrDelta == 'BULK':
+        dfl = betl.DataFlow(
+            desc="If it's a bulk load, drop the indexes to speed up " +
+                 "writing.")
         for tableName in sumTables:
             if (sumTables[tableName].getTableType() == 'SUMMARY'):
-                # If it's a bulk load, drop facts' foreign key constraints
-                # to speed up writing.
-                logger.logStepStart('Dropping fact indexes for ' + tableName)
-                sumTables[tableName].dropIndexes()
+                if tableName not in nonDefaultTrgTables:
+                    for sql in sumTables[tableName].getSqlDropIndexes():
+                        dfl.customSQL(
+                            sql,
+                            dataLayer='SUM',
+                            desc='Dropping indexes for ' + tableName)
 
-                # Because it's a bulk load, clear out the data (which also
-                # restarts the SK sequences).
-                logger.logStepStart('Truncating ' + tableName)
-                sumTables[tableName].truncateTable()
+                    dfl.truncate(
+                        dataset=tableName,
+                        dataLayerID='SUM',
+                        forceDBWrite=True,
+                        desc='Because it is a bulk load, clear out the data ' +
+                             '(which also restarts the SK sequences)')
 
 
 def defaultSummariseFinish(scheduler):
@@ -33,8 +43,18 @@ def defaultSummariseFinish(scheduler):
     sumLayer = scheduler.conf.getLogicalDataModel('SUM')
 
     sumTables = sumLayer.dataModels['SUM'].tables
+    nonDefaultTrgTables = \
+        scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
     if scheduler.bulkOrDelta == 'BULK':
+        dfl = betl.DataFlow(
+            desc="If it's a bulk load, drop the indexes to speed up writing.")
+
         for tableName in sumTables:
             if (sumTables[tableName].getTableType() == 'SUMMARY'):
-                sumTables[tableName].createIndexes()
+                if tableName not in nonDefaultTrgTables:
+                    for sql in sumTables[tableName].getSqlCreateIndexes():
+                        dfl.customSQL(
+                            sql,
+                            dataLayer='SUM',
+                            desc='Dropping indexes for ' + tableName)
