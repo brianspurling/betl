@@ -1,5 +1,3 @@
-import tempfile
-import shutil
 import pandas as pd
 import os
 

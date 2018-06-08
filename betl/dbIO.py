@@ -46,6 +46,7 @@ def customSQL(sql, datastore):
             df.columns = columns
     except psycopg2.ProgrammingError:
         df = None
+        # TODO: can't remember putting this in, but doesn't seem right!
 
     return df
 

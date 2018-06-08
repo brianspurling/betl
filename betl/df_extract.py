@@ -9,22 +9,21 @@ from datetime import datetime
 # Delta does full-table comparisons to identify deltas
 #
 def defaultExtract(scheduler):
-    if scheduler.bulkOrDelta == 'BULK':
+    if scheduler.conf.exe.BULK_OR_DELTA == 'BULK':
         defaultExtract_bulk(scheduler)
-    elif scheduler.bulkOrDelta == 'DELTA':
+    elif scheduler.conf.exe.BULK_OR_DELTA == 'DELTA':
         defaultExtract_delta(scheduler)
 
 
 def defaultExtract_bulk(scheduler):
-
-    srcTablesToExclude = scheduler.srcTablesToExcludeFromExtract
+    srcTablesToExclude = \
+        scheduler.conf.schedule.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
     srcLayer = scheduler.conf.getLogicalDataModel('SRC')
-
+    print(srcLayer)
     for dmID in srcLayer.dataModels:
         for tableName in srcLayer.dataModels[dmID].tables:
             if tableName in srcTablesToExclude:
                 continue
-
             dfl = betl.DataFlow(desc='Default extract for ' + tableName)
 
             dfl.getDataFromSrc(
@@ -46,7 +45,9 @@ def defaultExtract_delta(scheduler):
 
     # TODO not been refactored since dataframe class added to betl
 
-    srcTablesToExclude = scheduler.srcTablesToExcludeFromExtract
+    srcTablesToExclude = \
+        scheduler.conf.schedule.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
+
     srcLayer = scheduler.conf.getLogicalDataModel('SRC')
 
     for dmID in srcLayer.dataModels:

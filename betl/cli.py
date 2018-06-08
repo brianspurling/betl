@@ -35,6 +35,12 @@ SETUP_WARNING = ("\nRunning SETUP will completely reset BETL. " +
                  "\nall tempoary data will be deleted, and log files will " +
                  "\nbe archived. \nSure? (Y or N)  ")
 
+READ_SRC_WARNING = ("\nRunning READSRC will auto-populate your ETL DB " +
+                    "\nschema description spreadsheet with a copy of the " +
+                    "\nsource system(s) schemas. All current ETL.SRC. " +
+                    "\nworksheets will be deleted or overwritten. " +
+                    "\nSure? (Y or N)  ")
+
 INVALID_STAGE_FOR_SCHEDULE = ("You can only schedule functions in one of " +
                               "the three ETL stages: EXTRACT, TRANSFORM, LOAD")
 
@@ -49,6 +55,9 @@ HELP = ("\n" +
         "\n" +
         "> [setup]\n" +
         "  Reinstall betl - all config will be lost\n" +
+        "\n" +
+        "> [readsrc]\n" +
+        "  Auto-populate SRC layer schema descs from the source systems\n" +
         "\n" +
         "> [rebuildall | rebuildsrc | rebuildstg | rebuildtrg | " +
         "rebuildSum]\n" +
@@ -118,6 +127,7 @@ def processArgs(args):
         'BULK_OR_DELTA': 'NOT SET',
 
         'RUN_SETUP': False,
+        'READ_SRC': False,
 
         'RUN_REBUILD_ALL': False,
         'RUN_REBUILD_SRC': False,
@@ -160,6 +170,8 @@ def processArgs(args):
             params['SKIP_WARNINGS'] = True
         elif arg == 'setup':
             params['RUN_SETUP'] = True
+        elif arg == 'readsrc':
+            params['READ_SRC'] = True
         elif arg == 'rebuildall':
             params['RUN_REBUILD_ALL'] = True
         elif arg == 'rebuildsrc':
@@ -216,6 +228,14 @@ def processArgs(args):
         if params['RUN_SETUP']:
             if not skipWarnings:
                 text = input(SETUP_WARNING)
+                if text.lower() != 'y':
+                    sys.exit()
+                else:
+                    print('')
+
+        if params['READ_SRC']:
+            if not skipWarnings:
+                text = input(READ_SRC_WARNING)
                 if text.lower() != 'y':
                     sys.exit()
                 else:

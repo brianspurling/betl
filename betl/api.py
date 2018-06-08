@@ -10,6 +10,7 @@ def init(appConfigFile, runTimeParams, scheduleConfig=None):
     CONF = utils.init(appConfigFile=appConfigFile,
                       runTimeParams=runTimeParams,
                       scheduleConfig=scheduleConfig)
+    return CONF
 
 
 def run():

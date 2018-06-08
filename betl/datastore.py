@@ -153,7 +153,7 @@ class SpreadsheetDatastore(Datastore):
 
         Datastore.__init__(self,
                            datastoreID=ssID,
-                           datastoreType='SPREADSHEET',
+                           datastoreType='GSHEET',
                            isSrcSys=isSrcSys,
                            isSchemaDesc=isSchemaDesc)
 
@@ -192,6 +192,7 @@ class SpreadsheetDatastore(Datastore):
         worksheets = {}
         for ws in self.conn.worksheets():
             worksheets[ws.title] = ws
+        self.worksheets = worksheets
         return worksheets
 
     def getLastModifiedTime(self):

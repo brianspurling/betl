@@ -31,7 +31,7 @@ def defaultLoad(scheduler):
     if (scheduler.conf.exe.RUN_FT_LOAD):
         loadSequence.append('FACT')
 
-    if scheduler.bulkOrDelta == 'BULK':
+    if scheduler.conf.exe.BULK_OR_DELTA == 'BULK':
 
         # DROP INDEXES
 
@@ -46,11 +46,16 @@ def defaultLoad(scheduler):
         for tableName in trgAndSumTbls:
             if trgAndSumTbls[tableName].getTableType() in ('FACT', 'SUMMARY'):
                 if tableName not in nonDefaultTrgTables:
+                    counter = 0
                     for sql in trgAndSumTbls[tableName].getSqlDropIndexes():
+                        # Multiple indexes per table, but desc, below, needs
+                        # to be unique
+                        counter += 1
                         dfl.customSQL(
                             sql,
                             dataLayer='TRG',
-                            desc='Dropping fact indexes for ' + tableName)
+                            desc='Dropping fact indexes for ' + tableName +
+                                 ' (' + str(counter) + ')')
         dfl.close()
 
         # GET ALL DEFAULT ROWS
@@ -72,7 +77,7 @@ def defaultLoad(scheduler):
                                       defaultRows=defaultRows,
                                       conf=scheduler.conf)
 
-    if scheduler.bulkOrDelta == 'DELTA':
+    if scheduler.conf.exe.BULK_OR_DELTA == 'DELTA':
         for tableType in loadSequence:
             for tableName in trgTables:
                 tableType = trgTables[tableName].getTableType()
@@ -107,7 +112,7 @@ def bulkLoadDimension(conf, defaultRows, table):
         dataset=table.tableName,
         dataLayerID='TRG',
         forceDBWrite=True,
-        desc='Because it is a bulk load, clear out the data (which also ' +
+        desc='Because it is a bulk load, clear out the dim data (which also ' +
              'restarts the SK sequences)')
 
     dataset = 'trg_' + table.tableName
@@ -129,11 +134,14 @@ def bulkLoadDimension(conf, defaultRows, table):
 
     # INDEXES
 
+    counter = 0
     for sql in table.getSqlCreateIndexes():
+        counter += 1
         dfl.customSQL(
             sql,
             dataLayer='TRG',
-            desc='Creating index for ' + table.tableName)
+            desc='Creating index for ' + table.tableName +
+                 ' (' + str(counter) + ')')
 
     # DEFAULT ROWS
 
@@ -221,7 +229,7 @@ def bulkLoadFact(conf, table):
         dataset=table.tableName,
         dataLayerID='TRG',
         forceDBWrite=True,
-        desc='Because it is a bulk load, clear out the data (which also ' +
+        desc='Because it is a bulk load, clear out the ft data (which also ' +
              'restarts the SK sequences)')
 
     dfl.read(
@@ -257,7 +265,8 @@ def bulkLoadFact(conf, table):
                     'sk': column.columnName,
                     'nk': nkColName},
                 desc='Rename the columns of the ' + column.fkDimension + ' ' +
-                     'SK/NK mapping to match the fact table column names')
+                     'SK/NK mapping to match the fact table column names ' +
+                     ' (' + column.columnName + ')')
 
             dfl.join(
                 datasets=[
@@ -272,7 +281,8 @@ def bulkLoadFact(conf, table):
             dfl.setNulls(
                 dataset=table.tableName,
                 columns={column.columnName: -1},
-                desc='Assigning all missing rows to default -1 row')
+                desc='Assigning all missing rows to default -1 row (' +
+                     column.columnName + ')')
 
             dfl.dropColumns(
                 dataset=table.tableName,
@@ -290,12 +300,14 @@ def bulkLoadFact(conf, table):
 
     # INDEXES
 
+    counter = 0
     for sql in table.getSqlCreateIndexes():
+        counter += 1
         dfl.customSQL(
             sql,
             dataLayer='TRG',
-            desc='Creating index for ' + table.tableName)
-
+            desc='Creating index for ' + table.tableName +
+                 ' (' + str(counter) + ')')
     dfl.close()
 
 

@@ -13,126 +13,143 @@ class Scheduler():
     def __init__(self, conf):
 
         self.jobLog = logger.getLogger()
-
-        self.scheduleList = []
-        self.scheduleDic = {}
-        self.srcTablesToExcludeFromExtract = []
-        self.trgTablesToExcludeFromLoad = []
-        self.bulkOrDelta = conf.exe.BULK_OR_DELTA
-
         self.conf = conf
-        self.ctrlDB = self.conf.ctrl.CTRL_DB
 
-        # We must construct the scheduler even if we're re-running the prev
-        # load. constructSchedule puts all the actual funcs into the dict,
-        # so that when we pull the func names out of the ctrlDB we can "find"
-        # the actual func to run.
-        self.constructSchedule()
+        self.funcSequence = 0
+        self.functions_list = []
+        self.functions_dict = {}
 
+        # We must construct the scheduler (even if we're re-running the prev
+        # execution). buildFunctionList puts all the actual function objects
+        # into both the list and dict attributes.
+        self.buildFunctionList()
+
+        # However, we only write a new set of functions to the ctrlDB if
+        # this is a new (not rerun) execution
         if not self.conf.state.RERUN_PREV_JOB:
-            self.ctrlDB.insertNewScheduleToCtlTable(self.scheduleDic,
-                                                    conf.state.EXEC_ID)
+            self.conf.ctrl.CTRL_DB.insertFunctions(
+                self.functions_dict,
+                conf.state.EXEC_ID)
 
-    def constructSchedule(self):
-
-        schedule = self.conf.schedule
+    def buildFunctionList(self):
 
         if self.conf.exe.RUN_EXTRACT:
-            if schedule.DEFAULT_EXTRACT:
-                self.scheduleDataflow(df_extract.defaultExtract, 'EXTRACT')
+            if self.conf.schedule.DEFAULT_EXTRACT:
+                self.addFunctionToList(
+                    function=df_extract.defaultExtract,
+                    stage='EXTRACT')
 
                 self.srcTablesToExcludeFromExtract = \
-                    schedule.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT
+                    self.conf.schedule.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
 
-            for dataflow in schedule.EXTRACT_DFS:
-                self.scheduleDataflow(dataflow, 'EXTRACT')
+            for function in self.conf.schedule.EXTRACT_DFS:
+                self.addFunctionToList(
+                    function=function,
+                    stage='EXTRACT')
 
         if self.conf.exe.RUN_TRANSFORM:
 
-            for dataflow in schedule.TRANSFORM_DFS:
-                self.scheduleDataflow(dataflow, 'TRANSFORM')
+            for function in self.conf.schedule.TRANSFORM_DFS:
+                self.addFunctionToList(
+                    function=function,
+                    stage='TRANSFORM')
 
-            if schedule.DEFAULT_DM_DATE:
-                self.scheduleDataflow(df_dmDate.transformDMDate, 'TRANSFORM')
+            if self.conf.schedule.DEFAULT_DM_DATE:
+                self.addFunctionToList(
+                    function=df_dmDate.transformDMDate,
+                    stage='TRANSFORM')
 
-            self.scheduleDataflow(df_dmAudit.transformDMAudit, 'TRANSFORM')
+            self.addFunctionToList(
+                function=df_dmAudit.transformDMAudit,
+                stage='TRANSFORM')
 
-            if schedule.DEFAULT_TRANSFORM:
-                self.scheduleDataflow(
-                    df_transform.defaultTransform,
-                    'TRANSFORM')
+            if self.conf.schedule.DEFAULT_TRANSFORM:
+                self.addFunctionToList(
+                    function=df_transform.defaultTransform,
+                    stage='TRANSFORM')
 
         if self.conf.exe.RUN_LOAD:
 
-            if schedule.DEFAULT_LOAD:
-                self.scheduleDataflow(df_load.defaultLoad, 'LOAD')
-                self.trgTablesToExcludeFromLoad = \
-                    schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+            if self.conf.schedule.DEFAULT_LOAD:
+                self.addFunctionToList(
+                    function=df_load.defaultLoad,
+                    stage='LOAD')
 
-            for dataflow in schedule.LOAD_DFS:
-                self.scheduleDataflow(dataflow, 'LOAD')
+            for function in self.conf.schedule.LOAD_DFS:
+                self.addFunctionToList(
+                    function=function,
+                    stage='LOAD')
 
         if self.conf.exe.RUN_SUMMARISE:
 
-            if schedule.DEFAULT_SUMMARISE:
-                self.scheduleDataflow(
-                    df_summarise.defaultSummarisePrep,
-                    'SUMMARISE')
+            if self.conf.schedule.DEFAULT_SUMMARISE:
+                self.addFunctionToList(
+                    function=df_summarise.defaultSummarisePrep,
+                    stage='SUMMARISE')
 
-            for dataflow in schedule.SUMMARISE_DFS:
-                self.scheduleDataflow(dataflow, 'SUMMARISE')
+            for function in self.conf.schedule.SUMMARISE_DFS:
+                self.addFunctionToList(
+                    function=function,
+                    stage='SUMMARISE')
 
-            if schedule.DEFAULT_SUMMARISE:
-                self.scheduleDataflow(
-                    df_summarise.defaultSummariseFinish,
-                    'SUMMARISE')
+            if self.conf.schedule.DEFAULT_SUMMARISE:
+                self.addFunctionToList(
+                    function=df_summarise.defaultSummariseFinish,
+                    stage='SUMMARISE')
 
-    def scheduleDataflow(self, dataflow, stage):
-        self.scheduleList.append({
-            'dataflow': dataflow,
-            'stage': stage})
-        self.scheduleDic[dataflow.__name__] = {
-            'dataflow': dataflow,
-            'stage': stage}
+    def addFunctionToList(self, function, stage):
+        self.funcSequence += 1
+        self.functions_list.append({
+            'function': function,
+            'stage': stage,
+            'sequence': self.funcSequence})
+        self.functions_dict[function.__name__] = {
+            'function': function,
+            'stage': stage,
+            'sequence': self.funcSequence}
 
-    def executeSchedule(self):
+    def execute(self):
 
-        schedule = self.ctrlDB.getScheduleFromCtlTable(self.conf.state.EXEC_ID)
+        functions = self.conf.ctrl.CTRL_DB.getFunctionsForExec(
+            execId=self.conf.state.EXEC_ID)
 
-        self.ctrlDB.updateExecutionInCtlTable(execId=self.conf.state.EXEC_ID,
-                                              status='RUNNING',
-                                              statusMessage='')
-        counter = 0  # Keeping track of the loop iterator the catch-all
+        self.conf.ctrl.CTRL_DB.updateExecution(
+            execId=self.conf.state.EXEC_ID,
+            status='RUNNING',
+            statusMessage='')
+
+        counter = 0  # Keeping track of the loop iterator for the catch-all
         try:
-            for i in range(len(schedule)):
+            for i in range(len(functions)):
                 counter = i
-                # Check status of dataflow in schedules (because if we are
-                # re-running a failed job, we only want to pick up dataflows
-                # that come after the point of failure
 
-                if schedule[i][4] != 'SUCCESSFUL':
-                    self.ctrlDB.updateScheduleInCtlTable(
-                        seq=schedule[i][1],
-                        status='RUNNING',
+                # Check status of function in ctrlDB.funtions (because if we
+                # are re-running a failed job, we only want to pick up
+                # funtions that come after the point of failure
+
+                if functions[i][5] != 'SUCCESSFUL':
+                    self.conf.ctrl.CTRL_DB.updateFunction(
                         execId=self.conf.state.EXEC_ID,
+                        functionName=functions[i][2],
+                        status='RUNNING',
                         logStr='',
                         setStartDateTime=True,
                         setEndDateTime=False)
 
                     ########################
-                    # EXECUTE THE DATAFLOW #
+                    # EXECUTE THE FUNCTION #
                     ########################
 
-                    self.executeDataflow(schedule[i][2])  # to do #13
+                    self.executeFunction(functions[i][2], functions[i][0])
 
                     #########################
                     #########################
                     #########################
 
-                    self.ctrlDB.updateScheduleInCtlTable(
-                        seq=schedule[i][1],
-                        status='SUCCESSFUL',
+                    self.conf.ctrl.CTRL_DB.updateFunction(
                         execId=self.conf.state.EXEC_ID,
+                        functionName=functions[i][2],
+                        status='SUCCESSFUL',
                         logStr='',
                         setStartDateTime=False,
                         setEndDateTime=True)
@@ -141,26 +158,27 @@ class Scheduler():
 
         # Catch everything, so we can output to the logs
         except Exception as e1:
-            self.handleDataflowException(schedule, counter, e1)
+            self.handleFunctionException(functions, counter, e1)
             return 'FAIL'
 
-    def executeDataflow(self, dataflowName):
+    def executeFunction(self, functionName, functionId):
         # We set the conf.STAGE object so that, during execution of the
-        # dataflow  we know which stage we're in
-        self.conf.state.setStage(self.scheduleDic[dataflowName]['stage'])
-        self.scheduleDic[dataflowName]['dataflow'](self)
+        # function,  we know which stage we're in
+        self.conf.state.setStage(self.functions_dict[functionName]['stage'])
+        self.conf.state.setFunctionId(functionId)
+        self.functions_dict[functionName]['function'](self)
 
-    def handleDataflowException(self, schedule, counter, errorMessage):
+    def handleFunctionException(self, functions, counter, errorMessage):
             tb1 = traceback.format_exc()
             try:
-                self.ctrlDB.updateScheduleInCtlTable(
-                    seq=schedule[counter][1],
-                    status='FINISHED WITH ERROR',
+                self.conf.ctrl.CTRL_DB.updateFunction(
                     execId=self.conf.state.EXEC_ID,
+                    functionName=functions[counter][2],
+                    status='FINISHED WITH ERROR',
                     logStr=tb1,
                     setStartDateTime=False,
                     setEndDateTime=True)
-                self.ctrlDB.updateExecutionInCtlTable(
+                self.conf.ctrl.CTRL_DB.updateExecution(
                     execId=self.conf.state.EXEC_ID,
                     status='FINISHED WITH ERROR',
                     statusMessage=tb1
@@ -170,6 +188,7 @@ class Scheduler():
                           "updated)\n\n" +
                           "THE error was >>> \n\n"
                           + tb1 + "\n")
+
                 logger.logExecutionFinish(logStr)
 
             except Exception as e2:

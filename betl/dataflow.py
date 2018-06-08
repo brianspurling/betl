@@ -13,31 +13,48 @@ class DataFlow():
 
     def __init__(self, conf, desc):
 
-        self.startTime = datetime.now()
+        self.dflStartTime = datetime.now()
+        self.currentStepStartTime = None
+        self.currentStepId = None
         self.conf = conf
         self.description = desc
         self.data = {}
         # trgDataset is always set to the most recent dataset written to disk
         self.trgDataset = None
+        logger.logDFStart(self.description, self.dflStartTime)
+        self.dataflowId = self.conf.ctrl.CTRL_DB.insertDataflow(
+            dataflow={
+                'execId': self.conf.state.EXEC_ID,
+                'functionId': self.conf.state.FUNCTION_ID,
+                'description': self.description})
 
-        logger.logDFStart(self.description, self.startTime)
-
-    def close(self, df=None):
-
-        elapsedSeconds = (datetime.now() - self.startTime).total_seconds()
+    def close(self):
+        elapsedSeconds = (datetime.now() - self.dflStartTime).total_seconds()
         logger.logDFEnd(elapsedSeconds, self.trgDataset)
 
+        if self.trgDataset is not None:
+            rowCount = self.trgDataset.shape[0]
+            colCount = self.trgDataset.shape[1]
+        else:
+            rowCount = None
+            colCount = None
+
+        self.conf.ctrl.CTRL_DB.updateDataflow(
+            dataflowId=self.dataflowId,
+            status='SUCCESSFUL',
+            rowCount=rowCount,
+            colCount=colCount)
+
         # By removing all keys, we remove all pointers to the dataframes,
-        # hence making them available to garbage collection
+        # hence making them available to Python's garbage collection
         self.data.clear()
         del(self.trgDataset)
 
     def getDataFromSrc(self, tableName, srcSysID, desc=None):
 
-        srcSysDatastore = self.conf.data.getSrcSysDatastore(srcSysID)
+        self.stepStart(desc=desc)
 
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+        srcSysDatastore = self.conf.data.getSrcSysDatastore(srcSysID)
 
         limitdata = self.conf.exe.DATA_LIMIT_ROWS
 
@@ -78,10 +95,17 @@ class DataFlow():
                                     cols='*',
                                     limitdata=limitdata)
 
-        elif srcSysDatastore.datastoreType == 'SPREADSHEET':
+        elif srcSysDatastore.datastoreType == 'GSHEET':
+
+            etlTableName = tableName
+            # Cut off the src_<dataModelID>_ prefix, by doing
+            # two "left trims" on the "_" char
+            srcTableName = etlTableName[etlTableName.find("_")+1:]
+            srcTableName = srcTableName[srcTableName.find("_")+1:]
+
             self.data[tableName] = \
                 gsheetIO.readDataFromWorksheet(
-                    worksheet=srcSysDatastore.worksheets[tableName],
+                    worksheet=srcSysDatastore.worksheets[srcTableName],
                     limitdata=limitdata)
 
         else:
@@ -92,12 +116,10 @@ class DataFlow():
         report = 'Read ' + str(self.data[tableName].shape[0])
         report += ' rows from source: ' + tableName
 
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(
-            report,
-            elapsedSeconds,
-            tableName,
-            self.data[tableName])
+        self.stepEnd(
+            report=report,
+            datasetName=tableName,
+            df=self.data[tableName])
 
     def read(self,
              tableName,
@@ -106,8 +128,7 @@ class DataFlow():
              forceDBRead=False,
              desc=None):
 
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+        self.stepStart(desc=desc)
 
         _targetDataset = tableName
         if targetDataset is not None:
@@ -141,16 +162,15 @@ class DataFlow():
                  'from ' + tableName
         if targetDataset is not None:
             report += ' and saved to ' + _targetDataset
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(
-            report,
-            elapsedSeconds,
-            _targetDataset,
-            self.data[_targetDataset])
+
+        self.stepEnd(
+            report=report,
+            datasetName=_targetDataset,
+            df=self.data[_targetDataset])
 
     def createDataset(self, dataset, data, desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
 
         # data can be a dictionary of columnName:value, where value is
         # hardcoded or an array. Or data can be a pandas dataframe.
@@ -164,8 +184,11 @@ class DataFlow():
 
         report = 'Created ' + dataset + ' table with '
         report += str(self.data[dataset].shape[0]) + ' rows'
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds, dataset, self.data[dataset])
+
+        self.stepEnd(
+            report=report,
+            datasetName=dataset,
+            df=self.data[dataset])
 
     def write(self,
               dataset,
@@ -178,9 +201,9 @@ class DataFlow():
               desc=None,
               keepDataflowOpen=False):
 
-        startTime = datetime.now()
+        self.stepStart(desc=desc, datasetName=dataset, df=self.data[dataset])
+
         self.trgDataset = self.data[dataset]
-        logger.logStepStart(startTime, desc, dataset, self.trgDataset)
 
         # Work out whether we need to write to DB as well as CSV
         writeToDB = False
@@ -298,8 +321,8 @@ class DataFlow():
 
         report = str(self.trgDataset.shape[0]) + ' rows written to '
         report += targetTableName
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+
+        self.stepEnd(report=report)
 
         if not keepDataflowOpen:
             self.close()
@@ -311,8 +334,7 @@ class DataFlow():
                     desc=None,
                     dropAuditCols=False):
 
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+        self.stepStart(desc=desc)
 
         if colsToDrop is not None and colsToKeep is not None:
             raise ValueError("Nope!")
@@ -332,25 +354,30 @@ class DataFlow():
             inplace=True)
 
         report = 'Dropped ' + str(len(colsToDrop)) + ' columns'
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds, dataset, self.data[dataset])
+
+        self.stepEnd(
+            report=report,
+            datasetName=dataset,
+            df=self.data[dataset])
 
     def renameColumns(self, dataset, columns, desc=None):
 
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+        self.stepStart(desc=desc)
 
         self.data[dataset].rename(index=str,
                                   columns=columns,
                                   inplace=True)
 
         report = 'Renamed ' + str(len(columns)) + ' columns'
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds, dataset, self.data[dataset])
+
+        self.stepEnd(
+            report=report,
+            datasetName=dataset,
+            df=self.data[dataset])
 
     def addColumns(self, dataset, columns, desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
 
         # columns is a dictionary of columnName:value pairs
         # The value can be a hard-coded value or a series. Both will work
@@ -365,28 +392,32 @@ class DataFlow():
                 self.data[dataset][col] = columns[col]
 
         report = 'Assigned ' + str(len(columns)) + ' to dataset'
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds, dataset, self.data[dataset])
+
+        self.stepEnd(
+            report=report,
+            datasetName=dataset,
+            df=self.data[dataset])
 
     def setColumns(self, dataset, columns, desc=None):
         # A wrapper for semantic purposes
         self.addColumns(dataset, columns, desc)
 
     def setNulls(self, dataset, columns, desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
 
         for col in columns:
             self.data[dataset].loc[self.data[dataset][col].isnull(), col] = \
                 columns[col]
 
         report = ''
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+
+        self.stepEnd(report=report)
 
     def filter(self, dataset, filters, desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
+
         originalLength = self.data[dataset].shape[0]
 
         for f in filters:
@@ -419,12 +450,11 @@ class DataFlow():
         pcntChange = round(pcntChange * 100, 1)
         report = 'Filtered dataset from ' + str(originalLength) + ' to ' + \
                  str(newLength) + ' rows (' + str(pcntChange) + ')'
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(
-            report,
-            elapsedSeconds,
-            dataset,
-            self.data[dataset],
+
+        self.stepEnd(
+            report=report,
+            datasetName=dataset,
+            df=self.data[dataset],
             shapeOnly=True)
 
     def cleanColumn(self,
@@ -433,8 +463,8 @@ class DataFlow():
                     column,
                     cleanedColumn=None,
                     desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
 
         if cleanedColumn is None:
             cleanedColumn = column
@@ -442,25 +472,16 @@ class DataFlow():
         self.data[dataset][cleanedColumn] = \
             cleaningFunc(self.data[dataset][column])
 
-        # If the dataset has audit cols, then we just added after them,
-        # so sort the audit cols back to the end
-        auditColList = self.conf.auditColumns['colNames'].tolist()
-        colList = list(self.data[dataset])
-        isAuditColsInDataset = \
-            set(auditColList).issubset(list(self.data[dataset]))
-        if isAuditColsInDataset:
-            colList = [col for col in list(self.data[dataset])
-                       if col not in auditColList]
-            colList = list(self.data[dataset]) + auditColList
-        df_reordered = self.data[dataset][colList]
-
         report = 'Cleaned ' + column + ' to ' + cleanedColumn
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds, dataset, df_reordered)
+
+        self.stepEnd(
+            report=report,
+            datasetName=dataset,
+            df=self.data[dataset])
 
     def union(self, datasets, targetDataset, desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
 
         try:
             self.data[targetDataset] = \
@@ -480,16 +501,15 @@ class DataFlow():
         report = 'Concatenated ' + str(len(datasets)) + \
                  ' dfs, totalling ' + \
                  str(self.data[targetDataset].shape[0]) + ' rows'
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(
-            report,
-            elapsedSeconds,
-            targetDataset,
-            self.data[targetDataset])
+
+        self.stepEnd(
+            report=report,
+            datasetName=targetDataset,
+            df=self.data[targetDataset])
 
     def getColumns(self, dataset, columnNames, desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
 
         if isinstance(columnNames, str):
             cols = self.data[dataset][columnNames]
@@ -501,14 +521,14 @@ class DataFlow():
             raise ValueError('columnNames must be string or list')
 
         report = ''
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+
+        self.stepEnd(report=report)
 
         return cols
 
     def getDataFrames(self, datasets, desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
 
         if isinstance(datasets, str):
             dfs = self.data[datasets].copy()
@@ -520,31 +540,34 @@ class DataFlow():
             raise ValueError('datasets must be string or list')
 
         report = ''
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+
+        self.stepEnd(report=report)
 
         return dfs
 
     def duplicateDataset(self, dataset, targetDatasets, desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
 
         for targetDataset in targetDatasets:
             self.data[targetDataset] = self.data[dataset].copy()
 
         report = ''
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+
+        self.stepEnd(report=report)
 
     def dedupe(self, dataset, desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
 
         self.data[dataset].drop_duplicates(inplace=True)
 
         report = ''
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds, dataset, self.data[dataset])
+
+        self.stepEnd(
+            report=report,
+            datasetName=dataset,
+            df=self.data[dataset])
 
     def join(self,
              datasets,
@@ -553,8 +576,8 @@ class DataFlow():
              how,
              keepCols=None,
              desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
 
         if len(datasets) > 2:
             raise ValueError('You can only join two tables at once')
@@ -573,16 +596,15 @@ class DataFlow():
         report += str(self.data[datasets[1]].shape[0]) + ' rows) into '
         report += targetDataset + ' ('
         report += str(self.data[targetDataset].shape[0]) + ' rows)'
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(
-            report,
-            elapsedSeconds,
-            targetDataset,
-            self.data[targetDataset])
+
+        self.stepEnd(
+            report=report,
+            datasetName=targetDataset,
+            df=self.data[targetDataset])
 
     def setAuditCols(self, dataset, bulkOrDelta, sourceSystem, desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
 
         if bulkOrDelta == 'BULK':
             self.data[dataset]['audit_source_system'] = sourceSystem
@@ -591,12 +613,12 @@ class DataFlow():
             self.data[dataset]['audit_latest_load_operation'] = 'BULK'
 
         report = ''
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+
+        self.stepEnd(report=report)
 
     def createAuditNKs(self, dataset, desc):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
 
         # TODO will improve this over time. Basic solution as PoC
         self.data[dataset]['nk_audit'] = \
@@ -611,24 +633,24 @@ class DataFlow():
             inplace=True)
 
         report = ''
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+
+        self.stepEnd(report=report)
 
     def getColumnList(self, dataset, desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
 
         colList = list(self.data[dataset])
 
         report = ''
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+
+        self.stepEnd(report=report)
 
         return colList
 
     def customSQL(self, sql, dataLayer, dataset=None, desc=''):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc, additionalDesc=sql)
+
+        self.stepStart(desc=desc, additionalDesc=sql)
 
         datastore = self.conf.getLogicalDataModel(dataLayer).datastore
 
@@ -638,30 +660,30 @@ class DataFlow():
             dbIO.customSQL(sql, datastore)
 
         report = ''
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
+
         if dataset is not None:
-            logger.logStepEnd(
-                report,
-                elapsedSeconds,
-                dataset,
-                self.data[dataset])
+            self.stepEnd(
+                report=report,
+                datasetName=dataset,
+                df=self.data[dataset])
         else:
-            logger.logStepEnd(report, elapsedSeconds, dataset)
+            self.stepEnd(
+                report=report,
+                datasetName=dataset)
 
     def iterate(self, dataset, function, desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
 
         for row in self.data[dataset].itertuples():
             function(row)
 
         report = ''
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+
+        self.stepEnd(report=report)
 
     def truncate(self, dataset, dataLayerID, forceDBWrite=False, desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+        self.stepStart(desc=desc)
 
         path = (self.conf.ctrl.TMP_DATA_PATH + dataLayerID + '/')
         filename = dataset + '.csv'
@@ -673,17 +695,22 @@ class DataFlow():
             dbIO.truncateTable(dataset, dataLayer.datastore)
 
         report = ''
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds)
+
+        self.stepEnd(report=report)
 
     def templateStep(self, dataset, desc=None):
-        startTime = datetime.now()
-        logger.logStepStart(startTime, desc)
+
+        self.stepStart(desc=desc)
+
         # self.data[dataset]
 
         report = ''
-        elapsedSeconds = (datetime.now() - startTime).total_seconds()
-        logger.logStepEnd(report, elapsedSeconds, dataset, self.data[dataset])
+
+        self.stepEnd(
+            report=report,
+            datasetName=dataset,  # optional
+            df=self.data[dataset],  # optional
+            shapeOnly=False)  # optional
 
     def __str__(self):
         op = ''
@@ -694,4 +721,52 @@ class DataFlow():
         op += '\n'
         return op
 
-# logger.logClearedTempData()
+    def stepStart(self,
+                  desc=None,
+                  datasetName=None,
+                  df=None,
+                  additionalDesc=None):
+        self.currentStepStartTime = datetime.now()
+        logger.logStepStart(
+            startTime=self.currentStepStartTime,
+            desc=desc,
+            datasetName=datasetName,
+            df=df,
+            additionalDesc=additionalDesc)
+
+        self.currentStepId = self.conf.ctrl.CTRL_DB.insertStep(
+            step={
+                'execId': self.conf.state.EXEC_ID,
+                'dataflowID': self.dataflowId,
+                'description': desc})
+
+    def stepEnd(self,
+                report,
+                datasetName=None,
+                df=None,
+                shapeOnly=False):
+
+        elapsedSeconds = \
+            (datetime.now() - self.currentStepStartTime).total_seconds()
+
+        logger.logStepEnd(
+            report=report,
+            duration=elapsedSeconds,
+            datasetName=datasetName,
+            df=df,
+            shapeOnly=shapeOnly)
+
+        if df is not None:
+            rowCount = df.shape[0]
+            colCount = df.shape[1]
+        else:
+            rowCount = None
+            colCount = None
+
+        self.conf.ctrl.CTRL_DB.updateStep(
+            stepId=self.currentStepId,
+            status='SUCCESSFUL',
+            rowCount=rowCount,
+            colCount=colCount)
+
+    # logger.logClearedTempData()

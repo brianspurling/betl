@@ -32,7 +32,7 @@ def initialiseLogging(conf):
     if logLevel is not None:
         LOG_LEVEL = logLevel
 
-    JOB_LOG_FILE_NAME = 'logs/' + str(EXEC_ID) + '_jobLog.log'
+    JOB_LOG_FILE_NAME = 'logs/' + str(EXEC_ID).zfill(4) + '_jobLog.log'
 
     JOB_LOG = logging.getLogger('JOB_LOG')
     jobLogFileName = JOB_LOG_FILE_NAME
@@ -121,8 +121,9 @@ def logInitialiseDatastore(datastoreID, datastoreType, isSchemaDesc=False):
 def logInitialiseSrcSysDatastore(datastoreID, datastoreType):
 
     op = ''
-    op += '   *** Connecting to source system datastore: ' + datastoreID
-    op += ' (' + datastoreType + ') ***'
+    op += '\n'
+    op += 'Connecting to source system datastore: ' + datastoreID
+    op += ' (' + datastoreType + ')'
     op += '\n'
 
     JOB_LOG.info(op)
@@ -356,11 +357,26 @@ def logUnableToReadFromCtlDB(errorMessage):
     return op
 
 
+def logDeleteSrcSchemaDescWsFromSS():
+    op = ''
+    op += 'Deleting all SRC worksheets from the ETL Schema Desc spreadsheet'
+    op += '\n'
+    JOB_LOG.info(op)
+
+
+def logAutoPopSchemaDescsFromSrc(srcSysID):
+    op = ''
+    op += 'Auto-populating ETL Schema Desc spreadsheet with '
+    op += 'schema from source system: ' + srcSysID
+    op += '\n'
+    JOB_LOG.info(op)
+
+
 def logRefreshingSchemaDescsFromGsheets(dbCount):
     op = ''
     op += '\n'
-    op += '*** Refreshing the schema descriptions for ' + str(dbCount) + ' '
-    op += 'databases from Google Sheets ***'
+    op += 'Refreshing the schema descriptions for ' + str(dbCount) + ' '
+    op += 'databases from Google Sheets'
     op += '\n'
     JOB_LOG.info(op)
 
@@ -378,8 +394,8 @@ def logRefreshingSchemaDescsFromGsheets_done():
 
 
 def logSchemaDescsLoad():
-    op = ''
-    op += '*** Loading the schema descriptions ***'
+    op = '\n'
+    op += 'Loading the schema descriptions'
     op += '\n'
     JOB_LOG.info(op)
 
@@ -390,7 +406,7 @@ def logSchemaDescsLoad():
 
 def logPhysicalDataModelBuild():
     op = ''
-    op += '*** Rebuilding the physical data models ***'
+    op += 'Rebuilding the physical data models'
     op += '\n'
     JOB_LOG.info(op)
 

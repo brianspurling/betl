@@ -17,44 +17,33 @@ def defaultSummarisePrep(scheduler):
     nonDefaultTrgTables = \
         scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
-    if scheduler.bulkOrDelta == 'BULK':
+    if scheduler.conf.exe.BULK_OR_DELTA == 'BULK':
         dfl = betl.DataFlow(
             desc="If it's a bulk load, drop the indexes to speed up " +
                  "writing.")
         for tableName in sumTables:
             if (sumTables[tableName].getTableType() == 'SUMMARY'):
                 if tableName not in nonDefaultTrgTables:
+                    counter = 0
                     for sql in sumTables[tableName].getSqlDropIndexes():
+                        counter += 1
                         dfl.customSQL(
                             sql,
                             dataLayer='SUM',
-                            desc='Dropping indexes for ' + tableName)
+                            desc='Dropping indexes for ' + tableName + ' (' +
+                                 str(counter) + ')')
 
                     dfl.truncate(
                         dataset=tableName,
                         dataLayerID='SUM',
                         forceDBWrite=True,
                         desc='Because it is a bulk load, clear out the data ' +
-                             '(which also restarts the SK sequences)')
+                             'from ' + tableName + ' (which also restarts ' +
+                             'the SK sequences)')
+
+        dfl.close()
 
 
 def defaultSummariseFinish(scheduler):
 
-    sumLayer = scheduler.conf.getLogicalDataModel('SUM')
-
-    sumTables = sumLayer.dataModels['SUM'].tables
-    nonDefaultTrgTables = \
-        scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
-
-    if scheduler.bulkOrDelta == 'BULK':
-        dfl = betl.DataFlow(
-            desc="If it's a bulk load, drop the indexes to speed up writing.")
-
-        for tableName in sumTables:
-            if (sumTables[tableName].getTableType() == 'SUMMARY'):
-                if tableName not in nonDefaultTrgTables:
-                    for sql in sumTables[tableName].getSqlCreateIndexes():
-                        dfl.customSQL(
-                            sql,
-                            dataLayer='SUM',
-                            desc='Dropping indexes for ' + tableName)
+    pass

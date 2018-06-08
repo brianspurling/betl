@@ -86,33 +86,30 @@ class Ctrl():
         self.CTRL_DB = CtrlDB(configObj['ctldb'])
         self.DWH_ID = configObj['DWH_ID']
         self.TMP_DATA_PATH = configObj['TMP_DATA_PATH']
-        self.SCHEMA_DESCRIPTION_GSHEETS = None
+        self.SCHEMA_DESCRIPTION_GSHEETS = {}
         self.apiUrl = \
             configObj['schema_descriptions']['GOOGLE_SHEETS_API_URL']
         self.apiKey = \
             configObj['schema_descriptions']['GOOGLE_SHEETS_API_KEY_FILE']
 
-    def getSchemaDescGSheetDatastores(self):
-        if self.SCHEMA_DESCRIPTION_GSHEETS is None:
-            self.SCHEMA_DESCRIPTION_GSHEETS = {}
-            self.SCHEMA_DESCRIPTION_GSHEETS['ETL'] = \
-                SpreadsheetDatastore(
-                    ssID='ETL',
-                    apiUrl=self.apiUrl,
-                    apiKey=self.apiKey,
-                    filename=self.configObj['schema_descriptions']
-                    ['ETL_FILENAME'],
-                    isSchemaDesc=True)
-            self.SCHEMA_DESCRIPTION_GSHEETS['TRG'] = \
-                SpreadsheetDatastore(
-                    ssID='TRG',
-                    apiUrl=self.apiUrl,
-                    apiKey=self.apiKey,
-                    filename=self.configObj['schema_descriptions']
-                    ['TRG_FILENAME'],
-                    isSchemaDesc=True)
-
+    def getAllSchemaDescGSheetDatastores(self):
+        dbs = ['ETL', 'TRG']
+        for dbID in dbs:
+            if dbID not in self.SCHEMA_DESCRIPTION_GSHEETS:
+                self.getSchemaDescGSheetDatastore(dbID)
         return self.SCHEMA_DESCRIPTION_GSHEETS
+
+    def getSchemaDescGSheetDatastore(self, dbID):
+        if dbID not in self.SCHEMA_DESCRIPTION_GSHEETS:
+            self.SCHEMA_DESCRIPTION_GSHEETS[dbID] = \
+                SpreadsheetDatastore(
+                    ssID=dbID,
+                    apiUrl=self.apiUrl,
+                    apiKey=self.apiKey,
+                    filename=self.configObj['schema_descriptions']
+                    [dbID + '_FILENAME'],
+                    isSchemaDesc=True)
+        return self.SCHEMA_DESCRIPTION_GSHEETS[dbID]
 
 
 class Data():
@@ -153,6 +150,12 @@ class Data():
                     filename=self.configObj['default_rows']['FILENAME'])
         return self.DEFAULT_ROW_SRC
 
+    def getListOfSrcSys(self):
+        srcSysIDs = []
+        for srcSysID in self.configObj['src_sys']:
+            srcSysIDs.append(srcSysID)
+        return srcSysIDs
+
     def getSrcSysDatastore(self, srcSysID):
         if srcSysID not in self.SRC_SYSTEMS:
             srcSysConfigObj = self.configObj['src_sys'][srcSysID]
@@ -189,7 +192,7 @@ class Data():
                         quotechar=srcSysConfigObj['QUOTECHAR'],
                         isSrcSys=True)
 
-            elif srcSysConfigObj['TYPE'] == 'SPREADSHEET':
+            elif srcSysConfigObj['TYPE'] == 'GSHEET':
                 apiUrl = srcSysConfigObj['GOOGLE_SHEETS_API_URL']
                 apiKey = srcSysConfigObj['GOOGLE_SHEETS_API_KEY_FILE']
                 self.SRC_SYSTEMS[srcSysID] = \
@@ -213,6 +216,7 @@ class Exe():
         self.BULK_OR_DELTA = params['BULK_OR_DELTA']
 
         self.RUN_SETUP = params['RUN_SETUP']
+        self.READ_SRC = params['READ_SRC']
 
         self.RUN_REBUILD_ALL = params['RUN_REBUILD_ALL']
         self.RUN_REBUILD_SRC = params['RUN_REBUILD_SRC']
@@ -241,8 +245,10 @@ class State():
     def __init__(self):
         self.EXEC_ID = None
         self.RERUN_PREV_JOB = False
-        # Global state for which stage (E,T,L) we're on
+        # Global state for which stage (E,T,L,S) we're on
         self.STAGE = 'STAGE NOT SET'
+        # Global state for which function of the execution's schedule we're in
+        self.FUNCTION_ID = None
 
         # These dictate the start/end dates of dm_date. They can be overridden
         # at any point in the application's ETL process, providing the
@@ -273,6 +279,9 @@ class State():
     def setExecID(self, execID):
         self.EXEC_ID = execID
 
+    def setFunctionId(self, functionId):
+        self.FUNCTION_ID = functionId
+
 
 class Schedule():
 
@@ -282,8 +291,8 @@ class Schedule():
         self.DEFAULT_LOAD = scheduleConfig['DEFAULT_LOAD']
         self.DEFAULT_SUMMARISE = scheduleConfig['DEFAULT_SUMMARISE']
         self.DEFAULT_DM_DATE = scheduleConfig['DEFAULT_DM_DATE']
-        self.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT = \
-            scheduleConfig['SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXTRACT']
+        self.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT = \
+            scheduleConfig['SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT']
         self.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD = \
             scheduleConfig['TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD']
         self.EXTRACT_DFS = scheduleConfig['EXTRACT_DFS']

@@ -23,7 +23,11 @@ class DataLayer():
 
         file = open('schemas/dbSchemaDesc_' + self.databaseID + '.txt', 'r')
         dbSchemaDesc = ast.literal_eval(file.read())
-        dlSchemaDesc = dbSchemaDesc[self.dataLayerID]
+        try:
+            dlSchemaDesc = dbSchemaDesc[self.dataLayerID]
+        except KeyError:
+            raise ValueError('Failed to find any schema description for ' +
+                             'data layer ' + self.dataLayerID)
         dataModels = {}
 
         for dataModelID in dlSchemaDesc['dataModelSchemas']:
