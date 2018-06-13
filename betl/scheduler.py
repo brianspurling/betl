@@ -59,9 +59,10 @@ class Scheduler():
                     function=df_dmDate.transformDMDate,
                     stage='TRANSFORM')
 
-            self.addFunctionToList(
-                function=df_dmAudit.transformDMAudit,
-                stage='TRANSFORM')
+            if self.conf.schedule.DEFAULT_DM_AUDIT:    
+                self.addFunctionToList(
+                    function=df_dmAudit.transformDMAudit,
+                    stage='TRANSFORM')
 
             if self.conf.schedule.DEFAULT_TRANSFORM:
                 self.addFunctionToList(

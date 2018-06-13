@@ -7,6 +7,7 @@ from . import logger
 from . import fileIO
 from . import dbIO
 from . import gsheetIO
+from . import alerts
 
 
 class DataFlow():
@@ -144,7 +145,7 @@ class DataFlow():
         self.data[_targetDataset] = pd.DataFrame()
 
         if forceDBRead:
-            dbID = self.conf.LOGICAL_DATA_MODELS[dataLayer].databaseID
+            dbID = self.conf.getLogicalDataModel(dataLayer).databaseID
             self.data[_targetDataset] = dbIO.readDataFromDB(
                 tableName=tableName,
                 conn=self.conf.data.getDatastore(dbID).conn)
@@ -697,6 +698,104 @@ class DataFlow():
         report = ''
 
         self.stepEnd(report=report)
+
+    def mapMasterData(self,
+                      dataset,
+                      mdmWS,
+                      joinCols,
+                      masterDataCols,
+                      desc=None):
+
+        self.stepStart(desc=desc)
+
+        ws = self.conf.data.getMDMDatastore().conn.worksheet(mdmWS)
+        mdm_list = ws.get_all_values()
+        mdm = pd.DataFrame(mdm_list[1:], columns=mdm_list[0:1][0])
+
+        df = self.data[dataset]
+        numberOfRows = len(df.index) + 1
+        numberOfCols = len(joinCols) + len(masterDataCols)
+
+        # If the MDM file is empty, we're going to populate it with the
+        # joinCols from the DWH dataset, plus the masterDataCols (headers
+        # only, obvs)
+        if len(mdm) == 0:
+            # We build up our new GSheets table first, in memory,
+            # then write it all in one go. Col Names first, then
+            # data. For convenience, let's temporarily extend our DF
+            # to include the master data cols
+            for colName in masterDataCols:
+                df[colName] = ""
+            cell_list = ws.range(1, 1, numberOfRows, numberOfCols)
+            cellPos = 0
+            for colName in joinCols + masterDataCols:
+                cell_list[cellPos].value = colName
+                cellPos += 1
+            for i, row in df.iterrows():
+                for colName in joinCols + masterDataCols:
+                    cell_list[cellPos].value = row[colName]
+                    cellPos += 1
+            ws.update_cells(cell_list)
+            # And remove the master data cols again
+            df.drop(masterDataCols, axis=1, inplace=True)
+
+        else:
+            df_m = pd.merge(
+                df,
+                mdm,
+                on=joinCols,
+                how='left',
+                indicator=True)
+
+            # left_only rows are "unmapped" rows - i.e. there was no master
+            # data mapping for them. This needs to be reported, so the user
+            # knows to enter new mappings. We update the MDM spreadsheet with
+            # the empty mappings
+            df_unmapped_rows = df_m.loc[df_m['_merge'] == 'left_only'].copy()
+            numOfUnmappedRows = len(df_unmapped_rows.index)
+            if len(df_unmapped_rows.index) > 0:
+                df_unmapped_rows.drop('_merge', axis=1, inplace=True)
+                # update nans to empty strings
+                for colName in masterDataCols:
+                    df_unmapped_rows[colName] = ''
+                numOfMappedRows = len(df_m.loc[df_m['_merge'] == 'both'].index)
+                firstRow = numOfMappedRows+2
+                cell_list = ws.range(
+                    firstRow,
+                    1,
+                    numOfUnmappedRows + firstRow,
+                    numberOfCols)
+                cellPos = 0
+                for i, row in df_unmapped_rows.iterrows():
+                    for colName in joinCols + masterDataCols:
+                        cell_list[cellPos].value = row[colName]
+                        cellPos += 1
+                ws.update_cells(cell_list)
+
+            df_m.drop('_merge', axis=1, inplace=True)
+            # Regardless of whether we found any new mappings, we also will
+            # report on the number of missing values on the mappings.
+            # This is a bit blunt: we assume that every mapping col must be
+            # populated. TODO: should at least check whether 1+ are populated
+            df_no_value = df_m.loc[df_m[masterDataCols[0]] == ''].copy()
+            numOfBlankValues = len(df_no_value.index)
+
+            # Add the report to the alerts log
+
+            report = ('For MDM ' + mdmWS + ' there were ' +
+                      str(numOfUnmappedRows) + ' unmapped rows and there ' +
+                      'are now a total of ' +
+                      str(numOfBlankValues) + ' rows with missing master data')
+
+            alerts.logAlert(self.conf, report)
+
+        report = ''
+
+        self.stepEnd(
+            report=report,
+            datasetName=dataset,
+            df=df_m,
+            shapeOnly=False)
 
     def templateStep(self, dataset, desc=None):
 

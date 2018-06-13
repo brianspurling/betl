@@ -3,6 +3,10 @@ import inspect
 from datetime import datetime
 import os
 import psutil
+import threading
+from pathlib import Path
+import sys
+from time import sleep
 
 JOB_LOG = None
 
@@ -13,6 +17,8 @@ JOB_LOG_FILE_NAME = None
 PREVIOUS_MEM_USAGE = None
 
 EXE_START_TIME = None
+
+MEMORY_USAGE_LOOP = 'STOP'
 
 
 def initialiseLogging(conf):
@@ -68,8 +74,6 @@ def logExecutionStart(rerun=False):
     op += '                  *  BETL Execution ' + value + ' *' + '\n'
     op += '                  *                           *' + '\n'
     op += '                  *****************************' + '\n'
-
-    op += logMemoryUsage()
 
     JOB_LOG.info(op)
 
@@ -150,8 +154,6 @@ def logDFStart(desc, startTime):
     op += '*                                                               *\n'
     op += '*****************************************************************\n'
 
-    op += logMemoryUsage()
-
     JOB_LOG.info(op)
 
 
@@ -161,9 +163,11 @@ def logStepStart(startTime,
                  df=None,
                  additionalDesc=None):
 
+    global MEMORY_USAGE_LOOP
+
     op = ''
     op += '   -------------------------------------------------------\n'
-    op += '   | Operation: ' + str(inspect.stack()[1][3]) + '\n'
+    op += '   | Operation: ' + str(inspect.stack()[2][3]) + '\n'
     if desc is not None:
         op += '   | Desc: "' + desc + '"\n'
     if additionalDesc is not None:
@@ -173,9 +177,12 @@ def logStepStart(startTime,
     startStr = startTime.strftime('%H:%M:%S')
     op += '   | [Started step: ' + startStr + ']'
 
-    op += logMemoryUsage()
-
     JOB_LOG.info(op)
+
+    if CONF.exe.MONITOR_MEMORY_USAGE:
+        MEMORY_USAGE_LOOP = 'GO'
+        t = MemoryUsageThread()
+        t.start()
 
 
 def logStepError(str):
@@ -191,6 +198,22 @@ def logStepError(str):
 
 
 def logStepEnd(report, duration, datasetName=None, df=None, shapeOnly=False):
+
+    global MEMORY_USAGE_LOOP
+
+    # Log step start would have finished by kicking off a separate thread
+    # to monitor memory usage and o/p to console. We need to kill this now.
+    if CONF.exe.MONITOR_MEMORY_USAGE:
+        MEMORY_USAGE_LOOP = 'STOP'
+
+    # Need to give the thread time to kill itself tiddly (i.e. remove its
+    # last log message)
+    if CONF.exe.MONITOR_MEMORY_USAGE:
+        while True:
+            sleep(0.01)
+            if MEMORY_USAGE_LOOP == 'STOPPED':
+                break
+
     op = ''
     op += '   | [Completed in: ' + str(round(duration, 2)) + ' seconds] \n'
     if report is not None and len(report) > 0:
@@ -204,8 +227,6 @@ def logStepEnd(report, duration, datasetName=None, df=None, shapeOnly=False):
             shapeOnly=shapeOnly)
     op += '   -------------------------------------------------------\n'
 
-    op += logMemoryUsage()
-
     JOB_LOG.info(op)
 
 
@@ -217,8 +238,6 @@ def logDFEnd(durationSeconds, df=None):
 
     if df is not None:
         op += describeDataFrame(df)
-
-    op += logMemoryUsage()
 
     JOB_LOG.info(op)
 
@@ -280,6 +299,10 @@ def describeDataFrame(df,
 
 def logExecutionFinish(logStr):
 
+    # Just in case (of error)
+    global MEMORY_USAGE_LOOP
+    MEMORY_USAGE_LOOP = 'STOP'
+
     op = ''
     op += logStr
     op += '\n'
@@ -300,6 +323,25 @@ def logExecutionFinish(logStr):
     op += '\n\n'
     op += '                       ' + JOB_LOG_FILE_NAME
     op += '\n'
+
+    # We tag on any alerts to the end of the logs
+    op += '\n\n'
+    op += '*** ALERTS ***'
+    op += '\n\n'
+    alertsText = ''
+
+    alertsFileName = 'logs/' + str(EXEC_ID).zfill(4) + '_alerts.txt'
+    file = Path(alertsFileName)
+    if file.is_file():
+        with open(alertsFileName, 'r') as f:
+            alertsText = f.read()
+
+    if len(alertsText) == 0:
+        alertsText = 'No alerts generated in this execution'
+
+    op += alertsText
+    op += '\n\n--- end ---'
+    op += '\n\n'
 
     JOB_LOG.info(op)
 
@@ -432,14 +474,23 @@ def superflousTableWarning(tableNamesStr):
     return op
 
 
-def logMemoryUsage():
-    op = ''
-    if CONF.MONITOR_MEMORY_USAGE:
+class MemoryUsageThread(threading.Thread):
+    def __init__(self, name='MemoryUsageLogger'):
+        threading.Thread.__init__(self, name=name)
 
-        currentMemUsage = psutil.Process(os.getpid()).memory_info().rss
-        percent = round(currentMemUsage / MEM_USAGE_AT_START * 100)
-
-        op += '\n'
-        op += 'Used Memory: ' + str(percent)
-        op += '% (% of use at start) \n'
-    return op
+    def run(self):
+        global MEMORY_USAGE_LOOP
+        while True:
+            if MEMORY_USAGE_LOOP == 'STOP':
+                # Overwrite the line without creating a lb
+                print(' ' * 100, end='\r')
+                MEMORY_USAGE_LOOP = 'STOPPED'
+                sys.exit()
+            else:
+                sleep(0.1)  # pause for half a second
+                currentMemUsage = psutil.Process(os.getpid()).memory_info().rss
+                percent = round(currentMemUsage / MEM_USAGE_AT_START * 100)
+                op = 'Used Memory: ' + str(percent) + \
+                     '% (as % of use at start' + \
+                     ') (' + datetime.now().strftime("%H:%M:%S") + ')'
+                print(op, end='\r')

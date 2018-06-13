@@ -7,8 +7,6 @@ import ast
 import json
 import tempfile
 
-from pprint import pprint as print
-
 from . import logger
 from . import cli
 from . conf import Conf
@@ -563,22 +561,20 @@ def autoPopulateSrcSchemaDescriptions(conf):
                 srcSysSchemas[srcSysID]['tableSchemas'][wsName] = tableSchema
 
         else:
-            print(srcSysDS.datastoreType)
-            # raise ValueError("Failed to auto-populate SRC Layer schema desc:" +
-            #                  " Source system type is " +
-            #                  srcSysDS.datastoreType +
-            #                  ". Stopping execution. We only " +
-            #                  "deal with 'POSTGRES', 'FILESYSTEM' & 'GSHEET' " +
-            #                  " source system types, so cannot auto-populate " +
-            #                  "the ETL.SRC schemas for this source system")
+            raise ValueError("Failed to auto-populate SRC Layer schema desc:" +
+                             " Source system type is " +
+                             srcSysDS.datastoreType +
+                             ". Stopping execution. We only " +
+                             "deal with 'POSTGRES', 'FILESYSTEM' & 'GSHEET' " +
+                             " source system types, so cannot auto-populate " +
+                             "the ETL.SRC schemas for this source system")
 
         # Check we managed to find some kind of schema from the source system
         if (len(srcSysSchemas[srcSysID]['tableSchemas']) == 0):
-            pass
-        #     raise ValueError("Failed to auto-populate SRC Layer schema desc:" +
-        #                      " we could not find any meta data in the src " +
-        #                      "system with which to construct a schema " +
-        #                      "description")
+            raise ValueError("Failed to auto-populate SRC Layer schema desc:" +
+                             " we could not find any meta data in the src " +
+                             "system with which to construct a schema " +
+                             "description")
         else:
             for srcSysID in srcSysSchemas:
                 logger.logAutoPopSchemaDescsFromSrc(srcSysID)

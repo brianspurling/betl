@@ -31,7 +31,6 @@ class Conf():
         self.schedule = Schedule(scheduleConfig)
         self.data = Data(self.configObj)
 
-        self.MONITOR_MEMORY_USAGE = True
         self.LOGICAL_DATA_MODELS = {}
 
         self.JOB_LOG = None
@@ -121,6 +120,7 @@ class Data():
         # long delays at the start of very execution
         self.SRC_SYSTEMS = {}
         self.DEFAULT_ROW_SRC = None
+        self.MDM_SRC = None
         self.DWH_DATABASES = {}
 
     def getDatastore(self, dbID):
@@ -139,7 +139,6 @@ class Data():
 
     def getDefaultRowsDatastore(self):
         if self.DEFAULT_ROW_SRC is None:
-
             self.DEFAULT_ROW_SRC = \
                 SpreadsheetDatastore(
                     ssID='DR',
@@ -149,6 +148,18 @@ class Data():
                     ['GOOGLE_SHEETS_API_KEY_FILE'],
                     filename=self.configObj['default_rows']['FILENAME'])
         return self.DEFAULT_ROW_SRC
+
+    def getMDMDatastore(self):
+        if self.MDM_SRC is None:
+            self.MDM_SRC = \
+                SpreadsheetDatastore(
+                    ssID='MDM',
+                    apiUrl=self.configObj['mdm']
+                    ['GOOGLE_SHEETS_API_URL'],
+                    apiKey=self.configObj['mdm']
+                    ['GOOGLE_SHEETS_API_KEY_FILE'],
+                    filename=self.configObj['mdm']['FILENAME'])
+        return self.MDM_SRC
 
     def getListOfSrcSys(self):
         srcSysIDs = []
@@ -239,6 +250,11 @@ class Exe():
 
         self.DATA_LIMIT_ROWS = params['DATA_LIMIT_ROWS']
 
+        if self.DATA_LIMIT_ROWS:
+            self.MONITOR_MEMORY_USAGE = False
+        else:
+            self.MONITOR_MEMORY_USAGE = True
+
 
 class State():
 
@@ -291,6 +307,7 @@ class Schedule():
         self.DEFAULT_LOAD = scheduleConfig['DEFAULT_LOAD']
         self.DEFAULT_SUMMARISE = scheduleConfig['DEFAULT_SUMMARISE']
         self.DEFAULT_DM_DATE = scheduleConfig['DEFAULT_DM_DATE']
+        self.DEFAULT_DM_AUDIT = scheduleConfig['DEFAULT_DM_AUDIT']
         self.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT = \
             scheduleConfig['SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT']
         self.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD = \
