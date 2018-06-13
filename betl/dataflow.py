@@ -7,6 +7,7 @@ from . import logger
 from . import fileIO
 from . import dbIO
 from . import gsheetIO
+from . import excelIO
 from . import alerts
 
 
@@ -106,6 +107,19 @@ class DataFlow():
 
             self.data[tableName] = \
                 gsheetIO.readDataFromWorksheet(
+                    worksheet=srcSysDatastore.worksheets[srcTableName],
+                    limitdata=limitdata)
+
+        elif srcSysDatastore.datastoreType == 'EXCEL':
+
+            etlTableName = tableName
+            # Cut off the src_<dataModelID>_ prefix, by doing
+            # two "left trims" on the "_" char
+            srcTableName = etlTableName[etlTableName.find("_")+1:]
+            srcTableName = srcTableName[srcTableName.find("_")+1:]
+
+            self.data[tableName] = \
+                excelIO.readDataFromWorksheet(
                     worksheet=srcSysDatastore.worksheets[srcTableName],
                     limitdata=limitdata)
 

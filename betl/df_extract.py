@@ -19,6 +19,7 @@ def defaultExtract_bulk(scheduler):
     srcTablesToExclude = \
         scheduler.conf.schedule.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
     srcLayer = scheduler.conf.getLogicalDataModel('SRC')
+    # TODO I find this useful, but it probably shouldn't be here
     print(srcLayer)
     for dmID in srcLayer.dataModels:
         for tableName in srcLayer.dataModels[dmID].tables:

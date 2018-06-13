@@ -6,7 +6,8 @@ from configobj import ConfigObj
 from . import logger
 from .datastore import PostgresDatastore
 from .datastore import SqliteDatastore
-from .datastore import SpreadsheetDatastore
+from .datastore import GsheetDatastore
+from .datastore import ExcelDatastore
 from .datastore import FileDatastore
 from .dataLayer import SrcDataLayer
 from .dataLayer import StgDataLayer
@@ -101,7 +102,7 @@ class Ctrl():
     def getSchemaDescGSheetDatastore(self, dbID):
         if dbID not in self.SCHEMA_DESCRIPTION_GSHEETS:
             self.SCHEMA_DESCRIPTION_GSHEETS[dbID] = \
-                SpreadsheetDatastore(
+                GsheetDatastore(
                     ssID=dbID,
                     apiUrl=self.apiUrl,
                     apiKey=self.apiKey,
@@ -140,7 +141,7 @@ class Data():
     def getDefaultRowsDatastore(self):
         if self.DEFAULT_ROW_SRC is None:
             self.DEFAULT_ROW_SRC = \
-                SpreadsheetDatastore(
+                GsheetDatastore(
                     ssID='DR',
                     apiUrl=self.configObj['default_rows']
                     ['GOOGLE_SHEETS_API_URL'],
@@ -152,7 +153,7 @@ class Data():
     def getMDMDatastore(self):
         if self.MDM_SRC is None:
             self.MDM_SRC = \
-                SpreadsheetDatastore(
+                GsheetDatastore(
                     ssID='MDM',
                     apiUrl=self.configObj['mdm']
                     ['GOOGLE_SHEETS_API_URL'],
@@ -207,11 +208,20 @@ class Data():
                 apiUrl = srcSysConfigObj['GOOGLE_SHEETS_API_URL']
                 apiKey = srcSysConfigObj['GOOGLE_SHEETS_API_KEY_FILE']
                 self.SRC_SYSTEMS[srcSysID] = \
-                    SpreadsheetDatastore(
+                    GsheetDatastore(
                         ssID=srcSysID,
                         apiUrl=apiUrl,
                         apiKey=apiKey,
                         filename=srcSysConfigObj['FILENAME'],
+                        isSrcSys=True)
+
+            elif srcSysConfigObj['TYPE'] == 'EXCEL':
+                self.SRC_SYSTEMS[srcSysID] = \
+                    ExcelDatastore(
+                        ssID=srcSysID,
+                        path=srcSysConfigObj['PATH'],
+                        filename=srcSysConfigObj['FILENAME'] +
+                        srcSysConfigObj['FILE_EXT'],
                         isSrcSys=True)
 
         return self.SRC_SYSTEMS[srcSysID]

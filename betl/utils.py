@@ -560,6 +560,33 @@ def autoPopulateSrcSchemaDescriptions(conf):
                 }
                 srcSysSchemas[srcSysID]['tableSchemas'][wsName] = tableSchema
 
+        elif (srcSysDS.datastoreType == 'EXCEL'):
+            # one spreadsheet will contain multiple worksheets, each
+            # worksheet containing one table. The top row is the column
+            # headings.
+            worksheets = srcSysDS.getWorksheets()
+            for wsName in worksheets:
+                colHeaders = worksheets[wsName]['1:1']
+                colSchemas = {}
+                for cell in colHeaders:
+                    colName = cell.value
+                    if colName != '':
+                        colSchemas[colName] = {
+                            'tableName': wsName,
+                            'columnName': colName,
+                            'dataType': 'TEXT',
+                            'columnType': 'Attribute',
+                            'fkDimension': None
+                        }
+                    else:
+                        break
+
+                tableSchema = {
+                    'tableName': wsName,
+                    'columnSchemas': colSchemas
+                }
+                srcSysSchemas[srcSysID]['tableSchemas'][wsName] = tableSchema
+
         else:
             raise ValueError("Failed to auto-populate SRC Layer schema desc:" +
                              " Source system type is " +
