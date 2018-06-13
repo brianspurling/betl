@@ -20,9 +20,10 @@ class Column():
     def getSqlCreateStatement(self):
         columnCreateStatement = ''
         if self.isSK:
-            columnCreateStatement = self.columnName + ' SERIAL UNIQUE'
+            columnCreateStatement = '"' + self.columnName + '"' + \
+                ' SERIAL UNIQUE'
         else:
-            columnCreateStatement = self.columnName + ' ' + \
+            columnCreateStatement = '"' + self.columnName + '"' + ' ' + \
                 self.dataType
 
         return columnCreateStatement
