@@ -1,7 +1,7 @@
 import pandas as pd
 from datetime import date, timedelta
 
-from . import api as betl
+from .dataflow import DataFlow
 
 
 def getSchemaDescription():
@@ -115,7 +115,7 @@ def transformDMDate(scheduler):
 
     df = pd.DataFrame(dmDateList)
 
-    dfl = betl.DataFlow(desc='Generate the dm_date rows')
+    dfl = DataFlow(desc='Generate the dm_date rows')
 
     dfl.createDataset(
         dataset='trg_dm_date',

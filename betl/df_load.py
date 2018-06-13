@@ -1,7 +1,7 @@
-from . import api as betl
-
 import pandas as pd
 import numpy as np
+
+from .dataflow import DataFlow
 
 
 #
@@ -37,7 +37,7 @@ def defaultLoad(scheduler):
 
         trgAndSumTbls = {**trgTables, **sumTables}
 
-        dfl = betl.DataFlow(
+        dfl = DataFlow(
             desc="If it's a bulk load, drop the indexes to speed up " +
                  "writing. We do this here, because we need to drop " +
                  "fact indexes first (or, to be precise, the facts' " +
@@ -103,8 +103,7 @@ def deltaLoadTable(table, tableType, conf):
 
 
 def bulkLoadDimension(conf, defaultRows, table):
-    dfl = betl.DataFlow(
-        desc='Loading dimension: ' + table.tableName)
+    dfl = DataFlow(desc='Loading dimension: ' + table.tableName)
 
     # DATA
 
@@ -220,8 +219,7 @@ def concatenateNKs(row):
 
 def bulkLoadFact(conf, table):
 
-    dfl = betl.DataFlow(
-        desc='Loading fact: ' + table.tableName)
+    dfl = DataFlow(desc='Loading fact: ' + table.tableName)
 
     # READ DATA
 

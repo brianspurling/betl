@@ -1,4 +1,4 @@
-from . import api as betl
+from .dataflow import DataFlow
 
 
 def defaultTransform(scheduler):
@@ -17,7 +17,7 @@ def defaultTransform(scheduler):
     for tableName in trgTables:
         if (trgTables[tableName].getTableType() == 'FACT'):
             if tableName not in nonDefaultStagingTables:
-                dfl = betl.DataFlow(
+                dfl = DataFlow(
                     desc='Default transform: convert the audit columns into ' +
                          'NKs for ' + tableName)
 

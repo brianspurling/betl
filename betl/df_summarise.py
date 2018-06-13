@@ -1,4 +1,4 @@
-from . import api as betl
+from .dataflow import DataFlow
 from . import logger
 
 JOB_LOG = logger.getLogger()
@@ -18,7 +18,7 @@ def defaultSummarisePrep(scheduler):
         scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
     if scheduler.conf.exe.BULK_OR_DELTA == 'BULK':
-        dfl = betl.DataFlow(
+        dfl = DataFlow(
             desc="If it's a bulk load, drop the indexes to speed up " +
                  "writing.")
         for tableName in sumTables:

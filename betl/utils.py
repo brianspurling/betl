@@ -17,7 +17,7 @@ from . import fileIO
 
 # TODO: split this up into different sets, particuarly so a read_src only
 # run doesn't then go on to load the new model back out of the ss
-def init(appConfigFile, runTimeParams, scheduleConfig=None):
+def init(appConfigFile, scheduleConfig=None, runTimeParams=None):
 
     ###############
     # LOGGING OFF #

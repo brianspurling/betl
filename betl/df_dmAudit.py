@@ -1,4 +1,4 @@
-from . import api as betl
+from .dataflow import DataFlow
 
 
 def getSchemaDescription():
@@ -39,7 +39,7 @@ def getSchemaDescription():
 
 def transformDMAudit(scheduler):
 
-    dfl = betl.DataFlow(desc='Generate the dm_audit rows')
+    dfl = DataFlow(desc='Generate the dm_audit rows')
 
     dfl.createDataset(
         dataset='ops',
