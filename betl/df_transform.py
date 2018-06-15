@@ -1,4 +1,4 @@
-from .dataflow import DataFlow
+from . import main
 
 
 def defaultTransform(scheduler):
@@ -9,7 +9,7 @@ def defaultTransform(scheduler):
     # step breaks on rerun
 
     trgTables = \
-        scheduler.conf.getLogicalDataModel('TRG').dataModels['TRG'].tables
+        scheduler.conf.data.getLogicalDataModel('TRG').dataModels['TRG'].tables
 
     nonDefaultStagingTables = \
         scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
@@ -17,7 +17,7 @@ def defaultTransform(scheduler):
     for tableName in trgTables:
         if (trgTables[tableName].getTableType() == 'FACT'):
             if tableName not in nonDefaultStagingTables:
-                dfl = DataFlow(
+                dfl = main.DataFlow(
                     desc='Default transform: convert the audit columns into ' +
                          'NKs for ' + tableName)
 

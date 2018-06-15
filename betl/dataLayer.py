@@ -10,13 +10,13 @@ import ast
 
 class DataLayer():
 
-    def __init__(self, dbID, dataLayerID, conf):
+    def __init__(self, dbID, dataLayerID, dataConf):
 
-        self.conf = conf
+        self.dataConf = dataConf
         self.databaseID = dbID
         self.dataLayerID = dataLayerID
 
-        self.datastore = conf.data.getDatastore(dbID)
+        self.datastore = dataConf.getDWHDatastore(dbID)
         self.dataModels = self.buildLogicalDataModels()
 
     def buildLogicalDataModels(self):
@@ -34,13 +34,13 @@ class DataLayer():
             if self.dataLayerID == 'SRC':
                 # Each dataModel in the SRC dataLayer is a source system
                 dataModels[dataModelID] = \
-                    SrcDataModel(self.conf,
+                    SrcDataModel(self.dataConf,
                                  dlSchemaDesc['dataModelSchemas'][dataModelID],
                                  self.datastore,
                                  self.dataLayerID)
             else:
                 dataModels[dataModelID] = \
-                    DataModel(self.conf,
+                    DataModel(self.dataConf,
                               dlSchemaDesc['dataModelSchemas'][dataModelID],
                               self.datastore,
                               self.dataLayerID)
@@ -106,45 +106,45 @@ class DataLayer():
 
 class SrcDataLayer(DataLayer):
 
-    def __init__(self, conf):
+    def __init__(self, dataConf):
 
         DataLayer.__init__(self,
                            dbID='ETL',
                            dataLayerID='SRC',
-                           conf=conf)
+                           dataConf=dataConf)
 
 
 class StgDataLayer(DataLayer):
 
-    def __init__(self, conf):
+    def __init__(self, dataConf):
 
         DataLayer.__init__(self,
                            dbID='ETL',
                            dataLayerID='STG',
-                           conf=conf)
+                           dataConf=dataConf)
 
 
 class TrgDataLayer(DataLayer):
 
-    def __init__(self, conf):
+    def __init__(self, dataConf):
 
         # This will create the schema defined in the logical data model
         DataLayer.__init__(self,
                            dbID='TRG',
                            dataLayerID='TRG',
-                           conf=conf)
+                           dataConf=dataConf)
 
         # We also need to create the "default" components of the target model
-        if conf.schedule.DEFAULT_DM_DATE:
+        if dataConf.INCLUDE_DM_DATE:
             self.dataModels['TRG'].tables['dm_date'] = \
-                TrgTable(self.conf,
+                TrgTable(self.dataConf,
                          df_dmDate.getSchemaDescription(),
                          self.datastore,
                          dataLayerID='TRG',
                          dataModelID='TRG')
 
         self.dataModels['TRG'].tables['dm_audit'] = \
-            TrgTable(self.conf,
+            TrgTable(self.dataConf,
                      df_dmAudit.getSchemaDescription(),
                      self.datastore,
                      dataLayerID='TRG',
@@ -153,9 +153,9 @@ class TrgDataLayer(DataLayer):
 
 class SumDataLayer(DataLayer):
 
-    def __init__(self, conf):
+    def __init__(self, dataConf):
 
         DataLayer.__init__(self,
                            dbID='TRG',
                            dataLayerID='SUM',
-                           conf=conf)
+                           dataConf=dataConf)

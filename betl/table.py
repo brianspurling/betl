@@ -4,9 +4,9 @@ from . import df_load
 
 class Table():
 
-    def __init__(self, conf, tableSchema, datastore, dataLayerID, dataModelID):
+    def __init__(self, dataConf, tableSchema, datastore, dataLayerID, dataModelID):
 
-        self.conf = conf
+        self.dataConf = dataConf
         self.dataLayerID = dataLayerID
         self.dataModelID = dataModelID
         self.tableName = tableSchema['tableName'].lower()
@@ -70,7 +70,7 @@ class Table():
         # and DM_AUDIT, we add audit columns
         tableType = self.getTableType()
         if tableType != 'FACT' and self.tableName != 'dm_audit':
-            for i, auditColRow in self.conf.auditColumns.iterrows():
+            for i, auditColRow in self.dataConf.AUDIT_COLS.iterrows():
                 colsCreateStatements.append(
                     auditColRow['colNames'] +
                     ' ' +
@@ -116,9 +116,9 @@ class Table():
 # TRG tables are any table in the TRG database, i.e. datalayers TRG & SUM
 class TrgTable(Table):
 
-    def __init__(self, conf, tableSchema, datastore, dataLayerID, dataModelID):
+    def __init__(self, dataConf, tableSchema, datastore, dataLayerID, dataModelID):
 
-        Table.__init__(self, conf, tableSchema,
+        Table.__init__(self, dataConf, tableSchema,
                        datastore, dataLayerID, dataModelID)
 
     def getSqlDropIndexes(self):

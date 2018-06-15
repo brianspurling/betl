@@ -59,7 +59,7 @@ class Scheduler():
                     function=df_dmDate.transformDMDate,
                     stage='TRANSFORM')
 
-            if self.conf.schedule.DEFAULT_DM_AUDIT:    
+            if self.conf.schedule.DEFAULT_DM_AUDIT:
                 self.addFunctionToList(
                     function=df_dmAudit.transformDMAudit,
                     stage='TRANSFORM')
@@ -163,7 +163,7 @@ class Scheduler():
             return 'FAIL'
 
     def executeFunction(self, functionName, functionId):
-        # We set the conf.STAGE object so that, during execution of the
+        # We set the conf.state.STAGE object so that, during execution of the
         # function,  we know which stage we're in
         self.conf.state.setStage(self.functions_dict[functionName]['stage'])
         self.conf.state.setFunctionId(functionId)

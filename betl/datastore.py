@@ -175,13 +175,6 @@ class GsheetDatastore(Datastore):
                 self.apiKey,
                 self.apiUrl))
         return _client.open(self.filename)
-        # except SpreadsheetNotFound:
-        #     log.error('Failed to establish a connection to the ETL Schema ' +
-        #               'spreadsheet: ' + conf.ETL_DB_SCHEMA_FILE_NAME + '. ' +
-        #               'This doc should be a Google Doc, matching this name '+
-        #               'exactly, and shared to the user in your Google API ' +
-        #               'auth file (client_email)')
-        #     raise
 
     def getGdriveConnection(self):
         creds = ServiceAccountCredentials.from_json_keyfile_name(

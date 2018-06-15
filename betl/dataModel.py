@@ -13,9 +13,9 @@ from .table import TrgTable
 
 class DataModel():
 
-    def __init__(self, conf, dataModelSchemaDesc, datastore, dataLayerID):
+    def __init__(self, dataConf, dataModelSchemaDesc, datastore, dataLayerID):
 
-        self.conf = conf
+        self.dataConf = dataConf
 
         self.dataLayerID = dataLayerID
         self.dataModelID = dataModelSchemaDesc['dataModelID']
@@ -30,14 +30,14 @@ class DataModel():
         for tableName in dataModelSchemaDesc['tableSchemas']:
             if self.dataModelID in ('TRG', 'SUM'):
                 table = TrgTable(
-                    self.conf,
+                    self.dataConf,
                     dataModelSchemaDesc['tableSchemas'][tableName],
                     self.datastore,
                     self.dataLayerID,
                     self.dataModelID)
             else:
                 table = Table(
-                    self.conf,
+                    self.dataConf,
                     dataModelSchemaDesc['tableSchemas'][tableName],
                     self.datastore,
                     self.dataLayerID,
@@ -85,17 +85,13 @@ class DataModel():
 
 class SrcDataModel(DataModel):
 
-    # this needs appConf, when the main one doesn't, because this loads up
-    # the spreadsheet. but why dont' i need it for files?? maybe I do - not
-    # tested  No it's beecause the spreadsheet func is writtend differnetly,
-    # because it's the schema func
-    def __init__(self, conf, dataModelSchemaDesc, datastore, dataLayerID):
+    def __init__(self, dataConf, dataModelSchemaDesc, datastore, dataLayerID):
 
         DataModel.__init__(
             self,
-            conf,
+            dataConf,
             dataModelSchemaDesc,
             datastore,
             dataLayerID)
 
-        self.conf = conf
+        self.dataConf = dataConf

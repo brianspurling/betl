@@ -1,4 +1,4 @@
-from .dataflow import DataFlow
+from . import main
 from . import logger
 
 JOB_LOG = logger.getLogger()
@@ -11,14 +11,14 @@ JOB_LOG = logger.getLogger()
 #
 def defaultSummarisePrep(scheduler):
 
-    sumLayer = scheduler.conf.getLogicalDataModel('SUM')
+    sumLayer = scheduler.conf.data.getLogicalDataModel('SUM')
 
     sumTables = sumLayer.dataModels['SUM'].tables
     nonDefaultTrgTables = \
         scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
     if scheduler.conf.exe.BULK_OR_DELTA == 'BULK':
-        dfl = DataFlow(
+        dfl = main.DataFlow(
             desc="If it's a bulk load, drop the indexes to speed up " +
                  "writing.")
         for tableName in sumTables:

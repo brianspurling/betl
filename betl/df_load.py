@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-from .dataflow import DataFlow
+from . import main
 
 
 #
@@ -15,8 +15,8 @@ from .dataflow import DataFlow
 # has to rerun
 def defaultLoad(scheduler):
 
-    trgLayer = scheduler.conf.getLogicalDataModel('TRG')
-    sumLayer = scheduler.conf.getLogicalDataModel('SUM')
+    trgLayer = scheduler.conf.data.getLogicalDataModel('TRG')
+    sumLayer = scheduler.conf.data.getLogicalDataModel('SUM')
 
     trgTables = trgLayer.dataModels['TRG'].tables
     sumTables = sumLayer.dataModels['SUM'].tables
@@ -37,7 +37,7 @@ def defaultLoad(scheduler):
 
         trgAndSumTbls = {**trgTables, **sumTables}
 
-        dfl = DataFlow(
+        dfl = main.DataFlow(
             desc="If it's a bulk load, drop the indexes to speed up " +
                  "writing. We do this here, because we need to drop " +
                  "fact indexes first (or, to be precise, the facts' " +
@@ -103,7 +103,7 @@ def deltaLoadTable(table, tableType, conf):
 
 
 def bulkLoadDimension(conf, defaultRows, table):
-    dfl = DataFlow(desc='Loading dimension: ' + table.tableName)
+    dfl = main.DataFlow(desc='Loading dimension: ' + table.tableName)
 
     # DATA
 
@@ -219,7 +219,7 @@ def concatenateNKs(row):
 
 def bulkLoadFact(conf, table):
 
-    dfl = DataFlow(desc='Loading fact: ' + table.tableName)
+    dfl = main.DataFlow(desc='Loading fact: ' + table.tableName)
 
     # READ DATA
 

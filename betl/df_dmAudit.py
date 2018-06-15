@@ -1,4 +1,4 @@
-from .dataflow import DataFlow
+from . import main
 
 
 def getSchemaDescription():
@@ -39,7 +39,7 @@ def getSchemaDescription():
 
 def transformDMAudit(scheduler):
 
-    dfl = DataFlow(desc='Generate the dm_audit rows')
+    dfl = main.DataFlow(desc='Generate the dm_audit rows')
 
     dfl.createDataset(
         dataset='ops',

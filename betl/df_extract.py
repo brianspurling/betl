@@ -1,4 +1,4 @@
-from .dataflow import DataFlow
+from . import main
 
 from datetime import datetime
 
@@ -18,14 +18,12 @@ def defaultExtract(scheduler):
 def defaultExtract_bulk(scheduler):
     srcTablesToExclude = \
         scheduler.conf.schedule.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
-    srcLayer = scheduler.conf.getLogicalDataModel('SRC')
-    # TODO I find this useful, but it probably shouldn't be here
-    print(srcLayer)
+    srcLayer = scheduler.conf.data.getLogicalDataModel('SRC')
     for dmID in srcLayer.dataModels:
         for tableName in srcLayer.dataModels[dmID].tables:
             if tableName in srcTablesToExclude:
                 continue
-            dfl = DataFlow(desc='Default extract for ' + tableName)
+            dfl = main.DataFlow(desc='Default extract for ' + tableName)
 
             dfl.getDataFromSrc(
                 tableName=tableName,
@@ -49,7 +47,7 @@ def defaultExtract_bulk(scheduler):
     # srcTablesToExclude = \
     #     scheduler.conf.schedule.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
     #
-    # srcLayer = scheduler.conf.getLogicalDataModel('SRC')
+    # srcLayer = scheduler.conf.data.getLogicalDataModel('SRC')
     #
     # for dmID in srcLayer.dataModels:
     #     for tableName in srcLayer.dataModels[dmID].tables:
@@ -227,7 +225,7 @@ def defaultExtract_bulk(scheduler):
     #         etlDbCursor.execute("UPDATE src_ipa_addresses "
     #                             + nonNkSetClause + " "
     #                             + nkWhereClause)
-    #     scheduler.conf.data.getDatastore('ETL').commit()
+    #     scheduler.conf.data.getDWHDatastore('ETL').commit()
     # else:
     #     pass
 

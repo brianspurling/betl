@@ -253,14 +253,14 @@ def describeDataFrame(df,
 
     tableContainsAuditCols = False
     numberOfColumns = len(df.columns.values)
-    if set(CONF.auditColumns['colNames']).issubset(list(df.columns.values)):
+    if set(CONF.data.AUDIT_COLS['colNames']).issubset(list(df.columns.values)):
         tableContainsAuditCols = True
         # We should be able to predict the number of audit cols, but that
         # doesn't help much with debugging (which, at this stage, is pretty
         # necessary with the audit functionality).
         numberOfAuditCols = 0
         for col in list(df.columns.values):
-            if col in list(CONF.auditColumns['colNames']):
+            if col in list(CONF.data.AUDIT_COLS['colNames']):
                 numberOfAuditCols += 1
         numberOfColumns = numberOfColumns - numberOfAuditCols
 
@@ -275,7 +275,7 @@ def describeDataFrame(df,
     if not shapeOnly:
         op += '   ' + firstChar + 'Columns:\n'
         for colName in list(df.columns.values):
-            if colName not in CONF.auditColumns['colNames'].tolist():
+            if colName not in CONF.data.AUDIT_COLS['colNames'].tolist():
                 if len(str(colName)) > 30:
                     op += '   ' + firstChar + '   '
                     op += str(colName)[:30] + '--: '

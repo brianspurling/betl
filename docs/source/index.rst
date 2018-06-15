@@ -100,74 +100,82 @@ App Config
 
  Create an ``appConfig.ini`` file in your root::
 
-  DWH_ID = <short code to identify the data warehouse>
-  TMP_DATA_PATH = tmp_data/
-  LOG_PATH = logs/
+   [ctrl]
 
-  [schema_descriptions]
+     DWH_ID = <short code to identify the data warehouse>
+     TMP_DATA_PATH = tmp_data/
+     LOG_PATH = logs/
 
-      GOOGLE_SHEETS_API_URL = 'https://spreadsheets.google.com/feeds'
-      GOOGLE_SHEETS_API_KEY_FILE = '<filename of your API key file>'
-      ETL_FILENAME = ''
-      TRG_FILENAME = ''
+     [[ctl_db]]
 
-  [ctldb]
+       HOST =
+       DBNAME =
+       USER =
+       PASSWORD =
 
-      HOST = localhost
-      DBNAME =
-      USER =
-      PASSWORD =
+   [data]
 
-  [dbs]
+     [[schema_descs]]
 
-      [[ETL]]
-      HOST =
-      DBNAME =
-      USER =
-      PASSWORD =
+       GSHEETS_API_URL = 'https://spreadsheets.google.com/feeds'
+       GSHEETS_API_KEY_FILE = '<filename of your API key file>'
+       ETL_FILENAME = ''
+       TRG_FILENAME = ''
 
-      [[TRG]]
-      HOST =
-      DBNAME =
-      USER =
-      PASSWORD =
+     [[dwh_dbs]]
 
-  [mdm]
-      TYPE = GSHEET
-      GOOGLE_SHEETS_API_URL = 'https://spreadsheets.google.com/feeds'
-      GOOGLE_SHEETS_API_KEY_FILE = 'bSETL-83cba3f29177.json'
-      FILENAME = 'PNGi - Master Data Mappings'
+       [[[ETL]]]
 
-  [default_rows]
-      GOOGLE_SHEETS_API_URL = 'https://spreadsheets.google.com/feeds'
-      GOOGLE_SHEETS_API_KEY_FILE = 'bSETL-83cba3f29177.json'
-      FILENAME = 'PNGi - Default Rows'
+         HOST =
+         DBNAME =
+         USER =
+         PASSWORD =
 
-  [src_sys]
+       [[[TRG]]]
 
-      [[SQLLITE_EXAMPLE]]
-      TYPE = SQLITE
-      PATH = 'src_data/'
-      FILENAME = ''
+         HOST =
+         DBNAME =
+         USER =
+         PASSWORD =
 
-      [[FILE_SYSTEM_EXAMPLE]]
-      TYPE = FILESYSTEM
-      PATH = 'src_data/'
-      FILE_EXT = '.csv'
-      DELIMITER = ','
-      QUOTECHAR = '"'
+     [[default_rows]]
 
-      [[GSHEET_EXAMPLE]]
-      TYPE = GSHEET
-      GOOGLE_SHEETS_API_URL = 'https://spreadsheets.google.com/feeds'
-      GOOGLE_SHEETS_API_KEY_FILE = '<filename of your API key file>'
-      FILENAME = ''
+       GSHEETS_API_URL = 'https://spreadsheets.google.com/feeds'
+       GSHEETS_API_KEY_FILE = '<filename of your API key file>'
+       FILENAME = ''
 
-      [[EXCEL_EXAMPLE]]
-      TYPE = EXCEL
-      PATH = 'src_data/'
-      FILENAME = ''
-      FILE_EXT = '.xlsx'
+     [[mdm]]
+
+       TYPE = GSHEET
+       GSHEETS_API_URL = 'https://spreadsheets.google.com/feeds'
+       GSHEETS_API_KEY_FILE = '<filename of your API key file>'
+       FILENAME = ''
+
+     [[src_sys]]
+
+       [[[SQLLITE_EXAMPLE]]]
+         TYPE = SQLITE
+         PATH = 'src_data/'
+         FILENAME = ''
+
+       [[[FILE_SYSTEM_EXAMPLE]]]
+         TYPE = FILESYSTEM
+         PATH = 'src_data/'
+         FILE_EXT = '.csv'
+         DELIMITER = ','
+         QUOTECHAR = '"'
+
+       [[[GSHEET_EXAMPLE]]]
+         TYPE = GSHEET
+         GOOGLE_SHEETS_API_URL = 'https://spreadsheets.google.com/feeds'
+         GOOGLE_SHEETS_API_KEY_FILE = '<filename of your API key file>'
+         FILENAME = ''
+
+       [[[EXCEL_EXAMPLE]]]
+         TYPE = EXCEL
+         PATH = 'src_data/'
+         FILENAME = ''
+         FILE_EXT = '.xlsx'
 
 Schedule Config
 ===============

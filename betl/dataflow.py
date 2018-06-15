@@ -159,10 +159,10 @@ class DataFlow():
         self.data[_targetDataset] = pd.DataFrame()
 
         if forceDBRead:
-            dbID = self.conf.getLogicalDataModel(dataLayer).databaseID
+            dbID = self.conf.data.getLogicalDataModel(dataLayer).databaseID
             self.data[_targetDataset] = dbIO.readDataFromDB(
                 tableName=tableName,
-                conn=self.conf.data.getDatastore(dbID).conn)
+                conn=self.conf.data.getDWHDatastore(dbID).conn)
 
         else:
             self.data[_targetDataset] = \
@@ -230,7 +230,7 @@ class DataFlow():
         else:
             writeToDB = self.conf.exe.WRITE_TO_ETL_DB
 
-        dataLayer = self.conf.getLogicalDataModel(dataLayerID)
+        dataLayer = self.conf.data.getLogicalDataModel(dataLayerID)
         if (targetTableName not in dataLayer.getListOfTables()
            and not forceDBWrite):
             writeToDB = False
@@ -263,13 +263,13 @@ class DataFlow():
                     logDataModelColNames_sks.append(col.columnName)
             logDataModelColNames_all_plus_audit = \
                 logDataModelColNames_all + \
-                self.conf.auditColumns['colNames'].tolist()
+                self.conf.data.AUDIT_COLS['colNames'].tolist()
             colsIncludeSKs = False
             colsIncludeAudit = False
             for colName in list(self.trgDataset):
                 if colName in logDataModelColNames_sks:
                     colsIncludeSKs = True
-                if colName in self.conf.auditColumns['colNames'].tolist():
+                if colName in self.conf.data.AUDIT_COLS['colNames'].tolist():
                     colsIncludeAudit = True
 
                 if colName not in logDataModelColNames_all_plus_audit:
@@ -287,7 +287,7 @@ class DataFlow():
                     colsToSortBy = logDataModelColNames_all
                 if not colsIncludeSKs and colsIncludeAudit:
                     colsToSortBy = logDataModelColNames_noSKs + \
-                        self.conf.auditColumns['colNames'].tolist()
+                        self.conf.data.AUDIT_COLS['colNames'].tolist()
                 if not colsIncludeSKs and not colsIncludeAudit:
                     colsToSortBy = logDataModelColNames_noSKs
                 self.trgDataset = self.trgDataset[colsToSortBy]
@@ -354,7 +354,7 @@ class DataFlow():
         if colsToDrop is not None and colsToKeep is not None:
             raise ValueError("Nope!")
 
-        auditCols = self.conf.auditColumns['colNames'].tolist()
+        auditCols = self.conf.data.AUDIT_COLS['colNames'].tolist()
         if colsToKeep is not None:
             colsToKeep = colsToKeep + auditCols
             colsToDrop = [col for col in list(self.data[dataset])
@@ -667,7 +667,7 @@ class DataFlow():
 
         self.stepStart(desc=desc, additionalDesc=sql)
 
-        datastore = self.conf.getLogicalDataModel(dataLayer).datastore
+        datastore = self.conf.data.getLogicalDataModel(dataLayer).datastore
 
         if dataset is not None:
             self.data[dataset] = dbIO.customSQL(sql, datastore)
@@ -706,7 +706,7 @@ class DataFlow():
         fileIO.truncateFile(self.conf, path, filename)
 
         if forceDBWrite:
-            dataLayer = self.conf.getLogicalDataModel(dataLayerID)
+            dataLayer = self.conf.data.getLogicalDataModel(dataLayerID)
             dbIO.truncateTable(dataset, dataLayer.datastore)
 
         report = ''

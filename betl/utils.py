@@ -19,6 +19,12 @@ from . import fileIO
 # run doesn't then go on to load the new model back out of the ss
 def init(appConfigFile, scheduleConfig=None, runTimeParams=None):
 
+    # We can't log anything until we've checked the last execution ID, which
+    # is held in the CTL DB, which we can only access after setting up our
+    # Conf() object. So create Conf() first, get the execID, and then call
+    # logger.initaliseLogging() and assign the JOB_LOG to conf.ctrl for easy
+    # access later
+
     ###############
     # LOGGING OFF #
     ###############
@@ -27,7 +33,6 @@ def init(appConfigFile, scheduleConfig=None, runTimeParams=None):
 
         scheduleConfig = getDetaulfScheduleConfig()
 
-    # We can't log anything until we've checked the last execution ID #
     conf = Conf(appConfigFile, cli.processArgs(runTimeParams), scheduleConfig)
 
     # If we're running setup, we need to do this before checking the last
@@ -39,7 +44,7 @@ def init(appConfigFile, scheduleConfig=None, runTimeParams=None):
     # This sets the EXEC_ID in conf.state
     lastExecReport = setUpExecution(conf)
 
-    conf.initialiseLogging()
+    conf.ctrl.JOB_LOG = logger.initialiseLogging(conf)
 
     ##############
     # LOGGING ON #
@@ -80,22 +85,20 @@ def init(appConfigFile, scheduleConfig=None, runTimeParams=None):
     logger.logSchemaDescsLoad()
 
     # Check the last modified time of the Google Sheets
-    schemaDescGsheets = conf.ctrl.getAllSchemaDescGSheetDatastores()
-
-    for dbID in schemaDescGsheets:
-        sheet = schemaDescGsheets[dbID]
-        if (sheet.filename not in lastModifiedTimes
-           or sheet.getLastModifiedTime() !=
-           lastModifiedTimes[sheet.filename]):
+    for dbID in conf.data.DATABASES:
+        gSheet = conf.data.getSchemaDescGSheetDatastore(dbID)
+        if (gSheet.filename not in lastModifiedTimes
+           or gSheet.getLastModifiedTime() !=
+           lastModifiedTimes[gSheet.filename]):
             oneOrMoreLastModTimesChanged = True
             lastModTimesChanged[dbID] = True
 
     if oneOrMoreLastModTimesChanged:
         logger.logRefreshingSchemaDescsFromGsheets(len(lastModTimesChanged))
         for dbID in lastModTimesChanged:
-            sheet = schemaDescGsheets[dbID]
-            refreshSchemaDescCSVs(sheet, dbID)
-            lastModifiedTimes[sheet.filename] = sheet.getLastModifiedTime()
+            gSheet = conf.data.getSchemaDescGSheetDatastore(dbID)
+            refreshSchemaDescCSVs(gSheet, dbID)
+            lastModifiedTimes[gSheet.filename] = gSheet.getLastModifiedTime()
         logger.logRefreshingSchemaDescsFromGsheets_done()
 
     if lastModTimesChanged:
@@ -110,17 +113,17 @@ def init(appConfigFile, scheduleConfig=None, runTimeParams=None):
         logger.logPhysicalDataModelBuild()
 
     if conf.exe.RUN_REBUILD_ALL:
-        for dataLayerID in conf.DATA_LAYERS:
-            conf.getLogicalDataModel(dataLayerID).buildPhysicalDataModel()
+        for dataLayerID in conf.data.DATA_LAYERS:
+            conf.data.getLogicalDataModel(dataLayerID).buildPhysicalDataModel()
     else:
         if conf.exe.RUN_REBUILD_SRC:
-            conf.getLogicalDataModel('SRC').buildPhysicalDataModel()
+            conf.data.getLogicalDataModel('SRC').buildPhysicalDataModel()
         if conf.exe.RUN_REBUILD_STG:
-            conf.getLogicalDataModel('STG').buildPhysicalDataModel()
+            conf.data.getLogicalDataModel('STG').buildPhysicalDataModel()
         if conf.exe.RUN_REBUILD_TRG:
-            conf.getLogicalDataModel('TRG').buildPhysicalDataModel()
+            conf.data.getLogicalDataModel('TRG').buildPhysicalDataModel()
         if conf.exe.RUN_REBUILD_SUM:
-            conf.getLogicalDataModel('SUM').buildPhysicalDataModel()
+            conf.data.getLogicalDataModel('SUM').buildPhysicalDataModel()
 
     return conf
 
@@ -299,9 +302,9 @@ def checkDBsForSuperflousTables(conf):
     query = ("SELECT table_name FROM information_schema.tables " +
              "WHERE table_schema = 'public'")
 
-    etlDBCursor = conf.data.getDatastore('ETL').cursor()
+    etlDBCursor = conf.data.getDWHDatastore('ETL').cursor()
     etlDBCursor.execute(query)
-    trgDBCursor = conf.data.getDatastore('TRG').cursor()
+    trgDBCursor = conf.data.getDWHDatastore('TRG').cursor()
     trgDBCursor.execute(query)
 
     # query returns list of tuples, (<tablename>, )
@@ -310,9 +313,9 @@ def checkDBsForSuperflousTables(conf):
     allTables.extend([item[0] for item in trgDBCursor.fetchall()])
 
     dataModelTables = []
-    for dataLayerID in conf.DATA_LAYERS:
+    for dataLayerID in conf.data.DATA_LAYERS:
         dataModelTables.extend(
-            conf.getLogicalDataModel(dataLayerID).getListOfTables())
+            conf.data.getLogicalDataModel(dataLayerID).getListOfTables())
 
     superflousTableNames = []
     for tableName in allTables:
@@ -320,7 +323,7 @@ def checkDBsForSuperflousTables(conf):
             superflousTableNames.append(tableName)
 
     if len(superflousTableNames) > 0:
-        conf.JOB_LOG.warn(
+        conf.ctrl.JOB_LOG.warn(
             logger.superflousTableWarning(',\n  '.join(superflousTableNames)))
 
 
@@ -408,7 +411,7 @@ def autoPopulateSrcSchemaDescriptions(conf):
     # First, loop through the ETL DB schema desc spreadsheet and delete
     # any worksheets prefixed ETL.SRC.
 
-    ss = conf.ctrl.getSchemaDescGSheetDatastore('ETL').conn
+    ss = conf.data.getSchemaDescGSheetDatastore('ETL').conn
 
     logger.logDeleteSrcSchemaDescWsFromSS()
     for ws in ss.worksheets():
@@ -417,7 +420,7 @@ def autoPopulateSrcSchemaDescriptions(conf):
 
     # Each source system will create a new data model within our SRC data
     # layer (within our ETL database)
-    for srcSysID in conf.data.getListOfSrcSys():
+    for srcSysID in conf.data.SRC_SYSTEM_LIST:
 
         srcSysSchemas = {}
 
