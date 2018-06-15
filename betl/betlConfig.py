@@ -16,3 +16,16 @@ auditColumns = {
         'TEXT'
     ],
 }
+
+defaultScheduleConfig = {
+    'DEFAULT_EXTRACT': False,
+    'SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT': [],
+    'DEFAULT_LOAD': False,
+    'DEFAULT_SUMMARISE': False,
+    'DEFAULT_DM_DATE': False,
+    'TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD': [],
+    'EXTRACT_DFS': [],
+    'TRANSFORM_DFS': [],
+    'LOAD_DFS': [],
+    'SUMMARISE_DFS': []
+}

@@ -24,10 +24,10 @@ class DataFlow():
         # trgDataset is always set to the most recent dataset written to disk
         self.trgDataset = None
         logger.logDFStart(self.description, self.dflStartTime)
-        self.dataflowId = self.conf.ctrl.CTRL_DB.insertDataflow(
+        self.dataflowId = self.conf.CTRL.CTRL_DB.insertDataflow(
             dataflow={
-                'execId': self.conf.state.EXEC_ID,
-                'functionId': self.conf.state.FUNCTION_ID,
+                'execId': self.conf.STATE.EXEC_ID,
+                'functionId': self.conf.STATE.FUNCTION_ID,
                 'description': self.description})
 
     def close(self):
@@ -41,7 +41,7 @@ class DataFlow():
             rowCount = None
             colCount = None
 
-        self.conf.ctrl.CTRL_DB.updateDataflow(
+        self.conf.CTRL.CTRL_DB.updateDataflow(
             dataflowId=self.dataflowId,
             status='SUCCESSFUL',
             rowCount=rowCount,
@@ -56,9 +56,9 @@ class DataFlow():
 
         self.stepStart(desc=desc)
 
-        srcSysDatastore = self.conf.data.getSrcSysDatastore(srcSysID)
+        srcSysDatastore = self.conf.DATA.getSrcSysDatastore(srcSysID)
 
-        limitdata = self.conf.exe.DATA_LIMIT_ROWS
+        limitdata = self.conf.EXE.DATA_LIMIT_ROWS
 
         self.data[tableName] = pd.DataFrame()
 
@@ -69,8 +69,9 @@ class DataFlow():
             quotechar = srcSysDatastore.quotechar
 
             if srcSysDatastore.fileExt == '.csv':
+                fileNameMap = self.conf.STATE.FILE_NAME_MAP
                 self.data[tableName] = \
-                    fileIO.readDataFromCsv(conf=self.conf,
+                    fileIO.readDataFromCsv(fileNameMap=fileNameMap,
                                            path=path,
                                            filename=filename + '.csv',
                                            sep=separator,
@@ -153,20 +154,21 @@ class DataFlow():
             raise ValueError('There is already a dataset named ' +
                              _targetDataset + ' in this dataflow')
 
-        path = (self.conf.ctrl.TMP_DATA_PATH + dataLayer + '/')
+        path = (self.conf.CTRL.TMP_DATA_PATH + dataLayer + '/')
         filename = tableName + '.csv'
 
         self.data[_targetDataset] = pd.DataFrame()
 
         if forceDBRead:
-            dbID = self.conf.data.getLogicalDataModel(dataLayer).databaseID
+            dbID = self.conf.DATA.getLogicalDataModel(dataLayer).databaseID
             self.data[_targetDataset] = dbIO.readDataFromDB(
                 tableName=tableName,
-                conn=self.conf.data.getDWHDatastore(dbID).conn)
+                conn=self.conf.DATA.getDWHDatastore(dbID).conn)
 
         else:
+            fileNameMap = self.conf.STATE.FILE_NAME_MAP
             self.data[_targetDataset] = \
-                fileIO.readDataFromCsv(conf=self.conf,
+                fileIO.readDataFromCsv(fileNameMap=fileNameMap,
                                        path=path,
                                        filename=filename,
                                        sep=',',
@@ -228,9 +230,9 @@ class DataFlow():
         elif forceDBWrite:
             writeToDB = True
         else:
-            writeToDB = self.conf.exe.WRITE_TO_ETL_DB
+            writeToDB = self.conf.EXE.WRITE_TO_ETL_DB
 
-        dataLayer = self.conf.data.getLogicalDataModel(dataLayerID)
+        dataLayer = self.conf.DATA.getLogicalDataModel(dataLayerID)
         if (targetTableName not in dataLayer.getListOfTables()
            and not forceDBWrite):
             writeToDB = False
@@ -263,13 +265,13 @@ class DataFlow():
                     logDataModelColNames_sks.append(col.columnName)
             logDataModelColNames_all_plus_audit = \
                 logDataModelColNames_all + \
-                self.conf.data.AUDIT_COLS['colNames'].tolist()
+                self.conf.DATA.AUDIT_COLS['colNames'].tolist()
             colsIncludeSKs = False
             colsIncludeAudit = False
             for colName in list(self.trgDataset):
                 if colName in logDataModelColNames_sks:
                     colsIncludeSKs = True
-                if colName in self.conf.data.AUDIT_COLS['colNames'].tolist():
+                if colName in self.conf.DATA.AUDIT_COLS['colNames'].tolist():
                     colsIncludeAudit = True
 
                 if colName not in logDataModelColNames_all_plus_audit:
@@ -287,7 +289,7 @@ class DataFlow():
                     colsToSortBy = logDataModelColNames_all
                 if not colsIncludeSKs and colsIncludeAudit:
                     colsToSortBy = logDataModelColNames_noSKs + \
-                        self.conf.data.AUDIT_COLS['colNames'].tolist()
+                        self.conf.DATA.AUDIT_COLS['colNames'].tolist()
                 if not colsIncludeSKs and not colsIncludeAudit:
                     colsToSortBy = logDataModelColNames_noSKs
                 self.trgDataset = self.trgDataset[colsToSortBy]
@@ -320,7 +322,7 @@ class DataFlow():
                 axis=1,
                 inplace=True)
 
-        path = (self.conf.ctrl.TMP_DATA_PATH + dataLayerID + '/')
+        path = (self.conf.CTRL.TMP_DATA_PATH + dataLayerID + '/')
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -354,7 +356,7 @@ class DataFlow():
         if colsToDrop is not None and colsToKeep is not None:
             raise ValueError("Nope!")
 
-        auditCols = self.conf.data.AUDIT_COLS['colNames'].tolist()
+        auditCols = self.conf.DATA.AUDIT_COLS['colNames'].tolist()
         if colsToKeep is not None:
             colsToKeep = colsToKeep + auditCols
             colsToDrop = [col for col in list(self.data[dataset])
@@ -667,7 +669,7 @@ class DataFlow():
 
         self.stepStart(desc=desc, additionalDesc=sql)
 
-        datastore = self.conf.data.getLogicalDataModel(dataLayer).datastore
+        datastore = self.conf.DATA.getLogicalDataModel(dataLayer).datastore
 
         if dataset is not None:
             self.data[dataset] = dbIO.customSQL(sql, datastore)
@@ -700,13 +702,13 @@ class DataFlow():
     def truncate(self, dataset, dataLayerID, forceDBWrite=False, desc=None):
         self.stepStart(desc=desc)
 
-        path = (self.conf.ctrl.TMP_DATA_PATH + dataLayerID + '/')
+        path = (self.conf.CTRL.TMP_DATA_PATH + dataLayerID + '/')
         filename = dataset + '.csv'
 
         fileIO.truncateFile(self.conf, path, filename)
 
         if forceDBWrite:
-            dataLayer = self.conf.data.getLogicalDataModel(dataLayerID)
+            dataLayer = self.conf.DATA.getLogicalDataModel(dataLayerID)
             dbIO.truncateTable(dataset, dataLayer.datastore)
 
         report = ''
@@ -722,7 +724,7 @@ class DataFlow():
 
         self.stepStart(desc=desc)
 
-        ws = self.conf.data.getMDMDatastore().conn.worksheet(mdmWS)
+        ws = self.conf.DATA.getMDMDatastore().conn.worksheet(mdmWS)
         mdm_list = ws.get_all_values()
         mdm = pd.DataFrame(mdm_list[1:], columns=mdm_list[0:1][0])
 
@@ -847,9 +849,9 @@ class DataFlow():
             df=df,
             additionalDesc=additionalDesc)
 
-        self.currentStepId = self.conf.ctrl.CTRL_DB.insertStep(
+        self.currentStepId = self.conf.CTRL.CTRL_DB.insertStep(
             step={
-                'execId': self.conf.state.EXEC_ID,
+                'execId': self.conf.STATE.EXEC_ID,
                 'dataflowID': self.dataflowId,
                 'description': desc})
 
@@ -876,7 +878,7 @@ class DataFlow():
             rowCount = None
             colCount = None
 
-        self.conf.ctrl.CTRL_DB.updateStep(
+        self.conf.CTRL.CTRL_DB.updateStep(
             stepId=self.currentStepId,
             status='SUCCESSFUL',
             rowCount=rowCount,

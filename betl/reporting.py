@@ -49,4 +49,4 @@ def generateExeSummary(conf, execId, bulkOrDelta, limitedData):
 
     df = dbIO.customSQL(
         sql=sql,
-        datastore=conf.ctrl.CTRL_DB.datastore)
+        datastore=conf.CTRL.CTRL_DB.datastore)

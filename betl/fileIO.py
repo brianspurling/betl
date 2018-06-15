@@ -6,14 +6,14 @@ def writeDataToCsv(conf, df, path, filename, headers, mode):
 
     _filename = ''
 
-    if filename in conf.state.fileNameMap:
-        _filename = conf.state.fileNameMap[filename]
+    if filename in conf.STATE.FILE_NAME_MAP:
+        _filename = conf.STATE.FILE_NAME_MAP[filename]
     else:
         prefix = \
-            str(conf.state.nextFilePrefix).zfill(conf.state.filePrefixLength)
+            str(conf.STATE.nextFilePrefix).zfill(conf.STATE.filePrefixLength)
         _filename = prefix + "-" + filename
-        conf.state.nextFilePrefix += 1
-        conf.state.fileNameMap[filename] = _filename
+        conf.STATE.nextFilePrefix += 1
+        conf.STATE.FILE_NAME_MAP[filename] = _filename
 
     _file = open(path + _filename, mode)
 
@@ -28,14 +28,14 @@ def writeDataToCsv(conf, df, path, filename, headers, mode):
 def truncateFile(conf, path, filename):
 
     _filename = ''
-    if filename in conf.state.fileNameMap:
-        _filename = conf.state.fileNameMap[filename]
+    if filename in conf.STATE.FILE_NAME_MAP:
+        _filename = conf.STATE.FILE_NAME_MAP[filename]
         if os.path.exists(path + _filename):
             _file = open(path + _filename, 'w')
             _file.close()
 
 
-def readDataFromCsv(conf,
+def readDataFromCsv(fileNameMap,
                     path,
                     filename,
                     sep=',',
@@ -47,7 +47,7 @@ def readDataFromCsv(conf,
 
     _filename = filename
     if isTmpData:
-        _filename = conf.state.fileNameMap[filename]
+        _filename = fileNameMap[filename]
 
     # We need to force it to read everything as text. Only way I can
     # see to do this is to read the headers and setup a dtype for each

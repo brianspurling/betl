@@ -1,7 +1,4 @@
-from . import main
-
-
-def defaultTransform(scheduler):
+def defaultTransform(betl):
 
     # TODO: make a default df_transform, that runs this on all fact tables
     # at the end of the transform stage, before load starts, and as part of
@@ -9,20 +6,21 @@ def defaultTransform(scheduler):
     # step breaks on rerun
 
     trgTables = \
-        scheduler.conf.data.getLogicalDataModel('TRG').dataModels['TRG'].tables
+        betl.CONF.DATA.getLogicalDataModel('TRG').dataModels['TRG'].tables
 
     nonDefaultStagingTables = \
-        scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+        betl.CONF.SCHEDULE.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
     for tableName in trgTables:
         if (trgTables[tableName].getTableType() == 'FACT'):
             if tableName not in nonDefaultStagingTables:
-                dfl = main.DataFlow(
+                dfl = betl.DataFlow(
                     desc='Default transform: convert the audit columns into ' +
                          'NKs for ' + tableName)
 
-                dfl.read(tableName='trg_' + tableName,
-                         dataLayer='STG')
+                dfl.read(
+                    tableName='trg_' + tableName,
+                    dataLayer='STG')
 
                 dfl.createAuditNKs(
                     dataset='trg_' + tableName,

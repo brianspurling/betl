@@ -23,8 +23,8 @@ MEMORY_USAGE_LOOP = 'STOP'
 
 def initialiseLogging(conf):
 
-    execId = conf.state.EXEC_ID
-    logLevel = conf.exe.LOG_LEVEL
+    execId = conf.STATE.EXEC_ID
+    logLevel = conf.EXE.LOG_LEVEL
 
     global CONF
     global JOB_LOG
@@ -57,7 +57,21 @@ def getLogger():
     return logging.getLogger('JOB_LOG')
 
 
-def logExecutionStart(rerun=False):
+def logExecutionStart(conf):
+
+    logStartMessage(rerun=conf.STATE.RERUN_PREV_JOB)
+
+    if conf.EXE.RUN_SETUP:
+        logBetlSetupComplete()
+        logExecutionOverview(conf.LAST_EXEC_REPORT)
+    else:
+        if conf.STATE.RERUN_PREV_JOB:
+            logExecutionOverview(conf.LAST_EXEC_REPORT, rerun=True)
+        else:
+            logExecutionOverview(conf.LAST_EXEC_REPORT)
+
+
+def logStartMessage(rerun=False):
 
     global EXE_START_TIME
     EXE_START_TIME = datetime.now()
@@ -135,7 +149,7 @@ def logInitialiseSrcSysDatastore(datastoreID, datastoreType):
 
 def logDFStart(desc, startTime):
 
-    stage = CONF.state.STAGE
+    stage = CONF.STATE.STAGE
     filename = os.path.basename(inspect.stack()[3][1]).replace('.py', '')
     funcname = inspect.stack()[3][3].replace("'", "")
 
@@ -179,7 +193,7 @@ def logStepStart(startTime,
 
     JOB_LOG.info(op)
 
-    if CONF.exe.MONITOR_MEMORY_USAGE:
+    if CONF.EXE.MONITOR_MEMORY_USAGE:
         MEMORY_USAGE_LOOP = 'GO'
         t = MemoryUsageThread()
         t.start()
@@ -203,12 +217,12 @@ def logStepEnd(report, duration, datasetName=None, df=None, shapeOnly=False):
 
     # Log step start would have finished by kicking off a separate thread
     # to monitor memory usage and o/p to console. We need to kill this now.
-    if CONF.exe.MONITOR_MEMORY_USAGE:
+    if CONF.EXE.MONITOR_MEMORY_USAGE:
         MEMORY_USAGE_LOOP = 'STOP'
 
     # Need to give the thread time to kill itself tiddly (i.e. remove its
     # last log message)
-    if CONF.exe.MONITOR_MEMORY_USAGE:
+    if CONF.EXE.MONITOR_MEMORY_USAGE:
         while True:
             sleep(0.01)
             if MEMORY_USAGE_LOOP == 'STOPPED':
@@ -253,14 +267,14 @@ def describeDataFrame(df,
 
     tableContainsAuditCols = False
     numberOfColumns = len(df.columns.values)
-    if set(CONF.data.AUDIT_COLS['colNames']).issubset(list(df.columns.values)):
+    if set(CONF.DATA.AUDIT_COLS['colNames']).issubset(list(df.columns.values)):
         tableContainsAuditCols = True
         # We should be able to predict the number of audit cols, but that
         # doesn't help much with debugging (which, at this stage, is pretty
         # necessary with the audit functionality).
         numberOfAuditCols = 0
         for col in list(df.columns.values):
-            if col in list(CONF.data.AUDIT_COLS['colNames']):
+            if col in list(CONF.DATA.AUDIT_COLS['colNames']):
                 numberOfAuditCols += 1
         numberOfColumns = numberOfColumns - numberOfAuditCols
 
@@ -275,7 +289,7 @@ def describeDataFrame(df,
     if not shapeOnly:
         op += '   ' + firstChar + 'Columns:\n'
         for colName in list(df.columns.values):
-            if colName not in CONF.data.AUDIT_COLS['colNames'].tolist():
+            if colName not in CONF.DATA.AUDIT_COLS['colNames'].tolist():
                 if len(str(colName)) > 30:
                     op += '   ' + firstChar + '   '
                     op += str(colName)[:30] + '--: '
@@ -471,7 +485,7 @@ def superflousTableWarning(tableNamesStr):
     op += '\n'
     op += '  ' + tableNamesStr
     op += '  \n'
-    return op
+    JOB_LOG.warn(op)
 
 
 class MemoryUsageThread(threading.Thread):

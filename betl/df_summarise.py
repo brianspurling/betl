@@ -1,4 +1,3 @@
-from . import main
 from . import logger
 
 JOB_LOG = logger.getLogger()
@@ -9,18 +8,17 @@ JOB_LOG = logger.getLogger()
 # have to be custom-built by the app. All this does is truncate all the
 # tables when running a bulk load
 #
-def defaultSummarisePrep(scheduler):
+def defaultSummarisePrep(betl):
 
-    sumLayer = scheduler.conf.data.getLogicalDataModel('SUM')
+    sumLayer = betl.CONF.DATA.getLogicalDataModel('SUM')
 
     sumTables = sumLayer.dataModels['SUM'].tables
     nonDefaultTrgTables = \
-        scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+        betl.CONF.SCHEDULE.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
-    if scheduler.conf.exe.BULK_OR_DELTA == 'BULK':
-        dfl = main.DataFlow(
-            desc="If it's a bulk load, drop the indexes to speed up " +
-                 "writing.")
+    if betl.CONF.EXE.BULK_OR_DELTA == 'BULK':
+        dfl = betl.DataFlow(
+            desc="If it's a bulk load, drop the indexes to speed up writing.")
         for tableName in sumTables:
             if (sumTables[tableName].getTableType() == 'SUMMARY'):
                 if tableName not in nonDefaultTrgTables:
@@ -44,6 +42,5 @@ def defaultSummarisePrep(scheduler):
         dfl.close()
 
 
-def defaultSummariseFinish(scheduler):
-
+def defaultSummariseFinish(betl):
     pass

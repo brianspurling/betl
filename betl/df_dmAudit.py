@@ -1,6 +1,3 @@
-from . import main
-
-
 def getSchemaDescription():
 
     # This schema description reflects the same meta data structure that
@@ -37,9 +34,9 @@ def getSchemaDescription():
     return tableSchema
 
 
-def transformDMAudit(scheduler):
+def transformDMAudit(betl):
 
-    dfl = main.DataFlow(desc='Generate the dm_audit rows')
+    dfl = betl.DataFlow(desc='Generate the dm_audit rows')
 
     dfl.createDataset(
         dataset='ops',

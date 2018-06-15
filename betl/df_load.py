@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
 
-from . import main
-
 
 #
 # A default load process. Bulk is obvious and as you would expect
@@ -13,31 +11,31 @@ from . import main
 #
 # TODO: need separate functions for dims and facts, otherwise the whole thing
 # has to rerun
-def defaultLoad(scheduler):
+def defaultLoad(betl):
 
-    trgLayer = scheduler.conf.data.getLogicalDataModel('TRG')
-    sumLayer = scheduler.conf.data.getLogicalDataModel('SUM')
+    trgLayer = betl.CONF.DATA.getLogicalDataModel('TRG')
+    sumLayer = betl.CONF.DATA.getLogicalDataModel('SUM')
 
     trgTables = trgLayer.dataModels['TRG'].tables
     sumTables = sumLayer.dataModels['SUM'].tables
 
     nonDefaultTrgTables = \
-        scheduler.conf.schedule.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+        betl.CONF.SCHEDULE.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
     # We must load the dimensions before the facts!
     loadSequence = []
-    if (scheduler.conf.exe.RUN_DM_LOAD):
+    if (betl.CONF.EXE.RUN_DM_LOAD):
         loadSequence.append('DIMENSION')
-    if (scheduler.conf.exe.RUN_FT_LOAD):
+    if (betl.CONF.EXE.RUN_FT_LOAD):
         loadSequence.append('FACT')
 
-    if scheduler.conf.exe.BULK_OR_DELTA == 'BULK':
+    if betl.CONF.EXE.BULK_OR_DELTA == 'BULK':
 
         # DROP INDEXES
 
         trgAndSumTbls = {**trgTables, **sumTables}
 
-        dfl = main.DataFlow(
+        dfl = betl.DataFlow(
             desc="If it's a bulk load, drop the indexes to speed up " +
                  "writing. We do this here, because we need to drop " +
                  "fact indexes first (or, to be precise, the facts' " +
@@ -63,7 +61,7 @@ def defaultLoad(scheduler):
         # Our defaultRows SS should contain a tab per dimension, each with 1+
         # default rows defined. IDs are defined too - should all be negative
         defaultRows = {}
-        worksheets = scheduler.conf.data.getDefaultRowsDatastore().worksheets
+        worksheets = betl.CONF.DATA.getDefaultRowsDatastore().worksheets
         for wsTitle in worksheets:
             defaultRows[wsTitle] = worksheets[wsTitle].get_all_records()
 
@@ -72,38 +70,38 @@ def defaultLoad(scheduler):
                 tableType = trgTables[tableName].getTableType()
                 if (tableType == dimOrFactLoad):
                     if tableName not in nonDefaultTrgTables:
-                        bulkLoadTable(table=trgTables[tableName],
+                        bulkLoadTable(betl=betl,
+                                      table=trgTables[tableName],
                                       tableType=tableType,
-                                      defaultRows=defaultRows,
-                                      conf=scheduler.conf)
+                                      defaultRows=defaultRows)
 
-    if scheduler.conf.exe.BULK_OR_DELTA == 'DELTA':
+    if betl.CONF.EXE.BULK_OR_DELTA == 'DELTA':
         for tableType in loadSequence:
             for tableName in trgTables:
                 tableType = trgTables[tableName].getTableType()
                 if (tableType == tableType):
                     if tableName not in nonDefaultTrgTables:
-                        deltaLoadTable(table=trgTables[tableName],
-                                       tableType=tableType,
-                                       conf=scheduler.conf)
+                        deltaLoadTable(betl=betl,
+                                       table=trgTables[tableName],
+                                       tableType=tableType)
 
 
-def bulkLoadTable(table, tableType, defaultRows, conf):
+def bulkLoadTable(betl, table, tableType, defaultRows):
     if tableType == 'DIMENSION':
-        bulkLoadDimension(conf=conf, defaultRows=defaultRows, table=table)
+        bulkLoadDimension(betl=betl, defaultRows=defaultRows, table=table)
     elif tableType == 'FACT':
-        bulkLoadFact(conf=conf, table=table)
+        bulkLoadFact(betl=betl, table=table)
 
 
-def deltaLoadTable(table, tableType, conf):
+def deltaLoadTable(betl, table, tableType):
     if tableType == 'DIMENSION':
-        deltaLoadDimension(conf=conf, table=table)
+        deltaLoadDimension(betl=betl, table=table)
     elif tableType == 'FACT':
-        deltaLoadFact(conf=conf, table=table)
+        deltaLoadFact(betl=betl, table=table)
 
 
-def bulkLoadDimension(conf, defaultRows, table):
-    dfl = main.DataFlow(desc='Loading dimension: ' + table.tableName)
+def bulkLoadDimension(betl, defaultRows, table):
+    dfl = betl.DataFlow(desc='Loading dimension: ' + table.tableName)
 
     # DATA
 
@@ -217,9 +215,9 @@ def concatenateNKs(row):
     return '_'.join(nks)
 
 
-def bulkLoadFact(conf, table):
+def bulkLoadFact(betl, table):
 
-    dfl = main.DataFlow(desc='Loading fact: ' + table.tableName)
+    dfl = betl.DataFlow(desc='Loading fact: ' + table.tableName)
 
     # READ DATA
 
@@ -309,9 +307,9 @@ def bulkLoadFact(conf, table):
     dfl.close()
 
 
-def deltaLoadDimension(conf, table):
+def deltaLoadDimension(betl, table):
     raise ValueError("Code not yet written for delta dimension loads")
 
 
-def deltaLoadFact(conf, table):
+def deltaLoadFact(betl, table):
     raise ValueError("Code not yet written for delta fact loads")

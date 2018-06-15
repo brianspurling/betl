@@ -26,74 +26,74 @@ class Scheduler():
 
         # However, we only write a new set of functions to the ctrlDB if
         # this is a new (not rerun) execution
-        if not self.conf.state.RERUN_PREV_JOB:
-            self.conf.ctrl.CTRL_DB.insertFunctions(
+        if not self.conf.STATE.RERUN_PREV_JOB:
+            self.conf.CTRL.CTRL_DB.insertFunctions(
                 self.functions_dict,
-                conf.state.EXEC_ID)
+                conf.STATE.EXEC_ID)
 
     def buildFunctionList(self):
 
-        if self.conf.exe.RUN_EXTRACT:
-            if self.conf.schedule.DEFAULT_EXTRACT:
+        if self.conf.EXE.RUN_EXTRACT:
+            if self.conf.SCHEDULE.DEFAULT_EXTRACT:
                 self.addFunctionToList(
                     function=df_extract.defaultExtract,
                     stage='EXTRACT')
 
                 self.srcTablesToExcludeFromExtract = \
-                    self.conf.schedule.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
+                    self.conf.SCHEDULE.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
 
-            for function in self.conf.schedule.EXTRACT_DFS:
+            for function in self.conf.SCHEDULE.EXTRACT_DFS:
                 self.addFunctionToList(
                     function=function,
                     stage='EXTRACT')
 
-        if self.conf.exe.RUN_TRANSFORM:
+        if self.conf.EXE.RUN_TRANSFORM:
 
-            for function in self.conf.schedule.TRANSFORM_DFS:
+            for function in self.conf.SCHEDULE.TRANSFORM_DFS:
                 self.addFunctionToList(
                     function=function,
                     stage='TRANSFORM')
 
-            if self.conf.schedule.DEFAULT_DM_DATE:
+            if self.conf.SCHEDULE.DEFAULT_DM_DATE:
                 self.addFunctionToList(
                     function=df_dmDate.transformDMDate,
                     stage='TRANSFORM')
 
-            if self.conf.schedule.DEFAULT_DM_AUDIT:
+            if self.conf.SCHEDULE.DEFAULT_DM_AUDIT:
                 self.addFunctionToList(
                     function=df_dmAudit.transformDMAudit,
                     stage='TRANSFORM')
 
-            if self.conf.schedule.DEFAULT_TRANSFORM:
+            if self.conf.SCHEDULE.DEFAULT_TRANSFORM:
                 self.addFunctionToList(
                     function=df_transform.defaultTransform,
                     stage='TRANSFORM')
 
-        if self.conf.exe.RUN_LOAD:
+        if self.conf.EXE.RUN_LOAD:
 
-            if self.conf.schedule.DEFAULT_LOAD:
+            if self.conf.SCHEDULE.DEFAULT_LOAD:
                 self.addFunctionToList(
                     function=df_load.defaultLoad,
                     stage='LOAD')
 
-            for function in self.conf.schedule.LOAD_DFS:
+            for function in self.conf.SCHEDULE.LOAD_DFS:
                 self.addFunctionToList(
                     function=function,
                     stage='LOAD')
 
-        if self.conf.exe.RUN_SUMMARISE:
+        if self.conf.EXE.RUN_SUMMARISE:
 
-            if self.conf.schedule.DEFAULT_SUMMARISE:
+            if self.conf.SCHEDULE.DEFAULT_SUMMARISE:
                 self.addFunctionToList(
                     function=df_summarise.defaultSummarisePrep,
                     stage='SUMMARISE')
 
-            for function in self.conf.schedule.SUMMARISE_DFS:
+            for function in self.conf.SCHEDULE.SUMMARISE_DFS:
                 self.addFunctionToList(
                     function=function,
                     stage='SUMMARISE')
 
-            if self.conf.schedule.DEFAULT_SUMMARISE:
+            if self.conf.SCHEDULE.DEFAULT_SUMMARISE:
                 self.addFunctionToList(
                     function=df_summarise.defaultSummariseFinish,
                     stage='SUMMARISE')
@@ -109,13 +109,13 @@ class Scheduler():
             'stage': stage,
             'sequence': self.funcSequence}
 
-    def execute(self):
+    def execute(self, betl):
 
-        functions = self.conf.ctrl.CTRL_DB.getFunctionsForExec(
-            execId=self.conf.state.EXEC_ID)
+        functions = self.conf.CTRL.CTRL_DB.getFunctionsForExec(
+            execId=self.conf.STATE.EXEC_ID)
 
-        self.conf.ctrl.CTRL_DB.updateExecution(
-            execId=self.conf.state.EXEC_ID,
+        self.conf.CTRL.CTRL_DB.updateExecution(
+            execId=self.conf.STATE.EXEC_ID,
             status='RUNNING',
             statusMessage='')
 
@@ -129,8 +129,8 @@ class Scheduler():
                 # funtions that come after the point of failure
 
                 if functions[i][5] != 'SUCCESSFUL':
-                    self.conf.ctrl.CTRL_DB.updateFunction(
-                        execId=self.conf.state.EXEC_ID,
+                    self.conf.CTRL.CTRL_DB.updateFunction(
+                        execId=self.conf.STATE.EXEC_ID,
                         functionName=functions[i][2],
                         status='RUNNING',
                         logStr='',
@@ -141,14 +141,17 @@ class Scheduler():
                     # EXECUTE THE FUNCTION #
                     ########################
 
-                    self.executeFunction(functions[i][2], functions[i][0])
+                    self.executeFunction(
+                        betl=betl,
+                        functionName=functions[i][2],
+                        functionId=functions[i][0])
 
                     #########################
                     #########################
                     #########################
 
-                    self.conf.ctrl.CTRL_DB.updateFunction(
-                        execId=self.conf.state.EXEC_ID,
+                    self.conf.CTRL.CTRL_DB.updateFunction(
+                        execId=self.conf.STATE.EXEC_ID,
                         functionName=functions[i][2],
                         status='SUCCESSFUL',
                         logStr='',
@@ -162,25 +165,25 @@ class Scheduler():
             self.handleFunctionException(functions, counter, e1)
             return 'FAIL'
 
-    def executeFunction(self, functionName, functionId):
-        # We set the conf.state.STAGE object so that, during execution of the
+    def executeFunction(self, betl, functionName, functionId):
+        # We set the conf.STATE.STAGE object so that, during execution of the
         # function,  we know which stage we're in
-        self.conf.state.setStage(self.functions_dict[functionName]['stage'])
-        self.conf.state.setFunctionId(functionId)
-        self.functions_dict[functionName]['function'](self)
+        self.conf.STATE.setStage(self.functions_dict[functionName]['stage'])
+        self.conf.STATE.setFunctionId(functionId)
+        self.functions_dict[functionName]['function'](betl)
 
     def handleFunctionException(self, functions, counter, errorMessage):
             tb1 = traceback.format_exc()
             try:
-                self.conf.ctrl.CTRL_DB.updateFunction(
-                    execId=self.conf.state.EXEC_ID,
+                self.conf.CTRL.CTRL_DB.updateFunction(
+                    execId=self.conf.STATE.EXEC_ID,
                     functionName=functions[counter][2],
                     status='FINISHED WITH ERROR',
                     logStr=tb1,
                     setStartDateTime=False,
                     setEndDateTime=True)
-                self.conf.ctrl.CTRL_DB.updateExecution(
-                    execId=self.conf.state.EXEC_ID,
+                self.conf.CTRL.CTRL_DB.updateExecution(
+                    execId=self.conf.STATE.EXEC_ID,
                     status='FINISHED WITH ERROR',
                     statusMessage=tb1
                 )

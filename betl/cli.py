@@ -129,11 +129,7 @@ def processArgs(args):
         'RUN_SETUP': False,
         'READ_SRC': False,
 
-        'RUN_REBUILD_ALL': False,
-        'RUN_REBUILD_SRC': False,
-        'RUN_REBUILD_STG': False,
-        'RUN_REBUILD_TRG': False,
-        'RUN_REBUILD_SUM': False,
+        'RUN_REBUILDS': {},
 
         'RUN_EXTRACT': True,
         'RUN_TRANSFORM': True,
@@ -173,15 +169,19 @@ def processArgs(args):
         elif arg == 'readsrc':
             params['READ_SRC'] = True
         elif arg == 'rebuildall':
-            params['RUN_REBUILD_ALL'] = True
+            params['RUN_REBUILDS'] = {
+                'SRC': True,
+                'STG': True,
+                'TRG': True,
+                'SUM': True}
         elif arg == 'rebuildsrc':
-            params['RUN_REBUILD_SRC'] = True
+            params['RUN_REBUILDS']['SRC'] = True
         elif arg == 'rebuildstg':
-            params['RUN_REBUILD_STG'] = True
+            params['RUN_REBUILDS']['STG'] = True
         elif arg == 'rebuildtrg':
-            params['RUN_REBUILD_TRG'] = True
+            params['RUN_REBUILDS']['TRG'] = True
         elif arg == 'rebuildsum':
-            params['RUN_REBUILD_SUM'] = True
+            params['RUN_REBUILDS']['SUM'] = True
         elif arg == 'noextract':
             params['RUN_EXTRACT'] = False
         elif arg == 'notransform':

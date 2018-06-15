@@ -1,29 +1,26 @@
-from . import main
-
-from datetime import datetime
 
 
 #
 # A default extraction process. Bulk is obvious and as you would expect
 # Delta does full-table comparisons to identify deltas
 #
-def defaultExtract(scheduler):
-    if scheduler.conf.exe.BULK_OR_DELTA == 'BULK':
-        defaultExtract_bulk(scheduler)
-    elif scheduler.conf.exe.BULK_OR_DELTA == 'DELTA':
+def defaultExtract(betl):
+    if betl.CONF.EXE.BULK_OR_DELTA == 'BULK':
+        defaultExtract_bulk(betl)
+    elif betl.CONF.EXE.BULK_OR_DELTA == 'DELTA':
         pass
-        # defaultExtract_delta(scheduler)
+        # defaultExtract_delta(betl)
 
 
-def defaultExtract_bulk(scheduler):
+def defaultExtract_bulk(betl):
     srcTablesToExclude = \
-        scheduler.conf.schedule.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
-    srcLayer = scheduler.conf.data.getLogicalDataModel('SRC')
+        betl.CONF.SCHEDULE.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
+    srcLayer = betl.CONF.DATA.getLogicalDataModel('SRC')
     for dmID in srcLayer.dataModels:
         for tableName in srcLayer.dataModels[dmID].tables:
             if tableName in srcTablesToExclude:
                 continue
-            dfl = main.DataFlow(desc='Default extract for ' + tableName)
+            dfl = betl.DataFlow(desc='Default extract for ' + tableName)
 
             dfl.getDataFromSrc(
                 tableName=tableName,
@@ -40,14 +37,14 @@ def defaultExtract_bulk(scheduler):
                 dataLayerID='SRC')
 
 
-# def defaultExtract_delta(scheduler):
+# def defaultExtract_delta(betl):
 
     # TODO not been refactored since dataframe class added to betl
 
     # srcTablesToExclude = \
-    #     scheduler.conf.schedule.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
+    #     scheduler.conf.SCHEDULE.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
     #
-    # srcLayer = scheduler.conf.data.getLogicalDataModel('SRC')
+    # srcLayer = scheduler.conf.DATA.getLogicalDataModel('SRC')
     #
     # for dmID in srcLayer.dataModels:
     #     for tableName in srcLayer.dataModels[dmID].tables:
@@ -225,7 +222,7 @@ def defaultExtract_bulk(scheduler):
     #         etlDbCursor.execute("UPDATE src_ipa_addresses "
     #                             + nonNkSetClause + " "
     #                             + nkWhereClause)
-    #     scheduler.conf.data.getDWHDatastore('ETL').commit()
+    #     scheduler.conf.DATA.getDWHDatastore('ETL').commit()
     # else:
     #     pass
 
@@ -234,29 +231,29 @@ def defaultExtract_bulk(scheduler):
 # Functions to set the audit columns on the dataframes, prior to loading
 # into persistent storage
 #
-
-def setAuditCols_insert(self, df, sourceSystemId):
-
-    df['audit_source_system'] = sourceSystemId
-    df['audit_bulk_load_date'] = None
-    df['audit_latest_delta_load_date'] = datetime.now()
-    df['audit_latest_load_operation'] = 'INSERT'
-
-    return df
-
-
-def setAuditCols_update(self, df, sourceSystemId):
-
-    df['audit_source_system'] = sourceSystemId
-    df['audit_latest_delta_load_date'] = datetime.now()
-    df['audit_latest_load_operation'] = 'UPDATE'
-
-    return df
-
-
-def setAuditCols_delete(self, df):
-
-    df['audit_latest_delta_load_date'] = datetime.now()
-    df['audit_latest_load_operation'] = 'DELETE'
-
-    return df
+#
+# def setAuditCols_insert(self, df, sourceSystemId):
+#
+#     df['audit_source_system'] = sourceSystemId
+#     df['audit_bulk_load_date'] = None
+#     df['audit_latest_delta_load_date'] = datetime.now()
+#     df['audit_latest_load_operation'] = 'INSERT'
+#
+#     return df
+#
+#
+# def setAuditCols_update(self, df, sourceSystemId):
+#
+#     df['audit_source_system'] = sourceSystemId
+#     df['audit_latest_delta_load_date'] = datetime.now()
+#     df['audit_latest_load_operation'] = 'UPDATE'
+#
+#     return df
+#
+#
+# def setAuditCols_delete(self, df):
+#
+#     df['audit_latest_delta_load_date'] = datetime.now()
+#     df['audit_latest_load_operation'] = 'DELETE'
+#
+#     return df

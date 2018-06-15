@@ -80,17 +80,17 @@ Starting your data pipeline app: main.py
 
 Create a new directory (this will be your data pipeline application), and create a ``main.py`` script in the root.
 
-This script sets up your scheduleConfig, initialises betl, and runs it.
+This script sets up your scheduleConfig, initialises a Betl object, and runs your job
 
 For detailed documentation of the scheduleConfig object: ?? ::
 
-  import betl
+  from betl import Betl
 
   scheduleConfig = {}
 
-  betl.init(appConfigFile='./appConfig.ini',
-            scheduleConfig=scheduleConfig,
-            runTimeParams=sys.argv)
+  betl = Betl(appConfigFile='./appConfig.ini',
+              scheduleConfig=scheduleConfig,
+              runTimeParams=sys.argv)
 
   betl.run()
 

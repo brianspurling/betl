@@ -1,8 +1,6 @@
 import pandas as pd
 from datetime import date, timedelta
 
-from . import main
-
 
 def getSchemaDescription():
 
@@ -54,12 +52,12 @@ def getSchemaDescription():
     return tableSchema
 
 
-def transformDMDate(scheduler):
+def transformDMDate(betl):
 
     # TODO ideally this would be built within BETL (set a good example, and
     # all that!)
-    startDate = scheduler.conf.state.EARLIEST_DATE_IN_DATA
-    endDate = scheduler.conf.state.LATEST_DATE_IN_DATA
+    startDate = betl.CONF.STATE.EARLIEST_DATE_IN_DATA
+    endDate = betl.CONF.STATE.LATEST_DATE_IN_DATA
 
     dmDateList = []
     while startDate <= endDate:
@@ -115,7 +113,7 @@ def transformDMDate(scheduler):
 
     df = pd.DataFrame(dmDateList)
 
-    dfl = main.DataFlow(desc='Generate the dm_date rows')
+    dfl = betl.DataFlow(desc='Generate the dm_date rows')
 
     dfl.createDataset(
         dataset='trg_dm_date',
