@@ -63,6 +63,7 @@ class Ctrl():
 
         self.DWH_ID = self.config['DWH_ID']
         self.TMP_DATA_PATH = self.config['TMP_DATA_PATH']
+        self.REPORTS_PATH = self.config['REPORTS_PATH']
         self.LOG_PATH = self.config['LOG_PATH']
 
         self.CTRL_DB = CtrlDB(self.config['ctl_db'])
@@ -73,6 +74,11 @@ class Ctrl():
             self.setup()
 
     def setUpExecution(self, exeConf, stateConf):
+
+        self.setupReportsDir()
+        
+        if exeConf.FAIL_LAST_EXEC:
+            self.CTRL_DB.failLastExecution()
 
         lastExecRow = self.CTRL_DB.getLastExecution()
 
@@ -140,6 +146,7 @@ class Ctrl():
         self.CTRL_DB.createStepsTable()
 
         self.archiveLogFiles()
+        self.setupReportsDir()
         self.setupSchemaDir()
 
     def archiveLogFiles(self):
@@ -168,6 +175,15 @@ class Ctrl():
         os.makedirs(dir)
         open(dir + 'lastModifiedTimes.txt', 'a').close()
 
+    def setupReportsDir(self):
+        path = self.REPORTS_PATH.replace('/', '')
+
+        if (os.path.exists(path)):
+            tmp = tempfile.mktemp(dir=os.path.dirname(path))
+            shutil.move(path, tmp)  # rename
+            shutil.rmtree(tmp)  # delete
+        os.makedirs(path)  # create the new folder
+
 
 class Exe():
 
@@ -180,6 +196,7 @@ class Exe():
 
         self.RUN_SETUP = params['RUN_SETUP']
         self.READ_SRC = params['READ_SRC']
+        self.FAIL_LAST_EXEC = params['FAIL_LAST_EXEC']
 
         self.RUN_REBUILDS = params['RUN_REBUILDS']
 
@@ -203,7 +220,7 @@ class Exe():
         else:
             self.MONITOR_MEMORY_USAGE = True
 
-    def deleteTempoaryData(tmpDataPath):
+    def deleteTempoaryData(self, tmpDataPath):
 
         path = tmpDataPath.replace('/', '')
 

@@ -1,6 +1,7 @@
-import pprint
-
 from . import dbIO
+from . import logger
+import plotly.graph_objs as go
+import plotly.offline as py
 
 
 def generateExeSummary(conf, execId, bulkOrDelta, limitedData):
@@ -10,43 +11,96 @@ def generateExeSummary(conf, execId, bulkOrDelta, limitedData):
     else:
         limitedData = 'TRUE'
 
-    sql = ''
-    sql += "select e.exec_id as exec_id, "
-    sql += "	   e.start_datetime as exec_start, "
-    sql += "	   e.end_datetime as exec_end, "
-    sql += "	   e.status as exec_status, "
-    sql += "	   e.bulk_or_delta as bulk_or_delta, "
-    sql += "	   e.limited_data as limited_data, "
-    sql += "	   f.stage as stage, "
-    sql += "	   f.function_name as function_name, "
-    sql += "	   f.sequence as function_sequence, "
-    sql += "       f.status as function_status, "
-    sql += "       f.start_datetime as function_start, "
-    sql += "       f.end_datetime as function_end, "
-    sql += "       d.description as dataflow_description, "
-    sql += "       d.status as dataflow_status, "
-    sql += "       d.row_count as dataflow_row_count, "
-    sql += "       d.col_count as dataflow_col_count, "
-    sql += "       d.start_datetime as dataflow_start, "
-    sql += "       d.end_datetime as dataflow_end, "
-    sql += "       s.description as step_description, "
-    sql += "       s.status as step_status, "
-    sql += "       s.row_count as step_row_count, "
-    sql += "       s.col_count as step_col_count, "
-    sql += "       s.start_datetime as step_start, "
-    sql += "       s.end_datetime as step_end "
-    sql += "from   executions e "
-    sql += "left join functions f on f.exec_id = e.exec_id "
-    sql += "left join dataflows d on d.function_id = f.function_id "
-    sql += "left join steps s on s.dataflow_id = d.dataflow_id "
-    sql += "where  e.exec_id <= " + str(execId) + " "
-    sql += "and    e.bulk_or_delta = '" + bulkOrDelta + "' "
-    sql += "and    e.limited_data = " + limitedData + " "
-    sql += "order by exec_id desc, "
-    sql += "         f.sequence asc, "
-    sql += "         d.dataflow_id asc, "
-    sql += "         s.step_id asc "
+    sql = ""
+    sql += "select latest.dataflow_id, \n"
+    sql += "       latest.step_id, \n"
+    sql += "	   latest.step_row_count latest_row_count, \n"
+    sql += "	   prev.* \n"
+    sql += "from   (select e.exec_id as exec_id, \n"
+    sql += "               d.dataflow_id as dataflow_id, \n"
+    sql += "               s.step_id as step_id, \n"
+    sql += "		       d.description as dataflow_description, \n"
+    sql += "	           s.description as step_description, \n"
+    sql += "	           s.row_count as step_row_count, \n"
+    sql += "		       s.col_count as step_col_count, \n"
+    sql += "		       s.start_datetime as step_start, \n"
+    sql += "		       s.end_datetime as step_end \n"
+    sql += "		from   executions e \n"
+    sql += "		inner join functions f on f.exec_id = e.exec_id \n"
+    sql += "		inner join dataflows d on d.function_id = f.function_id \n"
+    sql += "		inner join steps s on s.dataflow_id = d.dataflow_id \n"
+    sql += "		where  e.exec_id = " + str(execId) + " \n"
+    sql += "		and    e.bulk_or_delta = '" + bulkOrDelta + "' \n"
+    sql += "		and    e.limited_data = " + limitedData + " \n"
+    sql += "		and    f.status = 'SUCCESSFUL' \n"
+    sql += "		and    s.row_count is not null \n"
+    sql += "		and    d.dataflow_id is not null) latest \n"
+    sql += "left join (select d.description as dataflow_description, \n"
+    sql += "		     	  s.description as step_description, \n"
+    sql += "			      round(AVG(s.row_count)) as avg_row_count, \n"
+    sql += "			      round(MAX(s.row_count)) as max_row_count, \n"
+    sql += "			      round(MIN(s.row_count)) as min_row_count, \n"
+    sql += "			      round(stddev_pop(s.row_count)) as std_row_count \n"
+    sql += "		 	      -- s.col_count as step_col_count, \n"
+    sql += "		          -- s.start_datetime as step_start, \n"
+    sql += "		          -- s.end_datetime as step_end \n"
+    sql += "		   from   executions e \n"
+    sql += "		   inner join functions f on f.exec_id = e.exec_id \n"
+    sql += "	       inner join dataflows d on d.function_id = f.function_id \n"
+    sql += "		   inner join steps s on s.dataflow_id = d.dataflow_id \n"
+    sql += "		   where  e.exec_id < " + str(execId) + " \n"
+    sql += "		   and    e.bulk_or_delta = '" + bulkOrDelta + "' \n"
+    sql += "		   and    e.limited_data = " + limitedData + " \n"
+    sql += "           and    f.status = 'SUCCESSFUL' \n"
+    sql += "	       and    s.row_count is not null \n"
+    sql += "		   and    d.dataflow_id is not null \n"
+    sql += "	       group by s.description, \n"
+    sql += "			  	    d.description) prev \n"
+    sql += "on  latest.dataflow_description = prev.dataflow_description  \n"
+    sql += "and latest.step_description = prev.step_description \n"
+    sql += "order by latest.dataflow_id asc, \n"
+    sql += "         latest.step_id asc \n"
 
     df = dbIO.customSQL(
         sql=sql,
         datastore=conf.CTRL.CTRL_DB.datastore)
+
+    if len(df) > 1:
+        df.step_id = df.dataflow_description + ' ~ ' + df.step_description
+        df.loc[(df.std_row_count == 0) &
+               (df.avg_row_count != df.latest_row_count), 'variance'] = -1
+        df.loc[(df.std_row_count == 0) &
+               (df.avg_row_count == df.latest_row_count), 'variance'] = 0
+        df.loc[df.std_row_count != 0, 'variance'] = (
+            abs(df.loc[df.std_row_count != 0].avg_row_count -
+                df.loc[df.std_row_count != 0].latest_row_count) /
+            df.std_row_count)
+
+        varianceLimit = 1.5
+        df = df.loc[(df.variance > varianceLimit) | (df.variance == -1)]
+
+        df['tooltips'] = (
+            '<b>Variance: ' + df['variance'].map(str) + '</b> <br>' +
+
+            'Avg: ' + df['avg_row_count'].map(str) + ' <br>' +
+            'Max: ' + df['max_row_count'].map(str) + ' <br>' +
+            'Min: ' + df['min_row_count'].map(str) + ' <br>' +
+            'Std: ' + df['std_row_count'].map(str) + ' <br>' +
+            'Latest: ' + df['latest_row_count'].map(str) + ' <br>' +
+            df['step_description'].map(str))
+
+        if len(df) == 0:
+            logger.logNoVariancesReported(varianceLimit)
+        else:
+            data = [
+                go.Bar(
+                    x=df['step_id'],
+                    y=df['variance'],
+                    text=df['tooltips'],
+                    hoverinfo='text')]
+
+            df.to_csv(conf.CTRL.REPORTS_PATH + 'exeSummary.csv')
+            url = py.plot(
+                data,
+                filename=conf.CTRL.REPORTS_PATH + 'exeSummary.html')
+            logger.logSomeVariancesReported(varianceLimit, url)

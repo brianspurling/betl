@@ -80,7 +80,7 @@ Starting your data pipeline app: main.py
 
 Create a new directory (this will be your data pipeline application), and create a ``main.py`` script in the root.
 
-This script sets up your scheduleConfig, initialises a Betl object, and runs your job
+This script sets up your scheduleConfig, initialises a Betl instance, and runs your job
 
 For detailed documentation of the scheduleConfig object: ?? ::
 
@@ -104,6 +104,7 @@ App Config
 
      DWH_ID = <short code to identify the data warehouse>
      TMP_DATA_PATH = tmp_data/
+     REPORTS_PATH = reports/
      LOG_PATH = logs/
 
      [[ctl_db]]

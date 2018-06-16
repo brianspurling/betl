@@ -90,6 +90,9 @@ HELP = ("\n" +
         "> [loginfo | logdebug | logerror]\n" +
         "  The level of console logging output\n" +
         "\n" +
+        "> [faillast]\n" +
+        "  Marks the last exec as FAILED regarldess of its status\n" +
+        "\n" +
         "*********************\n" +
         "* betl instructions *\n" +
         "*********************\n" +
@@ -143,6 +146,8 @@ def processArgs(args):
         'DATA_LIMIT_ROWS': None,
 
         'RUN_DATAFLOWS': False,
+
+        'FAIL_LAST_EXEC': False,
 
     }
 
@@ -202,6 +207,8 @@ def processArgs(args):
             params['DATA_LIMIT_ROWS'] = DATA_LIMIT_ROWS
         elif arg == 'run':
             params['RUN_DATAFLOWS'] = True
+        elif arg == 'faillast':
+            params['FAIL_LAST_EXEC'] = True
         else:
             isUnrecognisedArg = True
             unrecognisedArg = arg

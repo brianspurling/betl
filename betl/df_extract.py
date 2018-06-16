@@ -24,17 +24,20 @@ def defaultExtract_bulk(betl):
 
             dfl.getDataFromSrc(
                 tableName=tableName,
-                srcSysID=dmID)
+                srcSysID=dmID,
+                desc="Extract data from source table")
 
             dfl.setAuditCols(
                 dataset=tableName,
                 bulkOrDelta="BULK",
-                sourceSystem=dmID)
+                sourceSystem=dmID,
+                desc="Set the audit columns on the data extract")
 
             dfl.write(
                 dataset=tableName,
                 targetTableName=tableName,
-                dataLayerID='SRC')
+                dataLayerID='SRC',
+                desc="Write the data extract to the SRC data layer")
 
 
 # def defaultExtract_delta(betl):

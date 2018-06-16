@@ -488,6 +488,25 @@ def superflousTableWarning(tableNamesStr):
     JOB_LOG.warn(op)
 
 
+def logNoVariancesReported(varianceLimit):
+    op = ''
+    op += '\n'
+    op += 'All step variances for this execution were within \n'
+    op += str(varianceLimit) + ' standard deviations of the prior average'
+    op += '\n'
+    JOB_LOG.info(op)
+
+
+def logSomeVariancesReported(varianceLimit, url):
+    op = ''
+    op += '\n'
+    op += 'Some step variances for this execution were greater than \n'
+    op += str(varianceLimit) + ' standard deviations of the prior average. \n'
+    op += 'View the report here: ' + url
+    op += '\n'
+    JOB_LOG.info(op)
+
+
 class MemoryUsageThread(threading.Thread):
     def __init__(self, name='MemoryUsageLogger'):
         threading.Thread.__init__(self, name=name)

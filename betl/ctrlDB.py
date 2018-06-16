@@ -86,7 +86,7 @@ class CtrlDB():
             "step_id SERIAL PRIMARY KEY, " +
             "exec_id integer REFERENCES executions (exec_id), " +
             "dataflow_id integer REFERENCES dataflows (dataflow_id), " +
-            "description text, " +
+            "description text NOT NULL, " +
             "status text NOT NULL, " +
             "row_count integer, " +
             "col_count integer, " +
@@ -318,13 +318,44 @@ class CtrlDB():
         ctlDBCursor.execute(sql)
         self.datastore.commit()
 
+    def failLastExecution(self):
+
+        ctlDBCursor = self.datastore.cursor()
+
+        try:
+            ctlDBCursor.execute("UPDATE executions " +
+                                "SET status = 'FAILED' " +
+                                "WHERE exec_id IN ( " +
+                                "   SELECT max(exec_id) " +
+                                "   FROM executions)")
+            ctlDBCursor.execute("UPDATE functions " +
+                                "SET status = 'FAILED' " +
+                                "WHERE exec_id IN ( " +
+                                "   SELECT max(exec_id) " +
+                                "   FROM executions)")
+            ctlDBCursor.execute("UPDATE dataflows " +
+                                "SET status = 'FAILED' " +
+                                "WHERE exec_id IN ( " +
+                                "   SELECT max(exec_id) " +
+                                "   FROM executions)")
+            ctlDBCursor.execute("UPDATE steps " +
+                                "SET status = 'FAILED' " +
+                                "WHERE exec_id IN ( " +
+                                "   SELECT max(exec_id) " +
+                                "   FROM executions)")
+        except psycopg2.Error as e:
+            # We have to print here, because we don't have an execId yet to
+            # be able to use the logger
+            print(logger.logUnableToReadFromCtlDB(e.pgerror))
+            sys.exit()
+
     def getLastExecution(self):
 
         ctlDBCursor = self.datastore.cursor()
 
         try:
             ctlDBCursor.execute("SELECT exec_id, status FROM executions " +
-                                "WHERE exec_id = (select max(exec_id) " +
+                                "WHERE exec_id = (SELECT MAX(exec_id) " +
                                 "FROM executions)")
         except psycopg2.Error as e:
             # We have to print here, because we don't have an execId yet to

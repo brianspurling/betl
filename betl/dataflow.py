@@ -52,7 +52,7 @@ class DataFlow():
         self.data.clear()
         del(self.trgDataset)
 
-    def getDataFromSrc(self, tableName, srcSysID, desc=None):
+    def getDataFromSrc(self, tableName, srcSysID, desc):
 
         self.stepStart(desc=desc)
 
@@ -144,6 +144,9 @@ class DataFlow():
              forceDBRead=False,
              desc=None):
 
+        if desc is None:
+            desc = 'Read data from ' + dataLayer + '.' + tableName + \
+                   ' (forceDBWrite = ' + str(forceDBRead) + ')'
         self.stepStart(desc=desc)
 
         _targetDataset = tableName
@@ -185,7 +188,7 @@ class DataFlow():
             datasetName=_targetDataset,
             df=self.data[_targetDataset])
 
-    def createDataset(self, dataset, data, desc=None):
+    def createDataset(self, dataset, data, desc):
 
         self.stepStart(desc=desc)
 
@@ -218,7 +221,12 @@ class DataFlow():
               desc=None,
               keepDataflowOpen=False):
 
-        self.stepStart(desc=desc, datasetName=dataset, df=self.data[dataset])
+        if desc is None:
+            desc = 'Write data to ' + dataLayerID + '.' + targetTableName + \
+                   ' (append_or_replace = ' + append_or_replace + ';' + \
+                   ' writingDefaultRows = ' + str(writingDefaultRows) + ';' + \
+                   ' forceDBWrite = ' + str(forceDBWrite) + ')'
+        self.stepStart(desc=desc, datasetName=dataset)
 
         self.trgDataset = self.data[dataset]
 
@@ -339,8 +347,7 @@ class DataFlow():
         report = str(self.trgDataset.shape[0]) + ' rows written to '
         report += targetTableName
 
-        self.stepEnd(report=report)
-
+        self.stepEnd(report=report, df=self.trgDataset)
         if not keepDataflowOpen:
             self.close()
 
@@ -351,6 +358,8 @@ class DataFlow():
                     desc=None,
                     dropAuditCols=False):
 
+        if desc is None:
+            desc = 'Dropping columns from ' + dataset + ': ' + str(colsToDrop)
         self.stepStart(desc=desc)
 
         if colsToDrop is not None and colsToKeep is not None:
@@ -377,7 +386,7 @@ class DataFlow():
             datasetName=dataset,
             df=self.data[dataset])
 
-    def renameColumns(self, dataset, columns, desc=None):
+    def renameColumns(self, dataset, columns, desc):
 
         self.stepStart(desc=desc)
 
@@ -392,7 +401,7 @@ class DataFlow():
             datasetName=dataset,
             df=self.data[dataset])
 
-    def addColumns(self, dataset, columns, desc=None):
+    def addColumns(self, dataset, columns, desc):
 
         self.stepStart(desc=desc)
 
@@ -415,11 +424,11 @@ class DataFlow():
             datasetName=dataset,
             df=self.data[dataset])
 
-    def setColumns(self, dataset, columns, desc=None):
+    def setColumns(self, dataset, columns, desc):
         # A wrapper for semantic purposes
         self.addColumns(dataset, columns, desc)
 
-    def setNulls(self, dataset, columns, desc=None):
+    def setNulls(self, dataset, columns, desc):
 
         self.stepStart(desc=desc)
 
@@ -431,7 +440,7 @@ class DataFlow():
 
         self.stepEnd(report=report)
 
-    def filter(self, dataset, filters, desc=None):
+    def filter(self, dataset, filters, desc):
 
         self.stepStart(desc=desc)
 
@@ -478,8 +487,8 @@ class DataFlow():
                     dataset,
                     cleaningFunc,
                     column,
-                    cleanedColumn=None,
-                    desc=None):
+                    desc,
+                    cleanedColumn=None):
 
         self.stepStart(desc=desc)
 
@@ -496,7 +505,7 @@ class DataFlow():
             datasetName=dataset,
             df=self.data[dataset])
 
-    def union(self, datasets, targetDataset, desc=None):
+    def union(self, datasets, targetDataset, desc):
 
         self.stepStart(desc=desc)
 
@@ -526,6 +535,9 @@ class DataFlow():
 
     def getColumns(self, dataset, columnNames, desc=None):
 
+        if desc is None:
+            desc = 'Get columns for ' + dataset
+
         self.stepStart(desc=desc)
 
         if isinstance(columnNames, str):
@@ -545,6 +557,9 @@ class DataFlow():
 
     def getDataFrames(self, datasets, desc=None):
 
+        if desc is None:
+            desc = 'get dataframes: ' + str(datasets)
+
         self.stepStart(desc=desc)
 
         if isinstance(datasets, str):
@@ -562,7 +577,7 @@ class DataFlow():
 
         return dfs
 
-    def duplicateDataset(self, dataset, targetDatasets, desc=None):
+    def duplicateDataset(self, dataset, targetDatasets, desc):
 
         self.stepStart(desc=desc)
 
@@ -573,7 +588,7 @@ class DataFlow():
 
         self.stepEnd(report=report)
 
-    def dedupe(self, dataset, desc=None):
+    def dedupe(self, dataset, desc):
 
         self.stepStart(desc=desc)
 
@@ -591,8 +606,8 @@ class DataFlow():
              targetDataset,
              joinCol,
              how,
-             keepCols=None,
-             desc=None):
+             desc,
+             keepCols=None):
 
         self.stepStart(desc=desc)
 
@@ -619,7 +634,7 @@ class DataFlow():
             datasetName=targetDataset,
             df=self.data[targetDataset])
 
-    def setAuditCols(self, dataset, bulkOrDelta, sourceSystem, desc=None):
+    def setAuditCols(self, dataset, bulkOrDelta, sourceSystem, desc):
 
         self.stepStart(desc=desc)
 
@@ -655,6 +670,9 @@ class DataFlow():
 
     def getColumnList(self, dataset, desc=None):
 
+        if desc is None:
+            desc = 'Get column list for ' + dataset
+
         self.stepStart(desc=desc)
 
         colList = list(self.data[dataset])
@@ -665,7 +683,7 @@ class DataFlow():
 
         return colList
 
-    def customSQL(self, sql, dataLayer, dataset=None, desc=''):
+    def customSQL(self, sql, desc, dataLayer, dataset=None):
 
         self.stepStart(desc=desc, additionalDesc=sql)
 
@@ -688,7 +706,7 @@ class DataFlow():
                 report=report,
                 datasetName=dataset)
 
-    def iterate(self, dataset, function, desc=None):
+    def iterate(self, dataset, function, desc):
 
         self.stepStart(desc=desc)
 
@@ -699,7 +717,7 @@ class DataFlow():
 
         self.stepEnd(report=report)
 
-    def truncate(self, dataset, dataLayerID, forceDBWrite=False, desc=None):
+    def truncate(self, dataset, dataLayerID, desc, forceDBWrite=False):
         self.stepStart(desc=desc)
 
         path = (self.conf.CTRL.TMP_DATA_PATH + dataLayerID + '/')
@@ -720,7 +738,7 @@ class DataFlow():
                       mdmWS,
                       joinCols,
                       masterDataCols,
-                      desc=None):
+                      desc):
 
         self.stepStart(desc=desc)
 
@@ -813,7 +831,7 @@ class DataFlow():
             df=df_m,
             shapeOnly=False)
 
-    def templateStep(self, dataset, desc=None):
+    def templateStep(self, dataset, desc):
 
         self.stepStart(desc=desc)
 
@@ -837,11 +855,13 @@ class DataFlow():
         return op
 
     def stepStart(self,
-                  desc=None,
+                  desc,
                   datasetName=None,
                   df=None,
                   additionalDesc=None):
+
         self.currentStepStartTime = datetime.now()
+
         logger.logStepStart(
             startTime=self.currentStepStartTime,
             desc=desc,
