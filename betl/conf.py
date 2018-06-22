@@ -109,11 +109,7 @@ class Ctrl():
             text = input(cli.LAST_EXE_FAILED.format(
                 status=lastExecDetails['lastExecStatus']))
             if text.lower() != 'ignore':
-                if exeConf.RUN_SETUP or \
-                   exeConf.RUN_REBUILDS or \
-                   exeConf.RUN_REBUILD_STG or \
-                   exeConf.RUN_REBUILD_TRG or \
-                   exeConf.RUN_REBUILD_SUM:
+                if exeConf.RUN_SETUP or exeConf.RUN_REBUILDS:
                     text = input(cli.CANT_RERUN_WITH_SETUP_OR_REBUILD)
                     sys.exit()
                 else:
