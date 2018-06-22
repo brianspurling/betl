@@ -45,6 +45,9 @@ You need to create three Postgres databases:
 - ETL DB: This is the database that will act as the persistent storage for your data pipelining. It will only be accessed by your pipeline application.
 - Target DB: This is the database that will hold your data warehouse. This is written to by your data pipeline application and read from by end users / analytical applications
 
+``sudo -u <user> createdb <dwhId>_etl``
+``sudo -u <user> createdb <dwhId>_trg``
+
 Schema Description Google Sheets
 ================================
 
@@ -85,6 +88,7 @@ This script sets up your scheduleConfig, initialises a Betl instance, and runs y
 For detailed documentation of the scheduleConfig object: ?? ::
 
   from betl import Betl
+  import sys
 
   scheduleConfig = {}
 
@@ -225,6 +229,11 @@ To do this, BETL needs the source datalayer schema defined. You can define this 
 Alternatively, BETL can auto-populate the source datalayer schema description by copying the schema of the source system(s). To do this, execute your application's main.py with the following parameters::
 
   python main.py readsrc
+
+Build your physical schema
+==========================
+::
+  python main.py rebuildall
 
 Running Your Pipeline
 =====================
