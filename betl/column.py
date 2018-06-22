@@ -20,10 +20,10 @@ class Column():
     def getSqlCreateStatement(self):
         columnCreateStatement = ''
         if self.isSK:
-            columnCreateStatement = '"' + self.columnName + '"' + \
+            columnCreateStatement = '"' + str(self.columnName) + '"' + \
                 ' SERIAL UNIQUE'
         else:
-            columnCreateStatement = '"' + self.columnName + '"' + ' ' + \
+            columnCreateStatement = '"' + str(self.columnName) + '"' + ' ' + \
                 self.dataType
 
         return columnCreateStatement
@@ -31,7 +31,7 @@ class Column():
     def getSqlResetPrimaryKeySequence(self, tableName):
         columnResetStatement = None
         if self.isSK:
-            seqName = tableName + '_' + self.columnName + '_' + 'key'
+            seqName = tableName + '_' + str(self.columnName) + '_' + 'key'
             columnResetStatement = 'ALTER SEQUENCE ' + seqName + \
                 'RESTART WITH 1'
 
@@ -39,12 +39,12 @@ class Column():
 
     def getSqlDropIndexStatement(self):
         return ('DROP INDEX IF EXISTS ' +
-                self.tableName + '_' + self.columnName + '_key')
+                self.tableName + '_' + str(self.columnName) + '_key')
 
     def getSqlDropForeignKeyStatement(self):
         return ('ALTER TABLE ' + self.tableName + ' ' +
                 'DROP CONSTRAINT IF EXISTS ' +
-                self.tableName + '_' + self.columnName + '_key')
+                self.tableName + '_' + str(self.columnName) + '_key')
 
     def getSqlCreateIndexStatements(self):
         sqlStatements = []
@@ -55,19 +55,19 @@ class Column():
                 unique = 'UNIQUE'
             sqlStatements.append(
                 'CREATE ' + unique + ' INDEX IF NOT EXISTS ' +
-                self.tableName + '_' + self.columnName + '_key' +
-                ' ON ' + self.tableName + ' (' + self.columnName + ')')
+                self.tableName + '_' + str(self.columnName) + '_key' +
+                ' ON ' + self.tableName + ' (' + str(self.columnName) + ')')
 
         if self.isFK:
             fkDimCol = self.fkDimension[3:] + '_id'
             sqlStatements.append(
                 'ALTER TABLE ' + self.tableName + ' ' +
                 'ADD CONSTRAINT ' +
-                self.tableName + '_' + self.columnName + '_key ' +
-                'FOREIGN KEY (' + self.columnName + ')' +
+                self.tableName + '_' + str(self.columnName) + '_key ' +
+                'FOREIGN KEY (' + str(self.columnName) + ')' +
                 'REFERENCES ' + self.fkDimension + '(' + fkDimCol + ')')
 
         return sqlStatements
 
     def __str__(self):
-        return '      ' + self.columnName + '\n'
+        return '      ' + str(self.columnName) + '\n'
