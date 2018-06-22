@@ -191,8 +191,7 @@ class Scheduler():
 
                 alert = ("THE JOB FAILED (the executions table has been " +
                          "updated)\n\n" +
-                         "THE error was >>> \n\n"
-                         + tb1)
+                         "THE error was >>> \n\n" + tb1)
                 alerts.logAlert(self.conf, alert)
                 logger.logExecutionFinish('FAILED')
 

@@ -321,7 +321,8 @@ def logExecutionFinish(response):
     op += '                  *****************************' + '\n'
     op += '                  *                           *' + '\n'
     op += '                  *  BETL Execution Finished  *' + '\n'
-    op += '                  *                           *' + '\n'
+    if response is not None:
+        op += '                  *                           *' + '\n'
     if response == 'SUCCESS':
         op += '                  *   COMPLETED SUCCESSFULLY  *' + '\n'
     elif response == 'FAILED':

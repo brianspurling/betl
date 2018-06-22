@@ -57,7 +57,8 @@ class Betl():
         if self.CONF.EXE.READ_SRC:
             self.CONF.DATA.autoPopulateSrcSchemaDescriptions()
 
-        self.CONF.DATA.refreshSchemaDescsFromGsheets()
+        if len(self.CONF.EXE.RUN_REBUILDS) > 0 or self.CONF.EXE.RUN_DATAFLOWS:
+            self.CONF.DATA.refreshSchemaDescsFromGsheets()
 
         if len(self.CONF.EXE.RUN_REBUILDS) > 0:
             logger.logPhysicalDataModelBuild()
@@ -67,28 +68,29 @@ class Betl():
 
     def run(self):
 
+        response = 'SUCCESS'
+
         if self.CONF.EXE.RUN_DATAFLOWS:
+
             # This is the main execution of the data pipeline
             response = Scheduler(self.CONF).execute(self)
-        else:
-            response = 'SUCCESS'
-
-        if response == 'SUCCESS':
 
             self.CONF.DATA.checkDBsForSuperflousTables(self.CONF)
 
+        if response == 'SUCCESS':
             self.CONF.CTRL.CTRL_DB.updateExecution(
                 execId=self.CONF.STATE.EXEC_ID,
                 status='SUCCESSFUL',
                 statusMessage='')
 
+        if self.CONF.EXE.RUN_DATAFLOWS:
             reporting.generateExeSummary(
                 conf=self.CONF,
                 execId=self.CONF.STATE.EXEC_ID,
                 bulkOrDelta=self.CONF.EXE.BULK_OR_DELTA,
                 limitedData=self.CONF.EXE.DATA_LIMIT_ROWS)
 
-            logger.logExecutionFinish(response)
+        logger.logExecutionFinish(response)
 
     def DataFlow(self, desc):
         return dataflow.DataFlow(self.CONF, desc)
