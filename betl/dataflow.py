@@ -472,6 +472,40 @@ class DataFlow():
             df=self.data[dataset],
             shapeOnly=True)
 
+    def toNumeric(self,
+                  dataset,
+                  column,
+                  desc,
+                  cleanedColumn=None,
+                  cast=None):
+
+        self.stepStart(desc=desc)
+
+        if cleanedColumn is None:
+            cleanedColumn = column
+
+        self.data[dataset][cleanedColumn] = \
+            self.data[dataset][column].str.replace(r"[^\d.]+", '')
+
+        self.data[dataset][cleanedColumn] = \
+            pd.to_numeric(
+                arg=self.data[dataset][cleanedColumn],
+                errors='coerce')
+
+        if cast == 'integer':
+            self.data[dataset][cleanedColumn] = \
+                self.data[dataset][cleanedColumn].fillna(0).astype(int)
+        else:
+            raise ValueError('You tried to cast to a type not yet handled by' +
+                             ' dataflow.toNumeric: ' + cast)
+
+        report = 'Cleaned ' + column + ' to ' + cleanedColumn
+
+        self.stepEnd(
+            report=report,
+            datasetName=dataset,
+            df=self.data[dataset])
+
     def cleanColumn(self,
                     dataset,
                     cleaningFunc,
