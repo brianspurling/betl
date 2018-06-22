@@ -677,6 +677,7 @@ class Data():
                     files.extend(filenames)
                     break  # Just the root
                 for filename in files:
+
                     if filename.find('.csv') > 0:
                         df = fileIO.readDataFromCsv(
                             fileNameMap=None,
@@ -743,7 +744,7 @@ class Data():
                     colSchemas = {}
                     for cell in colHeaders:
                         colName = cell.value
-                        if colName != '':
+                        if colName != '' and colName is not None:
                             colSchemas[colName] = {
                                 'tableName': wsName,
                                 'columnName': colName,
