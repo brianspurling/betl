@@ -311,18 +311,23 @@ def describeDataFrame(df,
     return op
 
 
-def logExecutionFinish(logStr):
+def logExecutionFinish(response):
 
     # Just in case (of error)
     global MEMORY_USAGE_LOOP
     MEMORY_USAGE_LOOP = 'STOP'
 
-    op = ''
-    op += logStr
-    op += '\n'
+    op = '\n'
     op += '                  *****************************' + '\n'
     op += '                  *                           *' + '\n'
     op += '                  *  BETL Execution Finished  *' + '\n'
+    op += '                  *                           *' + '\n'
+    if response == 'SUCCESS':
+        op += '                  *   COMPLETED SUCCESSFULLY  *' + '\n'
+    elif response == 'FAILED':
+        op += '                  *     FAILED GRACEFULLY     *' + '\n'
+    elif response == 'FAILED_RECOVERY':
+        op += '                  * FAILED & DID NOT RECOVER  *' + '\n'
     op += '                  *                           *' + '\n'
     op += '                  *****************************' + '\n'
 
@@ -354,7 +359,7 @@ def logExecutionFinish(logStr):
         alertsText = 'No alerts generated in this execution'
 
     op += alertsText
-    op += '\n\n--- end ---'
+    op += '\n\n--- end alerts ---'
     op += '\n\n'
 
     JOB_LOG.info(op)

@@ -1,5 +1,6 @@
 import traceback
-from . import logger as logger
+from . import logger
+from . import alerts
 from . import df_extract
 from . import df_transform
 from . import df_load
@@ -187,26 +188,25 @@ class Scheduler():
                     status='FINISHED WITH ERROR',
                     statusMessage=tb1
                 )
-                logStr = ("\n\n" +
-                          "THE JOB FAILED (the executions table has been " +
-                          "updated)\n\n" +
-                          "THE error was >>> \n\n"
-                          + tb1 + "\n")
 
-                logger.logExecutionFinish(logStr)
+                alert = ("THE JOB FAILED (the executions table has been " +
+                         "updated)\n\n" +
+                         "THE error was >>> \n\n"
+                         + tb1)
+                alerts.logAlert(self.conf, alert)
+                logger.logExecutionFinish('FAILED')
 
             except Exception as e2:
                 tb2 = traceback.format_exc()
+                # TODO: why?
                 tb1 = tb1.replace("'", "")
                 tb1 = tb1.replace('"', '')
                 tb2 = tb2.replace("'", "")
                 tb2 = tb2.replace('"', '')
-                logStr = ("\n\n" +
-                          "THE JOB FAILED, AND THEN FAILED TO WRITE TO THE " +
-                          "JOB_LOG\n\n" +
-                          "THE first error was >>> \n\n"
-                          + tb1 + "\n\n"
-                          "The second error was >>> \n\n"
-                          + tb2 + "\n")
-                logStr += ''
-                logger.logExecutionFinish(logStr)
+
+                alert = ("THE JOB FAILED, AND THEN FAILED TO WRITE TO THE " +
+                         "JOB_LOG\n\n" +
+                         "THE first error was >>> \n\n" + tb1 + "\n\n" +
+                         "The second error was >>> \n\n" + tb2)
+                alerts.logAlert(self.conf, alert)
+                logger.logExecutionFinish('FAILED_RECOVERY', tb1, tb2)

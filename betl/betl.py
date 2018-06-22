@@ -82,17 +82,13 @@ class Betl():
                 status='SUCCESSFUL',
                 statusMessage='')
 
-            logStr = ("\n" +
-                      "THE JOB COMPLETED SUCCESSFULLY " +
-                      "(the executions table has been updated)\n\n")
-
             reporting.generateExeSummary(
                 conf=self.CONF,
                 execId=self.CONF.STATE.EXEC_ID,
                 bulkOrDelta=self.CONF.EXE.BULK_OR_DELTA,
                 limitedData=self.CONF.EXE.DATA_LIMIT_ROWS)
 
-            logger.logExecutionFinish(logStr)
+            logger.logExecutionFinish(response)
 
     def DataFlow(self, desc):
         return dataflow.DataFlow(self.CONF, desc)
