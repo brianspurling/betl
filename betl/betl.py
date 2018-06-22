@@ -75,7 +75,7 @@ class Betl():
 
         if response == 'SUCCESS':
 
-            self.CONF.DATA.checkDBsForSuperflousTables()
+            self.CONF.DATA.checkDBsForSuperflousTables(self.CONF)
 
             self.CONF.CTRL.CTRL_DB.updateExecution(
                 execId=self.CONF.STATE.EXEC_ID,
