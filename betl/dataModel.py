@@ -13,7 +13,12 @@ from .table import TrgTable
 
 class DataModel():
 
-    def __init__(self, dataConf, dataModelSchemaDesc, datastore, dataLayerID):
+    def __init__(self,
+                 dataConf,
+                 dataModelSchemaDesc,
+                 datastore,
+                 dataLayerID,
+                 tableNameMap=None):
 
         self.dataConf = dataConf
 
@@ -28,6 +33,11 @@ class DataModel():
             self.isSchemaDefined = False
 
         for tableName in dataModelSchemaDesc['tableSchemas']:
+            srcTableName = None
+            if tableNameMap is not None:
+                _tableName = tableName[tableName.find("_")+1:]
+                _tableName = _tableName[_tableName.find("_")+1:]
+                srcTableName = tableNameMap[_tableName]
             if self.dataModelID in ('TRG', 'SUM'):
                 table = TrgTable(
                     self.dataConf,
@@ -41,7 +51,8 @@ class DataModel():
                     dataModelSchemaDesc['tableSchemas'][tableName],
                     self.datastore,
                     self.dataLayerID,
-                    self.dataModelID)
+                    self.dataModelID,
+                    srcTableName)
             self.tables[tableName] = table
 
     def getSqlCreateStatements(self):
@@ -85,13 +96,19 @@ class DataModel():
 
 class SrcDataModel(DataModel):
 
-    def __init__(self, dataConf, dataModelSchemaDesc, datastore, dataLayerID):
+    def __init__(self,
+                 dataConf,
+                 dataModelSchemaDesc,
+                 tableNameMap,
+                 datastore,
+                 dataLayerID):
 
         DataModel.__init__(
             self,
             dataConf,
             dataModelSchemaDesc,
             datastore,
-            dataLayerID)
+            dataLayerID,
+            tableNameMap)
 
         self.dataConf = dataConf

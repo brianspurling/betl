@@ -12,6 +12,7 @@ from configobj import ConfigObj
 
 
 from . import logger
+from . import alerts
 from . import betlConfig
 from . import cli
 
@@ -76,7 +77,7 @@ class Ctrl():
     def setUpExecution(self, exeConf, stateConf):
 
         self.setupReportsDir()
-        
+
         if exeConf.FAIL_LAST_EXEC:
             self.CTRL_DB.failLastExecution()
 
@@ -783,11 +784,28 @@ class Data():
                     "system with which to construct a schema " +
                     "description")
             else:
+
+                # Some data sources can provide us with table names
+                # incompatible with Postgres (e.g. worksheet names in
+                # Excel/GSheets). So we will create a mapping of actual names
+                # to postgres names, to be used whenever we need to pull data
+                # out of source. For simplicity, we'll do this for
+                # all sources, even though some will always be the same.
+                srcTableMap = {}
+
                 for srcSysID in srcSysSchemas:
                     logger.logAutoPopSchemaDescsFromSrc(srcSysID)
+
+                    srcTableMap[srcSysID] = {}
+
                     tableSchemas = srcSysSchemas[srcSysID]['tableSchemas']
-                    for tableName in tableSchemas:
-                        colSchemas = tableSchemas[tableName]['columnSchemas']
+                    for tableName_src in tableSchemas:
+
+                        tableName = self.cleanTableName(tableName_src)
+                        srcTableMap[srcSysID][tableName] = tableName_src
+
+                        colSchemas = \
+                            tableSchemas[tableName_src]['columnSchemas']
 
                         wsName = 'ETL.SRC.' + srcSysID + '.' + 'src_' + \
                             srcSysID.lower() + '_' + tableName
@@ -814,8 +832,19 @@ class Data():
                             rangeRowCount += 3
 
                         ws.update_cells(cell_list)
+                    with open('schemas/tableNameMapping.txt', 'w') as file:
+                        file.write(json.dumps(srcTableMap))
 
-    def checkDBsForSuperflousTables(self):
+    def cleanTableName(self, tableName_src):
+        tableName = tableName_src
+        tableName = tableName.replace(' ', '_')
+        tableName = tableName.replace('(', '')
+        tableName = tableName.replace(')', '')
+        tableName = tableName.replace('-', '')
+        tableName = tableName.lower()
+        return tableName
+
+    def checkDBsForSuperflousTables(self, conf):
         query = ("SELECT table_name FROM information_schema.tables " +
                  "WHERE table_schema = 'public'")
 
@@ -840,4 +869,11 @@ class Data():
                 superflousTableNames.append(tableName)
 
         if len(superflousTableNames) > 0:
-            logger.superflousTableWarning(',\n  '.join(superflousTableNames))
+            op = ''
+            op += 'The following tables were found in one of the '
+            op += 'databases but not in the logical data model. \n'
+            op += 'They should be checked and removed. \n'
+            op += '\n'
+            op += '  ' + ',\n  '.join(superflousTableNames)
+
+            alerts.logAlert(conf, op)

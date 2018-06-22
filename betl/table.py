@@ -4,12 +4,19 @@ from . import df_load
 
 class Table():
 
-    def __init__(self, dataConf, tableSchema, datastore, dataLayerID, dataModelID):
+    def __init__(self,
+                 dataConf,
+                 tableSchema,
+                 datastore,
+                 dataLayerID,
+                 dataModelID,
+                 srcTableName=None):
 
         self.dataConf = dataConf
         self.dataLayerID = dataLayerID
         self.dataModelID = dataModelID
         self.tableName = tableSchema['tableName'].lower()
+        self.srcTableName = srcTableName
         self.datastore = datastore
 
         self.columns = []

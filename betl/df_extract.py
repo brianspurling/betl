@@ -18,6 +18,8 @@ def defaultExtract_bulk(betl):
     srcLayer = betl.CONF.DATA.getLogicalDataModel('SRC')
     for dmID in srcLayer.dataModels:
         for tableName in srcLayer.dataModels[dmID].tables:
+            mappedTableName = \
+                srcLayer.dataModels[dmID].tables[tableName].srcTableName
             if tableName in srcTablesToExclude:
                 continue
             dfl = betl.DataFlow(desc='Default extract for ' + tableName)
@@ -25,7 +27,8 @@ def defaultExtract_bulk(betl):
             dfl.getDataFromSrc(
                 tableName=tableName,
                 srcSysID=dmID,
-                desc="Extract data from source table")
+                desc="Extract data from source table",
+                mappedTableName=mappedTableName)
 
             dfl.setAuditCols(
                 dataset=tableName,

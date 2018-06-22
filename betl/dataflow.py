@@ -52,7 +52,7 @@ class DataFlow():
         self.data.clear()
         del(self.trgDataset)
 
-    def getDataFromSrc(self, tableName, srcSysID, desc):
+    def getDataFromSrc(self, tableName, srcSysID, desc, mappedTableName=None):
 
         self.stepStart(desc=desc)
 
@@ -62,8 +62,16 @@ class DataFlow():
 
         self.data[tableName] = pd.DataFrame()
 
+        if mappedTableName is not None:
+            srcTableName = mappedTableName
+        else:
+            # Cut off the src_<dataModelID>_ prefix, by doing
+            # two "left trims" on the "_" char
+            srcTableName = tableName[tableName.find("_")+1:]
+            srcTableName = srcTableName[srcTableName.find("_")+1:]
+
         if srcSysDatastore.datastoreType == 'FILESYSTEM':
-            filename = tableName
+
             path = srcSysDatastore.path
             separator = srcSysDatastore.delim
             quotechar = srcSysDatastore.quotechar
@@ -73,7 +81,7 @@ class DataFlow():
                 self.data[tableName] = \
                     fileIO.readDataFromCsv(fileNameMap=fileNameMap,
                                            path=path,
-                                           filename=filename + '.csv',
+                                           filename=srcTableName + '.csv',
                                            sep=separator,
                                            quotechar=quotechar,
                                            isTmpData=False,
@@ -86,12 +94,6 @@ class DataFlow():
 
         elif srcSysDatastore.datastoreType in ('POSTGRES', 'SQLITE'):
 
-            etlTableName = tableName
-            # Cut off the src_<dataModelID>_ prefix, by doing
-            # two "left trims" on the "_" char
-            srcTableName = etlTableName[etlTableName.find("_")+1:]
-            srcTableName = srcTableName[srcTableName.find("_")+1:]
-
             self.data[tableName] = \
                 dbIO.readDataFromDB(tableName=srcTableName,
                                     conn=srcSysDatastore.conn,
@@ -100,24 +102,12 @@ class DataFlow():
 
         elif srcSysDatastore.datastoreType == 'GSHEET':
 
-            etlTableName = tableName
-            # Cut off the src_<dataModelID>_ prefix, by doing
-            # two "left trims" on the "_" char
-            srcTableName = etlTableName[etlTableName.find("_")+1:]
-            srcTableName = srcTableName[srcTableName.find("_")+1:]
-
             self.data[tableName] = \
                 gsheetIO.readDataFromWorksheet(
                     worksheet=srcSysDatastore.worksheets[srcTableName],
                     limitdata=limitdata)
 
         elif srcSysDatastore.datastoreType == 'EXCEL':
-
-            etlTableName = tableName
-            # Cut off the src_<dataModelID>_ prefix, by doing
-            # two "left trims" on the "_" char
-            srcTableName = etlTableName[etlTableName.find("_")+1:]
-            srcTableName = srcTableName[srcTableName.find("_")+1:]
 
             self.data[tableName] = \
                 excelIO.readDataFromWorksheet(
@@ -239,7 +229,6 @@ class DataFlow():
             writeToDB = True
         else:
             writeToDB = self.conf.EXE.WRITE_TO_ETL_DB
-
         dataLayer = self.conf.DATA.getLogicalDataModel(dataLayerID)
         if (targetTableName not in dataLayer.getListOfTables()
            and not forceDBWrite):
