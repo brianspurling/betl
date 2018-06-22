@@ -769,36 +769,45 @@ class DataFlow():
         mdm_list = ws.get_all_values()
         mdm = pd.DataFrame(mdm_list[1:], columns=mdm_list[0:1][0])
 
-        df = self.data[dataset]
-        numberOfRows = len(df.index) + 1
         numberOfCols = len(joinCols) + len(masterDataCols)
 
         # If the MDM file is empty, we're going to populate it with the
         # joinCols from the DWH dataset, plus the masterDataCols (headers
         # only, obvs)
         if len(mdm) == 0:
+
+            # Let's add our new (master data) columns manually, since we won't
+            # be doing a merge later
+            for colName in masterDataCols:
+                self.data[dataset][colName] = ""
+
+            # We need a unique list of just the joinCols
+            df_unique = self.data[dataset].copy()
+            colsToDrop = list(df_unique)
+            colsToDrop = \
+                [x for x in colsToDrop if x not in joinCols + masterDataCols]
+            df_unique.drop(colsToDrop, axis=1, inplace=True)
+            df_unique.drop_duplicates(inplace=True)
+            numberOfRows = len(df_unique.index) + 1
+
             # We build up our new GSheets table first, in memory,
             # then write it all in one go. Col Names first, then
-            # data. For convenience, let's temporarily extend our DF
-            # to include the master data cols
-            for colName in masterDataCols:
-                df[colName] = ""
+            # data.
             cell_list = ws.range(1, 1, numberOfRows, numberOfCols)
             cellPos = 0
             for colName in joinCols + masterDataCols:
                 cell_list[cellPos].value = colName
                 cellPos += 1
-            for i, row in df.iterrows():
+            for i, row in df_unique.iterrows():
                 for colName in joinCols + masterDataCols:
                     cell_list[cellPos].value = row[colName]
                     cellPos += 1
             ws.update_cells(cell_list)
-            # And remove the master data cols again
-            df.drop(masterDataCols, axis=1, inplace=True)
-
+            # Remove the master data cols again
+            # Add the new column(s) onto the dataset
         else:
             df_m = pd.merge(
-                df,
+                self.data[dataset],
                 mdm,
                 on=joinCols,
                 how='left',
@@ -809,6 +818,7 @@ class DataFlow():
             # knows to enter new mappings. We update the MDM spreadsheet with
             # the empty mappings
             df_unmapped_rows = df_m.loc[df_m['_merge'] == 'left_only'].copy()
+            df_unmapped_rows.drop_duplicates(inplace=True)
             numOfUnmappedRows = len(df_unmapped_rows.index)
             if len(df_unmapped_rows.index) > 0:
                 df_unmapped_rows.drop('_merge', axis=1, inplace=True)
@@ -835,6 +845,11 @@ class DataFlow():
             # This is a bit blunt: we assume that every mapping col must be
             # populated. TODO: should at least check whether 1+ are populated
             df_no_value = df_m.loc[df_m[masterDataCols[0]] == ''].copy()
+            colsToDrop = list(df_no_value)
+            colsToDrop = \
+                [x for x in colsToDrop if x not in joinCols]
+            df_no_value.drop(colsToDrop, axis=1, inplace=True)
+            df_no_value.drop_duplicates(inplace=True)
             numOfBlankValues = len(df_no_value.index)
 
             # Add the report to the alerts log
@@ -846,13 +861,22 @@ class DataFlow():
 
             alerts.logAlert(self.conf, report)
 
+            # Need to set the original dataset to the result of our mdm
+            self.data[dataset] = df_m
+
         report = ''
 
-        self.stepEnd(
-            report=report,
-            datasetName=dataset,
-            df=df_m,
-            shapeOnly=False)
+        if len(mdm) == 0:
+            self.stepEnd(
+                report=report,
+                datasetName=dataset,
+                shapeOnly=False)
+        else:
+            self.stepEnd(
+                report=report,
+                datasetName=dataset,
+                df=df_m,
+                shapeOnly=False)
 
     def templateStep(self, dataset, desc):
 
