@@ -49,7 +49,7 @@ class Betl():
 
         logger.logBETLStart(self.CONF)
 
-        if self.CONF.EXE.RUN_SETUP:
+        if self.CONF.EXE.RUN_RESET:
             # Setup would have been run as part of Conf(), but we log now
             # so that logging can be initialied first
             logger.logSetupFinish()
@@ -118,3 +118,11 @@ class Betl():
 
     def DataFlow(self, desc):
         return dataflow.DataFlow(self.CONF, desc)
+
+
+def help():
+    print(cli.HELP)
+
+
+def setup():
+    cli.setup()

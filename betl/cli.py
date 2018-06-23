@@ -53,8 +53,8 @@ HELP = ("\n" +
         "* betl arguments *\n" +
         "******************\n" +
         "\n" +
-        "> [setup]\n" +
-        "  Reinstall betl - all config will be lost\n" +
+        "> [reset]\n" +
+        "  Reset your pipeline's setup - all config will be lost\n" +
         "\n" +
         "> [readsrc]\n" +
         "  Auto-populate SRC layer schema descs from the source systems\n" +
@@ -97,12 +97,11 @@ HELP = ("\n" +
         "* betl instructions *\n" +
         "*********************\n" +
         "\n" +
-        "- In your main script, first setup your scheduleConfig \n" +
-        "  dictionary (see documentation). This contains a list of all \n" +
-        "  the bespoke dataflows your ETL script needs to run. \n" +
-        "- Then call betl.init, passing in your appConfig file, your \n" +
-        "  runtime parameters (sys.argv), and your scheduleConfig. \n" +
-        " - Finally, call betl.run() \n" +
+        "To create a new pipeline, navigate to the root directory of your \n" +
+        "new repo and run the following:  \n" +
+        " $ python \n" +
+        " $ import betl \n" +
+        " $ betl.setup() \n" +
         "\n" +
         "--------------------------------------------------------------\n" +
         "\n")
@@ -129,7 +128,7 @@ def processArgs(args):
 
         'BULK_OR_DELTA': 'NOT SET',
 
-        'RUN_SETUP': False,
+        'RUN_RESET': False,
         'READ_SRC': False,
 
         'RUN_REBUILDS': {},
@@ -169,8 +168,8 @@ def processArgs(args):
         elif arg == 'nowarnings':
             skipWarnings = True
             params['SKIP_WARNINGS'] = True
-        elif arg == 'setup':
-            params['RUN_SETUP'] = True
+        elif arg == 'reset':
+            params['RUN_RESET'] = True
         elif arg == 'readsrc':
             params['READ_SRC'] = True
         elif arg == 'rebuildall':
@@ -232,7 +231,7 @@ def processArgs(args):
                 else:
                     print('')
 
-        if params['RUN_SETUP']:
+        if params['RUN_RESET']:
             if not skipWarnings:
                 text = input(SETUP_WARNING)
                 if text.lower() != 'y':
@@ -249,3 +248,7 @@ def processArgs(args):
                     print('')
 
     return params
+
+
+def setup():
+    print('boom')

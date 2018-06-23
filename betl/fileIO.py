@@ -50,7 +50,7 @@ def readDataFromCsv(fileNameMap,
         _filename = fileNameMap[filename]
 
     # We need to force it to read everything as text. Only way I can
-    # see to do this is to read the headers and setup a dtype for each
+    # see to do this is to read the headers and create a dtype for each
     headersDf = pd.read_csv(path + _filename,
                             sep=sep,
                             quotechar=quotechar,

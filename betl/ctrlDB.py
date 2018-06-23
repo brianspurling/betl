@@ -322,46 +322,34 @@ class CtrlDB():
 
         ctlDBCursor = self.datastore.cursor()
 
-        try:
-            ctlDBCursor.execute("UPDATE executions " +
-                                "SET status = 'FAILED' " +
-                                "WHERE exec_id IN ( " +
-                                "   SELECT max(exec_id) " +
-                                "   FROM executions)")
-            ctlDBCursor.execute("UPDATE functions " +
-                                "SET status = 'FAILED' " +
-                                "WHERE exec_id IN ( " +
-                                "   SELECT max(exec_id) " +
-                                "   FROM executions)")
-            ctlDBCursor.execute("UPDATE dataflows " +
-                                "SET status = 'FAILED' " +
-                                "WHERE exec_id IN ( " +
-                                "   SELECT max(exec_id) " +
-                                "   FROM executions)")
-            ctlDBCursor.execute("UPDATE steps " +
-                                "SET status = 'FAILED' " +
-                                "WHERE exec_id IN ( " +
-                                "   SELECT max(exec_id) " +
-                                "   FROM executions)")
-        except psycopg2.Error as e:
-            # We have to print here, because we don't have an execId yet to
-            # be able to use the logger
-            print(logger.logUnableToReadFromCtlDB(e.pgerror))
-            sys.exit()
+        ctlDBCursor.execute("UPDATE executions " +
+                            "SET status = 'FAILED' " +
+                            "WHERE exec_id IN ( " +
+                            "   SELECT max(exec_id) " +
+                            "   FROM executions)")
+        ctlDBCursor.execute("UPDATE functions " +
+                            "SET status = 'FAILED' " +
+                            "WHERE exec_id IN ( " +
+                            "   SELECT max(exec_id) " +
+                            "   FROM executions)")
+        ctlDBCursor.execute("UPDATE dataflows " +
+                            "SET status = 'FAILED' " +
+                            "WHERE exec_id IN ( " +
+                            "   SELECT max(exec_id) " +
+                            "   FROM executions)")
+        ctlDBCursor.execute("UPDATE steps " +
+                            "SET status = 'FAILED' " +
+                            "WHERE exec_id IN ( " +
+                            "   SELECT max(exec_id) " +
+                            "   FROM executions)")
 
     def getLastExecution(self):
 
         ctlDBCursor = self.datastore.cursor()
 
-        try:
-            ctlDBCursor.execute("SELECT exec_id, status FROM executions " +
-                                "WHERE exec_id = (SELECT MAX(exec_id) " +
-                                "FROM executions)")
-        except psycopg2.Error as e:
-            # We have to print here, because we don't have an execId yet to
-            # be able to use the logger
-            print(logger.logUnableToReadFromCtlDB(e.pgerror))
-            sys.exit()
+        ctlDBCursor.execute("SELECT exec_id, status FROM executions " +
+                            "WHERE exec_id = (SELECT MAX(exec_id) " +
+                            "FROM executions)")
 
         return ctlDBCursor.fetchall()
 

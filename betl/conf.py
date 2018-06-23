@@ -47,11 +47,11 @@ class Conf():
         self.STATE = State()
         self.SCHEDULE = Schedule(scheduleConfig)
         self.DATA = Data(conf=self)
-        self.CTRL = Ctrl(self.allConfig['ctrl'], self.EXE.RUN_SETUP)
+        self.CTRL = Ctrl(self.allConfig['ctrl'], self.EXE.RUN_RESET)
 
-        # Finally, with the CTL DB initialised, we're able to setup our
+        # Finally, with the CTL DB initialised, we're able to init our
         # execution
-        self.LAST_EXEC_REPORT = self.CTRL.setUpExecution(self.EXE, self.STATE)
+        self.LAST_EXEC_REPORT = self.CTRL.initExecution(self.EXE, self.STATE)
 
 
 class Ctrl():
@@ -67,14 +67,14 @@ class Ctrl():
 
         self.CTRL_DB = CtrlDB(self.config['ctl_db'])
 
-        # If the run_setup parameter was passed in at the command line,
+        # If the run_reset parameter was passed in at the command line,
         # we rebuild the ctl database / archive old logs / etc
         if runSetup:
-            self.setup()
+            self.reset()
 
-    def setUpExecution(self, exeConf, stateConf):
+    def initExecution(self, exeConf, stateConf):
 
-        self.setupReportsDir()
+        self.createReportsDir()
 
         if exeConf.FAIL_LAST_EXEC:
             self.CTRL_DB.failLastExecution()
@@ -107,7 +107,7 @@ class Ctrl():
             text = input(cli.LAST_EXE_FAILED.format(
                 status=lastExecDetails['lastExecStatus']))
             if text.lower() != 'ignore':
-                if exeConf.RUN_SETUP or exeConf.RUN_REBUILDS:
+                if exeConf.RUN_RESET or exeConf.RUN_REBUILDS:
                     text = input(cli.CANT_RERUN_WITH_SETUP_OR_REBUILD)
                     sys.exit()
                 else:
@@ -133,7 +133,7 @@ class Ctrl():
         }
         return lastExecReport
 
-    def setup(self):
+    def reset(self):
         self.CTRL_DB.dropAllCtlTables()
         self.CTRL_DB.createExecutionsTable()
         self.CTRL_DB.createFunctionsTable()
@@ -141,8 +141,8 @@ class Ctrl():
         self.CTRL_DB.createStepsTable()
 
         self.archiveLogFiles()
-        self.setupReportsDir()
-        self.setupSchemaDir()
+        self.createReportsDir()
+        self.createSchemaDir()
 
     def archiveLogFiles(self):
 
@@ -163,14 +163,14 @@ class Ctrl():
             if f.find('alerts') > -1:
                 shutil.move(source+f, dest)
 
-    def setupSchemaDir(self):
+    def createSchemaDir(self):
 
         dir = 'schemas/'
         shutil.rmtree(dir)
         os.makedirs(dir)
         open(dir + 'lastModifiedTimes.txt', 'a').close()
 
-    def setupReportsDir(self):
+    def createReportsDir(self):
         path = self.REPORTS_PATH.replace('/', '')
 
         if (os.path.exists(path)):
@@ -189,7 +189,7 @@ class Exe():
 
         self.BULK_OR_DELTA = params['BULK_OR_DELTA']
 
-        self.RUN_SETUP = params['RUN_SETUP']
+        self.RUN_RESET = params['RUN_RESET']
         self.READ_SRC = params['READ_SRC']
         self.FAIL_LAST_EXEC = params['FAIL_LAST_EXEC']
 

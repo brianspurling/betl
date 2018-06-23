@@ -417,25 +417,6 @@ def getSampleValue(df, colName, rowNum):
     return value
 
 
-def logUnableToReadFromCtlDB(errorMessage):
-    op = '\n'
-    op += '*** ERROR! Execution stopped *** \n'
-    op += '\n'
-    op += '  BETL tried to read from the CTL DB but failed. \n'
-    op += '  This is probably because you haven\'t set up BETL yet - \n'
-    op += '  run your application again with the setup arugment. \n'
-    op += '  to create a fresh control (CTL) DB \n'
-    op += '  \n'
-    op += '  Or, if you think BETL is set up correctly, check the \n'
-    op += '  CTL DB credentials in your appConfig file \n'
-    op += '  \n'
-    op += '  The error message was: \n'
-    op += '  \n'
-    op += errorMessage
-    op += '  \n'
-    return op
-
-
 def logDeleteSrcSchemaDescWsFromSS():
     op = ''
     op += 'Deleting all SRC worksheets from the ETL Schema Desc spreadsheet'
