@@ -950,5 +950,3 @@ class DataFlow():
             status='SUCCESSFUL',
             rowCount=rowCount,
             colCount=colCount)
-
-    # logger.logClearedTempData()

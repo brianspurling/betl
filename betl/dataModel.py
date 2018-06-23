@@ -27,10 +27,6 @@ class DataModel():
         self.datastore = datastore
 
         self.tables = {}
-        self.isSchemaDefined = True
-
-        if (len(dataModelSchemaDesc) == 0):
-            self.isSchemaDefined = False
 
         for tableName in dataModelSchemaDesc['tableSchemas']:
             srcTableName = None
@@ -112,3 +108,10 @@ class SrcDataModel(DataModel):
             tableNameMap)
 
         self.dataConf = dataConf
+
+
+class EmptyDataModel():
+
+    def __init__(self):
+
+        self.tables = {}

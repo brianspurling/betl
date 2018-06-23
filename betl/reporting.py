@@ -89,6 +89,8 @@ def generateExeSummary(conf, execId, bulkOrDelta, limitedData):
             'Latest: ' + df['latest_row_count'].map(str) + ' <br>' +
             df['step_description'].map(str))
 
+        logger.logVariancesReport()
+
         if len(df) == 0:
             logger.logNoVariancesReported(varianceLimit)
         else:

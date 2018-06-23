@@ -57,27 +57,13 @@ def getLogger():
     return logging.getLogger('JOB_LOG')
 
 
-def logExecutionStart(conf):
-
-    logStartMessage(rerun=conf.STATE.RERUN_PREV_JOB)
-
-    if conf.EXE.RUN_SETUP:
-        logBetlSetupComplete()
-        logExecutionOverview(conf.LAST_EXEC_REPORT)
-    else:
-        if conf.STATE.RERUN_PREV_JOB:
-            logExecutionOverview(conf.LAST_EXEC_REPORT, rerun=True)
-        else:
-            logExecutionOverview(conf.LAST_EXEC_REPORT)
-
-
-def logStartMessage(rerun=False):
+def logBETLStart(conf):
 
     global EXE_START_TIME
     EXE_START_TIME = datetime.now()
 
     value = ''
-    if rerun:
+    if conf.STATE.RERUN_PREV_JOB:
         value = 'Restarted'
     else:
         value = 'Started  '
@@ -85,30 +71,54 @@ def logStartMessage(rerun=False):
     op = '\n'
     op += '                  *****************************' + '\n'
     op += '                  *                           *' + '\n'
-    op += '                  *  BETL Execution ' + value + ' *' + '\n'
+    op += '                  *       BETL ' + value + '      *' + '\n'
     op += '                  *                           *' + '\n'
     op += '                  *****************************' + '\n'
 
     JOB_LOG.info(op)
 
 
-def logExecutionOverview(execReport, rerun=False):
+def logBETLFinish(response):
+
+    # Just in case (of error)
+    global MEMORY_USAGE_LOOP
+    MEMORY_USAGE_LOOP = 'STOP'
+
+    op = '\n'
+    op += '                  *****************************' + '\n'
+    op += '                  *                           *' + '\n'
+    op += '                  *       BETL Finished       *' + '\n'
+    if response is not None:
+        op += '                  *                           *' + '\n'
+    if response == 'SUCCESS':
+        op += '                  *   COMPLETED SUCCESSFULLY  *' + '\n'
+    elif response == 'FAILED':
+        op += '                  *     FAILED GRACEFULLY     *' + '\n'
+    elif response == 'FAILED_RECOVERY':
+        op += '                  * FAILED & DID NOT RECOVER  *' + '\n'
+    op += '                  *                           *' + '\n'
+    op += '                  *****************************' + '\n'
+
+    JOB_LOG.info(op)
+
+
+def logExecutionStart(conf):
 
     global EXE_START_TIME
 
     introText = 'Running NEW execution'
-    if rerun:
+    if conf.STATE.RERUN_PREV_JOB:
         introText = 'Rerunning PREVIOUS execution'
 
     lastExecStatusMsg = ('The last execution (' +
-                         str(execReport['lastExecId']) + ') ' +
+                         str(conf.LAST_EXEC_REPORT['lastExecId']) + ') ' +
                          'finished with status: ' +
-                         execReport['lastExecStatus'])
+                         conf.LAST_EXEC_REPORT['lastExecStatus'])
 
-    op = ''
+    op = '\n'
     op += '----------------------------------------------------------------'
     op += '-------' + '\n'
-    op += ' ' + introText + ': ' + str(execReport['execId']) + '\n'
+    op += ' ' + introText + ': ' + str(conf.LAST_EXEC_REPORT['execId']) + '\n'
     op += '   - Started: ' + str(EXE_START_TIME) + '\n'
     op += '   - ' + lastExecStatusMsg + '\n'
     op += '-----------------------------------------------------------------'
@@ -117,18 +127,102 @@ def logExecutionOverview(execReport, rerun=False):
     JOB_LOG.info(op)
 
 
+def logExecutionFinish():
+
+    currentTime = datetime.now()
+    elapsedSecs = (currentTime - EXE_START_TIME).total_seconds()
+    elapsedMins = round(elapsedSecs / 60, 1)
+
+    op = '\n'
+    op += '                  Finished: ' + str(EXE_START_TIME)
+    op += '\n'
+    op += '                  Duration: ' + str(elapsedMins) + ' mins'
+    op += '\n\n'
+    op += '                       ' + JOB_LOG_FILE_NAME
+    op += '\n'
+    JOB_LOG.info(op)
+
+
+def logAlerts():
+
+    # We tag on any alerts to the end of the logs
+    op = '\n'
+    op += '*** ALERTS ***'
+    op += '\n\n'
+    alertsText = ''
+
+    alertsFileName = 'logs/' + str(EXEC_ID).zfill(4) + '_alerts.txt'
+    file = Path(alertsFileName)
+    if file.is_file():
+        with open(alertsFileName, 'r') as f:
+            alertsText = f.read()
+
+    if len(alertsText) == 0:
+        alertsText = 'No alerts generated in this execution'
+
+    op += alertsText
+    op += '\n'
+
+    JOB_LOG.info(op)
+
+
+def logSetupFinish():
+
+    op = ''
+    op += '\n'
+    op += '                 ------------------------------' + '\n'
+    op += '                 |         Reset BETL         |' + '\n'
+    op += '                 ------------------------------' + '\n'
+
+    JOB_LOG.info(op)
+
+
+def logRebuildPhysicalDataModelStart():
+
+    op = ''
+    op += '\n'
+    op += '                 -------------------------------' + '\n'
+    op += '                 | Rebuilding Physical Schemas |' + '\n'
+
+    JOB_LOG.info(op)
+
+
+def logRebuildPhysicalDataModelFinish():
+
+    op = ''
+    op += '\n'
+    op += '                 |  Physical Schemas Rebuilt  |' + '\n'
+    op += '                 ------------------------------' + '\n'
+
+    JOB_LOG.info(op)
+
+
+def logClearTempDataFinish():
+
+    op = ''
+    op += '\n'
+    op += '                 ------------------------------' + '\n'
+    op += '                 |    Deleted all temp data   |' + '\n'
+    op += '                 ------------------------------' + '\n'
+
+    JOB_LOG.info(op)
+
+
+def logCheckLastModTimeOfSchemaDescGSheet():
+    op = ''
+    op += '  - Checking last modified date of the schema desc Gsheets'
+    JOB_LOG.info(op)
+
+
 def logInitialiseDatastore(datastoreID, datastoreType, isSchemaDesc=False):
 
-    if datastoreID in ['CTL']:
-        pass
-    else:
-        desc = 'Connecting to the ' + datastoreID + ' ' + \
+    if datastoreID not in ['CTL']:
+        desc = '  - Connecting to the ' + datastoreID + ' ' + \
              datastoreType + ' datastore'
         if isSchemaDesc:
-            desc = 'Connecting to the ' + datastoreID + ' schema ' + \
+            desc = '    - Connecting to the ' + datastoreID + ' schema ' + \
                 'description spreadsheet'
-        op = ''
-        op += desc
+        op = desc
 
         if JOB_LOG is not None:
             JOB_LOG.info(op)
@@ -140,7 +234,7 @@ def logInitialiseSrcSysDatastore(datastoreID, datastoreType):
 
     op = ''
     op += '\n'
-    op += 'Connecting to source system datastore: ' + datastoreID
+    op += '  - Connecting to source system datastore: ' + datastoreID
     op += ' (' + datastoreType + ')'
     op += '\n'
 
@@ -311,83 +405,6 @@ def describeDataFrame(df,
     return op
 
 
-def logExecutionFinish(response):
-
-    # Just in case (of error)
-    global MEMORY_USAGE_LOOP
-    MEMORY_USAGE_LOOP = 'STOP'
-
-    op = '\n'
-    op += '                  *****************************' + '\n'
-    op += '                  *                           *' + '\n'
-    op += '                  *  BETL Execution Finished  *' + '\n'
-    if response is not None:
-        op += '                  *                           *' + '\n'
-    if response == 'SUCCESS':
-        op += '                  *   COMPLETED SUCCESSFULLY  *' + '\n'
-    elif response == 'FAILED':
-        op += '                  *     FAILED GRACEFULLY     *' + '\n'
-    elif response == 'FAILED_RECOVERY':
-        op += '                  * FAILED & DID NOT RECOVER  *' + '\n'
-    op += '                  *                           *' + '\n'
-    op += '                  *****************************' + '\n'
-
-    currentTime = datetime.now()
-    elapsedSecs = (currentTime - EXE_START_TIME).total_seconds()
-    elapsedMins = round(elapsedSecs / 60, 1)
-
-    op += '\n'
-    op += '                  Finished: ' + str(EXE_START_TIME)
-    op += '\n'
-    op += '                  Duration: ' + str(elapsedMins) + ' mins'
-    op += '\n\n'
-    op += '                       ' + JOB_LOG_FILE_NAME
-    op += '\n'
-
-    # We tag on any alerts to the end of the logs
-    op += '\n\n'
-    op += '*** ALERTS ***'
-    op += '\n\n'
-    alertsText = ''
-
-    alertsFileName = 'logs/' + str(EXEC_ID).zfill(4) + '_alerts.txt'
-    file = Path(alertsFileName)
-    if file.is_file():
-        with open(alertsFileName, 'r') as f:
-            alertsText = f.read()
-
-    if len(alertsText) == 0:
-        alertsText = 'No alerts generated in this execution'
-
-    op += alertsText
-    op += '\n\n--- end alerts ---'
-    op += '\n\n'
-
-    JOB_LOG.info(op)
-
-
-def logBetlSetupComplete():
-
-    op = ''
-    op += '\n'
-    op += '-------------------------' + '\n'
-    op += ' BETL setup successfully ' + '\n'
-    op += '-------------------------' + '\n'
-
-    JOB_LOG.info(op)
-
-
-def logClearedTempData():
-
-    op = ''
-    op += '\n\n'
-    op += '-----------------------' + '\n'
-    op += ' Cleared all temp data ' + '\n'
-    op += '-----------------------' + '\n'
-
-    JOB_LOG.info(op)
-
-
 def getSampleValue(df, colName, rowNum):
     if len(df.index) >= rowNum + 1:
         value = str(df[colName].iloc[rowNum])
@@ -436,16 +453,14 @@ def logAutoPopSchemaDescsFromSrc(srcSysID):
 
 def logRefreshingSchemaDescsFromGsheets(dbCount):
     op = ''
-    op += '\n'
-    op += 'Refreshing the schema descriptions for ' + str(dbCount) + ' '
+    op += '  - Refreshing the schema descriptions for ' + str(dbCount) + ' '
     op += 'databases from Google Sheets'
-    op += '\n'
     JOB_LOG.info(op)
 
 
 def logLoadingDBSchemaDescsFromGsheets(dbID):
     op = ''
-    op += 'Loading schema descriptions for the ' + dbID + ' database...'
+    op += '    - Extracting schema descriptions for the ' + dbID + ' database...'
     JOB_LOG.info(op)
 
 
@@ -455,27 +470,17 @@ def logRefreshingSchemaDescsFromGsheets_done():
     JOB_LOG.info(op)
 
 
-def logSchemaDescsLoad():
-    op = '\n'
-    op += 'Loading the schema descriptions'
-    op += '\n'
-    JOB_LOG.info(op)
-
-    # if logicalDataModels is not None:
-    #     for dmID in logicalDataModels:
-    #         op += logicalDataModels[dmID].__str__()
-
-
-def logPhysicalDataModelBuild():
-    op = ''
-    op += 'Rebuilding the physical data models'
-    op += '\n'
-    JOB_LOG.info(op)
-
-
 def logRebuildingPhysicalDataModel(dataLayerID):
     op = ''
-    op += '  - Rebuilding the ' + dataLayerID + ' physical data models... '
+    op += '    - Rebuilding the ' + dataLayerID + ' physical data models... '
+    JOB_LOG.info(op)
+
+
+def logVariancesReport():
+    op = ''
+    op += '\n'
+    op += '*** REPORTS ***'
+    op += '\n'
     JOB_LOG.info(op)
 
 

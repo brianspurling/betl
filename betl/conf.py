@@ -40,16 +40,14 @@ class Conf():
 
         # We use the ConfigObj package to process our appConfigFile, which is
         # divided up into sections corresponding to the "child" classes below
-        allConfig = ConfigObj(appConfigFile)
+        self.allConfig = ConfigObj(appConfigFile)
 
         # BETL's configuration is split into the following "child" classes
         self.EXE = Exe(runTimeParams)
         self.STATE = State()
         self.SCHEDULE = Schedule(scheduleConfig)
-        self.DATA = Data(
-            config=allConfig['data'],
-            includeDMDate=scheduleConfig['DEFAULT_DM_DATE'])
-        self.CTRL = Ctrl(allConfig['ctrl'], self.EXE.RUN_SETUP)
+        self.DATA = Data(conf=self)
+        self.CTRL = Ctrl(self.allConfig['ctrl'], self.EXE.RUN_SETUP)
 
         # Finally, with the CTL DB initialised, we're able to setup our
         # execution
@@ -233,6 +231,8 @@ class Exe():
             shutil.rmtree(tmp)  # delete
         os.makedirs(path)  # create the new folder
 
+        logger.logClearTempDataFinish()
+
 
 class State():
 
@@ -301,17 +301,16 @@ class Schedule():
 
 class Data():
 
-    def __init__(self, config, includeDMDate):
+    def __init__(self, conf):
 
-        self.config = config
+        self.CONF = conf
 
         self.DATABASES = betlConfig.databases
         self.DATA_LAYERS = betlConfig.dataLayers
         self.AUDIT_COLS = pd.DataFrame(betlConfig.auditColumns)
         self.SRC_SYSTEM_LIST = []
-        self.INCLUDE_DM_DATE = includeDMDate
 
-        for srcSysID in self.config['src_sys']:
+        for srcSysID in self.CONF.allConfig['data']['src_sys']:
             self.SRC_SYSTEM_LIST.append(srcSysID)
 
         # The following are either datastore(s) or require datastores to
@@ -325,19 +324,21 @@ class Data():
         self.SRC_SYSTEMS = {}
 
         # We'll need these later, when we connect to the various Google Sheets
-        self.apiUrl = self.config['schema_descs']['GSHEETS_API_URL']
-        self.apiKey = self.config['schema_descs']['GSHEETS_API_KEY_FILE']
+        self.apiUrl = self.CONF.allConfig['data']['schema_descs']['GSHEETS_API_URL']
+        self.apiKey = \
+            self.CONF.allConfig['data']['schema_descs']['GSHEETS_API_KEY_FILE']
 
     def getSchemaDescGSheetDatastore(self, dbID):
         if dbID in self.SCHEMA_DESCRIPTION_GSHEETS:
             return self.SCHEMA_DESCRIPTION_GSHEETS[dbID]
         else:
+            fname = dbID + '_FILENAME'
             self.SCHEMA_DESCRIPTION_GSHEETS[dbID] = \
                 GsheetDatastore(
                     ssID=dbID,
                     apiUrl=self.apiUrl,
                     apiKey=self.apiKey,
-                    filename=self.config['schema_descs'][dbID + '_FILENAME'],
+                    filename=self.CONF.allConfig['data']['schema_descs'][fname],
                     isSchemaDesc=True)
             return self.SCHEMA_DESCRIPTION_GSHEETS[dbID]
 
@@ -346,13 +347,13 @@ class Data():
             return self.LOGICAL_DATA_MODELS[dataLayerID]
         else:
             if dataLayerID == 'SRC':
-                self.LOGICAL_DATA_MODELS['SRC'] = SrcDataLayer(self)
+                self.LOGICAL_DATA_MODELS['SRC'] = SrcDataLayer(self.CONF)
             elif dataLayerID == 'STG':
-                self.LOGICAL_DATA_MODELS['STG'] = StgDataLayer(self)
+                self.LOGICAL_DATA_MODELS['STG'] = StgDataLayer(self.CONF)
             elif dataLayerID == 'TRG':
-                self.LOGICAL_DATA_MODELS['TRG'] = TrgDataLayer(self)
+                self.LOGICAL_DATA_MODELS['TRG'] = TrgDataLayer(self.CONF)
             elif dataLayerID == 'SUM':
-                self.LOGICAL_DATA_MODELS['SUM'] = SumDataLayer(self)
+                self.LOGICAL_DATA_MODELS['SUM'] = SumDataLayer(self.CONF)
             return self.LOGICAL_DATA_MODELS[dataLayerID]
 
     def getDWHDatastore(self, dbID):
@@ -362,10 +363,10 @@ class Data():
             self.DWH_DATABASES[dbID] = \
                 PostgresDatastore(
                     dbID=dbID,
-                    host=self.config['dwh_dbs'][dbID]['HOST'],
-                    dbName=self.config['dwh_dbs'][dbID]['DBNAME'],
-                    user=self.config['dwh_dbs'][dbID]['USER'],
-                    password=self.config['dwh_dbs'][dbID]['PASSWORD'],
+                    host=self.CONF.allConfig['data']['dwh_dbs'][dbID]['HOST'],
+                    dbName=self.CONF.allConfig['data']['dwh_dbs'][dbID]['DBNAME'],
+                    user=self.CONF.allConfig['data']['dwh_dbs'][dbID]['USER'],
+                    password=self.CONF.allConfig['data']['dwh_dbs'][dbID]['PASSWORD'],
                     createIfNotFound=True)
             return self.DWH_DATABASES[dbID]
 
@@ -373,12 +374,15 @@ class Data():
         if self.DEFAULT_ROW_SRC is not None:
             return self.DEFAULT_ROW_SRC
         else:
+            apiUrl = self.CONF.allConfig['data']['default_rows']['GSHEETS_API_URL']
+            apiKy = self.CONF.allConfig['data']['default_rows']['GSHEETS_API_KEY_FILE']
+            fname = self.CONF.allConfig['data']['default_rows']['FILENAME']
             self.DEFAULT_ROW_SRC = \
                 GsheetDatastore(
                     ssID='DR',
-                    apiUrl=self.config['default_rows']['GSHEETS_API_URL'],
-                    apiKey=self.config['default_rows']['GSHEETS_API_KEY_FILE'],
-                    filename=self.config['default_rows']['FILENAME'])
+                    apiUrl=apiUrl,
+                    apiKey=apiKy,
+                    filename=fname)
             return self.DEFAULT_ROW_SRC
 
     def getMDMDatastore(self):
@@ -388,9 +392,9 @@ class Data():
             self.MDM_SRC = \
                 GsheetDatastore(
                     ssID='MDM',
-                    apiUrl=self.config['mdm']['GSHEETS_API_URL'],
-                    apiKey=self.config['mdm']['GSHEETS_API_KEY_FILE'],
-                    filename=self.config['mdm']['FILENAME'])
+                    apiUrl=self.CONF.allConfig['data']['mdm']['GSHEETS_API_URL'],
+                    apiKey=self.CONF.allConfig['data']['mdm']['GSHEETS_API_KEY_FILE'],
+                    filename=self.CONF.allConfig['data']['mdm']['FILENAME'])
             return self.MDM_SRC
 
     def getSrcSysDatastore(self, ssID):
@@ -400,62 +404,69 @@ class Data():
 
             logger.logInitialiseSrcSysDatastore(
                 datastoreID=ssID,
-                datastoreType=self.config['src_sys'][ssID]['TYPE'])
+                datastoreType=self.CONF.allConfig['data']['src_sys'][ssID]['TYPE'])
 
-            if self.config['src_sys'][ssID]['TYPE'] == 'POSTGRES':
+            if self.CONF.allConfig['data']['src_sys'][ssID]['TYPE'] == 'POSTGRES':
+                pw = self.CONF.allConfig['data']['src_sys'][ssID]['PASSWORD']
                 self.SRC_SYSTEMS[ssID] = \
                     PostgresDatastore(
                         dbID=ssID,
-                        host=self.config['src_sys'][ssID]['HOST'],
-                        dbName=self.config['src_sys'][ssID]['DBNAME'],
-                        user=self.config['src_sys'][ssID]['USER'],
-                        password=self.config['src_sys'][ssID]['PASSWORD'],
+                        host=self.CONF.allConfig['data']['src_sys'][ssID]['HOST'],
+                        dbName=self.CONF.allConfig['data']['src_sys'][ssID]['DBNAME'],
+                        user=self.CONF.allConfig['data']['src_sys'][ssID]['USER'],
+                        password=pw,
                         isSrcSys=True)
 
-            elif self.config['src_sys'][ssID]['TYPE'] == 'SQLITE':
+            elif self.CONF.allConfig['data']['src_sys'][ssID]['TYPE'] == 'SQLITE':
+                fname = self.CONF.allConfig['data']['src_sys'][ssID]['FILENAME']
                 self.SRC_SYSTEMS[ssID] = \
                     SqliteDatastore(
                         dbID=ssID,
-                        path=self.config['src_sys'][ssID]['PATH'],
-                        filename=self.config['src_sys'][ssID]['FILENAME'],
+                        path=self.CONF.allConfig['data']['src_sys'][ssID]['PATH'],
+                        filename=fname,
                         isSrcSys=True)
 
-            elif self.config['src_sys'][ssID]['TYPE'] == 'FILESYSTEM':
+            elif self.CONF.allConfig['data']['src_sys'][ssID]['TYPE'] == 'FILESYSTEM':
+                fileExt = self.CONF.allConfig['data']['src_sys'][ssID]['FILE_EXT']
+                delim = self.CONF.allConfig['data']['src_sys'][ssID]['DELIMITER']
+                quoteChar = self.CONF.allConfig['data']['src_sys'][ssID]['QUOTECHAR']
                 self.SRC_SYSTEMS[ssID] = \
                     FileDatastore(
                         fileSysID=ssID,
-                        path=self.config['src_sys'][ssID]['PATH'],
-                        fileExt=self.config['src_sys'][ssID]['FILE_EXT'],
-                        delim=self.config['src_sys'][ssID]['DELIMITER'],
-                        quotechar=self.config['src_sys'][ssID]['QUOTECHAR'],
+                        path=self.CONF.allConfig['data']['src_sys'][ssID]['PATH'],
+                        fileExt=fileExt,
+                        delim=delim,
+                        quotechar=quoteChar,
                         isSrcSys=True)
 
-            elif self.config['src_sys'][ssID]['TYPE'] == 'GSHEET':
-                apiUrl = self.config['src_sys'][ssID]['GSHEETS_API_URL']
-                apiKey = self.config['src_sys'][ssID]['GSHEETS_API_KEY_FILE']
+            elif self.CONF.allConfig['data']['src_sys'][ssID]['TYPE'] == 'GSHEET':
+                apiUrl = self.CONF.allConfig['data']['src_sys'][ssID]['GSHEETS_API_URL']
+                apiKey = self.CONF.allConfig['data']['src_sys'][ssID]['GSHEETS_API_KEY_FILE']
                 self.SRC_SYSTEMS[ssID] = \
                     GsheetDatastore(
                         ssID=ssID,
                         apiUrl=apiUrl,
                         apiKey=apiKey,
-                        filename=self.config['src_sys'][ssID]['FILENAME'],
+                        filename=self.CONF.allConfig['data']['src_sys'][ssID]['FILENAME'],
                         isSrcSys=True)
 
-            elif self.config['src_sys'][ssID]['TYPE'] == 'EXCEL':
+            elif self.CONF.allConfig['data']['src_sys'][ssID]['TYPE'] == 'EXCEL':
                 self.SRC_SYSTEMS[ssID] = \
                     ExcelDatastore(
                         ssID=ssID,
-                        path=self.config['src_sys'][ssID]['PATH'],
-                        filename=self.config['src_sys'][ssID]['FILENAME'] +
-                        self.config['src_sys'][ssID]['FILE_EXT'],
+                        path=self.CONF.allConfig['data']['src_sys'][ssID]['PATH'],
+                        filename=self.CONF.allConfig['data']['src_sys'][ssID]['FILENAME'] +
+                        self.CONF.allConfig['data']['src_sys'][ssID]['FILE_EXT'],
                         isSrcSys=True)
 
             return self.SRC_SYSTEMS[ssID]
 
     def refreshSchemaDescsFromGsheets(self):
+
         # Get the schema descriptions from schemas/, or from Google Sheets, if
         # the sheets have been edited since they were last saved to csv
 
+        logger.logCheckLastModTimeOfSchemaDescGSheet()
         # Get the last modified dates of the versions saved to csv
         modTimesFile = open('schemas/lastModifiedTimes.txt', 'r')
         fileContent = modTimesFile.read()
@@ -465,8 +476,6 @@ class Data():
             lastModifiedTimes = ast.literal_eval(fileContent)
         oneOrMoreLastModTimesChanged = False
         lastModTimesChanged = {}
-
-        logger.logSchemaDescsLoad()
 
         # Check the last modified time of the Google Sheets
         for dbID in self.DATABASES:

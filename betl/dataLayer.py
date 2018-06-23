@@ -1,6 +1,8 @@
 from . import logger
+from . import alerts
 from .dataModel import DataModel
 from .dataModel import SrcDataModel
+from .dataModel import EmptyDataModel
 from .table import TrgTable
 from . import df_dmDate
 from . import df_dmAudit
@@ -10,16 +12,18 @@ import ast
 
 class DataLayer():
 
-    def __init__(self, dbID, dataLayerID, dataConf):
+    def __init__(self, conf, dbID, dataLayerID):
 
-        self.dataConf = dataConf
+        self.conf = conf
         self.databaseID = dbID
         self.dataLayerID = dataLayerID
 
-        self.datastore = dataConf.getDWHDatastore(dbID)
+        self.datastore = conf.DATA.getDWHDatastore(dbID)
         self.dataModels = self.buildLogicalDataModels()
 
     def buildLogicalDataModels(self):
+
+        dataModels = {}
 
         schemaFile = \
             open('schemas/dbSchemaDesc_' + self.databaseID + '.txt', 'r')
@@ -27,25 +31,34 @@ class DataLayer():
         try:
             dlSchemaDesc = dbSchemaDesc[self.dataLayerID]
         except KeyError:
-            raise ValueError('Failed to find any schema description for ' +
-                             'data layer ' + self.dataLayerID)
-        mapFile = open('schemas/tableNameMapping.txt', 'r')
-        tableNameMap = ast.literal_eval(mapFile.read())
+            alert = 'Failed to find any schema description for '
+            alert += 'data layer ' + self.dataLayerID
+            alerts.logAlert(self.conf, alert)
 
-        dataModels = {}
+            dataModels['EMPTY'] = EmptyDataModel()
+
+        try:
+            mapFile = open('schemas/tableNameMapping.txt', 'r')
+            tableNameMap = ast.literal_eval(mapFile.read())
+        except FileNotFoundError:
+            tableNameMap = None
 
         for dataModelID in dlSchemaDesc['dataModelSchemas']:
             if self.dataLayerID == 'SRC':
+                if tableNameMap is not None:
+                    mappedTableName = tableNameMap[dataModelID]
+                else:
+                    mappedTableName = None
                 # Each dataModel in the SRC dataLayer is a source system
-                dataModels[dataModelID] = \
-                    SrcDataModel(self.dataConf,
-                                 dlSchemaDesc['dataModelSchemas'][dataModelID],
-                                 tableNameMap[dataModelID],
-                                 self.datastore,
-                                 self.dataLayerID)
+                dataModels[dataModelID] = SrcDataModel(
+                        dataConf=self.conf.DATA,
+                        dataModelSchemaDesc=dlSchemaDesc['dataModelSchemas'][dataModelID],
+                        tableNameMap=mappedTableName,
+                        datastore=self.datastore,
+                        dataLayerID=self.dataLayerID)
             else:
                 dataModels[dataModelID] = \
-                    DataModel(self.dataConf,
+                    DataModel(self.conf.DATA,
                               dlSchemaDesc['dataModelSchemas'][dataModelID],
                               self.datastore,
                               self.dataLayerID)
@@ -91,15 +104,20 @@ class DataLayer():
 
     def getListOfTables(self):
         tables = []
-        for dataModelID in self.dataModels:
-            tables.extend(self.dataModels[dataModelID].getListOfTables())
+        if self.dataModels is not None:
+            for dataModelID in self.dataModels:
+                tables.extend(self.dataModels[dataModelID].getListOfTables())
         return tables
 
     def getColumnsForTable(self, tableName):
-        for dataModelID in self.dataModels:
-            c = self.dataModels[dataModelID].getColumnsForTable(tableName)
-            if c is not None:
-                return c
+        if self.dataModels is not None:
+            for dataModelID in self.dataModels:
+                c = self.dataModels[dataModelID].getColumnsForTable(tableName)
+                if c is not None:
+                    return c
+        else:
+            # It's possible for there to be no schema desc for a data layer
+            return None
 
     def __str__(self):
         string = ('\n' + '*** Data Layer: ' +
@@ -111,45 +129,45 @@ class DataLayer():
 
 class SrcDataLayer(DataLayer):
 
-    def __init__(self, dataConf):
+    def __init__(self, conf):
 
         DataLayer.__init__(self,
                            dbID='ETL',
                            dataLayerID='SRC',
-                           dataConf=dataConf)
+                           conf=conf)
 
 
 class StgDataLayer(DataLayer):
 
-    def __init__(self, dataConf):
+    def __init__(self, conf):
 
         DataLayer.__init__(self,
                            dbID='ETL',
                            dataLayerID='STG',
-                           dataConf=dataConf)
+                           conf=conf)
 
 
 class TrgDataLayer(DataLayer):
 
-    def __init__(self, dataConf):
+    def __init__(self, conf):
 
         # This will create the schema defined in the logical data model
         DataLayer.__init__(self,
                            dbID='TRG',
                            dataLayerID='TRG',
-                           dataConf=dataConf)
+                           conf=conf)
 
         # We also need to create the "default" components of the target model
-        if dataConf.INCLUDE_DM_DATE:
+        if conf.SCHEDULE.DEFAULT_DM_DATE:
             self.dataModels['TRG'].tables['dm_date'] = \
-                TrgTable(self.dataConf,
+                TrgTable(self.conf.DATA,
                          df_dmDate.getSchemaDescription(),
                          self.datastore,
                          dataLayerID='TRG',
                          dataModelID='TRG')
 
         self.dataModels['TRG'].tables['dm_audit'] = \
-            TrgTable(self.dataConf,
+            TrgTable(self.conf.DATA,
                      df_dmAudit.getSchemaDescription(),
                      self.datastore,
                      dataLayerID='TRG',
@@ -158,9 +176,9 @@ class TrgDataLayer(DataLayer):
 
 class SumDataLayer(DataLayer):
 
-    def __init__(self, dataConf):
+    def __init__(self, conf):
 
         DataLayer.__init__(self,
                            dbID='TRG',
                            dataLayerID='SUM',
-                           dataConf=dataConf)
+                           conf=conf)

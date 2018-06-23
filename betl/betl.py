@@ -47,7 +47,12 @@ class Betl():
         # LOGGING ON #
         ##############
 
-        logger.logExecutionStart(self.CONF)
+        logger.logBETLStart(self.CONF)
+
+        if self.CONF.EXE.RUN_SETUP:
+            # Setup would have been run as part of Conf(), but we log now
+            # so that logging can be initialied first
+            logger.logSetupFinish()
 
         if self.CONF.EXE.DELETE_TMP_DATA:
             self.CONF.EXE.deleteTempoaryData(self.CONF.CTRL.TMP_DATA_PATH)
@@ -57,14 +62,17 @@ class Betl():
         if self.CONF.EXE.READ_SRC:
             self.CONF.DATA.autoPopulateSrcSchemaDescriptions()
 
-        if len(self.CONF.EXE.RUN_REBUILDS) > 0 or self.CONF.EXE.RUN_DATAFLOWS:
+        if len(self.CONF.EXE.RUN_REBUILDS) > 0:
+
+            logger.logRebuildPhysicalDataModelStart()
+
             self.CONF.DATA.refreshSchemaDescsFromGsheets()
 
-        if len(self.CONF.EXE.RUN_REBUILDS) > 0:
-            logger.logPhysicalDataModelBuild()
             for dataLayer in self.CONF.EXE.RUN_REBUILDS:
-                logDataModel = self.CONF.DATA.getLogicalDataModel(dataLayer)
-                logDataModel.buildPhysicalDataModel()
+                logicalDataModel = self.CONF.DATA.getLogicalDataModel(dataLayer)
+                logicalDataModel.buildPhysicalDataModel()
+
+            logger.logRebuildPhysicalDataModelFinish()
 
     def run(self):
 
@@ -72,11 +80,21 @@ class Betl():
 
         if self.CONF.EXE.RUN_DATAFLOWS:
 
+            logger.logExecutionStart(self.CONF)
+
+            # We need to refresh the schema descriptions first, unless we
+            # did a physical schema rebuild, in which case we've done this
+            # already
+            if len(self.CONF.EXE.RUN_REBUILDS) == 0:
+                self.CONF.DATA.refreshSchemaDescsFromGsheets()
+
             # This is the main execution of the data pipeline
             response = Scheduler(self.CONF).execute(self)
 
             self.CONF.DATA.checkDBsForSuperflousTables(self.CONF)
 
+        # Even if we didn't execute the dataflows, we still created a new
+        # execution in the CtrlDB, so we need to mark this as complete
         if response == 'SUCCESS':
             self.CONF.CTRL.CTRL_DB.updateExecution(
                 execId=self.CONF.STATE.EXEC_ID,
@@ -84,13 +102,19 @@ class Betl():
                 statusMessage='')
 
         if self.CONF.EXE.RUN_DATAFLOWS:
+
             reporting.generateExeSummary(
                 conf=self.CONF,
                 execId=self.CONF.STATE.EXEC_ID,
                 bulkOrDelta=self.CONF.EXE.BULK_OR_DELTA,
                 limitedData=self.CONF.EXE.DATA_LIMIT_ROWS)
 
-        logger.logExecutionFinish(response)
+            logger.logAlerts()
+
+        logger.logBETLFinish(response)
+
+        if self.CONF.EXE.RUN_DATAFLOWS:
+            logger.logExecutionFinish()
 
     def DataFlow(self, desc):
         return dataflow.DataFlow(self.CONF, desc)
