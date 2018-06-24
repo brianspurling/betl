@@ -13,8 +13,8 @@ import numpy as np
 # has to rerun
 def defaultLoad(betl):
 
-    trgLayer = betl.CONF.DATA.getLogicalDataModel('TRG')
-    sumLayer = betl.CONF.DATA.getLogicalDataModel('SUM')
+    trgLayer = betl.CONF.DATA.getDataLayerLogicalSchema('TRG')
+    sumLayer = betl.CONF.DATA.getDataLayerLogicalSchema('SUM')
 
     trgTables = trgLayer.dataModels['TRG'].tables
     sumTables = sumLayer.dataModels['SUM'].tables
@@ -64,7 +64,6 @@ def defaultLoad(betl):
         worksheets = betl.CONF.DATA.getDefaultRowsDatastore().worksheets
         for wsTitle in worksheets:
             defaultRows[wsTitle] = worksheets[wsTitle].get_all_records()
-
         for dimOrFactLoad in loadSequence:
             for tableName in trgTables:
                 tableType = trgTables[tableName].getTableType()

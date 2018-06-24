@@ -1,21 +1,17 @@
-import sys
-import psycopg2
-
 from .datastore import PostgresDatastore
-from . import logger as logger
 
 
 class CtrlDB():
 
-    def __init__(self, dbConfigObj):
+    def __init__(self, host, dbName, username, password):
 
         self.datastore = \
             PostgresDatastore(
                 dbID='CTL',
-                host=dbConfigObj['HOST'],
-                dbName=dbConfigObj['DBNAME'],
-                user=dbConfigObj['USER'],
-                password=dbConfigObj['PASSWORD'],
+                host=host,
+                dbName=dbName,
+                user=username,
+                password=password,
                 createIfNotFound=True)
 
     def createExecutionsTable(self, ):

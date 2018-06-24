@@ -153,7 +153,7 @@ class DataFlow():
         self.data[_targetDataset] = pd.DataFrame()
 
         if forceDBRead:
-            dbID = self.conf.DATA.getLogicalDataModel(dataLayer).databaseID
+            dbID = self.conf.DATA.getDataLayerLogicalSchema(dataLayer).databaseID
             self.data[_targetDataset] = dbIO.readDataFromDB(
                 tableName=tableName,
                 conn=self.conf.DATA.getDWHDatastore(dbID).conn)
@@ -229,7 +229,7 @@ class DataFlow():
             writeToDB = True
         else:
             writeToDB = self.conf.EXE.WRITE_TO_ETL_DB
-        dataLayer = self.conf.DATA.getLogicalDataModel(dataLayerID)
+        dataLayer = self.conf.DATA.getDataLayerLogicalSchema(dataLayerID)
         if (targetTableName not in dataLayer.getListOfTables()
            and not forceDBWrite):
             writeToDB = False
@@ -247,6 +247,7 @@ class DataFlow():
         # can check we have all the columns and reorder them to match
         # the schema (which saves the app having to worry about this)
         logDataModelCols = dataLayer.getColumnsForTable(targetTableName)
+
         if logDataModelCols is not None:
 
             logDataModelColNames_sks = []
@@ -710,7 +711,7 @@ class DataFlow():
 
         self.stepStart(desc=desc, additionalDesc=sql)
 
-        datastore = self.conf.DATA.getLogicalDataModel(dataLayer).datastore
+        datastore = self.conf.DATA.getDataLayerLogicalSchema(dataLayer).datastore
 
         if dataset is not None:
             self.data[dataset] = dbIO.customSQL(sql, datastore)
@@ -749,7 +750,7 @@ class DataFlow():
         fileIO.truncateFile(self.conf, path, filename)
 
         if forceDBWrite:
-            dataLayer = self.conf.DATA.getLogicalDataModel(dataLayerID)
+            dataLayer = self.conf.DATA.getDataLayerLogicalSchema(dataLayerID)
             dbIO.truncateTable(dataset, dataLayer.datastore)
 
         report = ''

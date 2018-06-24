@@ -64,15 +64,15 @@ class Betl():
 
         if len(self.CONF.EXE.RUN_REBUILDS) > 0:
 
-            logger.logRebuildPhysicalDataModelStart()
+            logger.logRebuildPhysicalSchemaStart()
 
             self.CONF.DATA.refreshSchemaDescsFromGsheets()
 
-            for dataLayer in self.CONF.EXE.RUN_REBUILDS:
-                logicalDataModel = self.CONF.DATA.getLogicalDataModel(dataLayer)
-                logicalDataModel.buildPhysicalDataModel()
+            for dlId in self.CONF.EXE.RUN_REBUILDS:
+                dlSchema = self.CONF.DATA.getDataLayerLogicalSchema(dlId)
+                dlSchema.buildPhysicalSchema()
 
-            logger.logRebuildPhysicalDataModelFinish()
+            logger.logRebuildPhysicalSchemaFinish()
 
     def run(self):
 
@@ -91,11 +91,15 @@ class Betl():
             # This is the main execution of the data pipeline
             response = Scheduler(self.CONF).execute(self)
 
-            self.CONF.DATA.checkDBsForSuperflousTables(self.CONF)
-
+            # Don't check for superflous tables on failure, because if the
+            # failure was a DB failure we won't be able to access the DB
+            if response == 'SUCCESS':
+                self.CONF.DATA.checkDBsForSuperflousTables(self.CONF)
+                
         # Even if we didn't execute the dataflows, we still created a new
         # execution in the CtrlDB, so we need to mark this as complete
         if response == 'SUCCESS':
+
             self.CONF.CTRL.CTRL_DB.updateExecution(
                 execId=self.CONF.STATE.EXEC_ID,
                 status='SUCCESSFUL',
@@ -125,4 +129,4 @@ def help():
 
 
 def setup():
-    cli.setup()
+    cli.runSetup()

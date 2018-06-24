@@ -15,7 +15,7 @@ class DataModel():
 
     def __init__(self,
                  dataConf,
-                 dataModelSchemaDesc,
+                 dmSchemaDesc,
                  datastore,
                  dataLayerID,
                  tableNameMap=None):
@@ -23,12 +23,21 @@ class DataModel():
         self.dataConf = dataConf
 
         self.dataLayerID = dataLayerID
-        self.dataModelID = dataModelSchemaDesc['dataModelID']
+
+        # if we have to TRG schemadesc, we create a "standard" TRG dm instead
+        if dmSchemaDesc is None:
+            self.dataModelID = 'TRG'
+            dmSchemaDesc = {
+                'tableSchemas': {}
+            }
+        else:
+            self.dataModelID = dmSchemaDesc['dataModelID']
+
         self.datastore = datastore
 
         self.tables = {}
 
-        for tableName in dataModelSchemaDesc['tableSchemas']:
+        for tableName in dmSchemaDesc['tableSchemas']:
             srcTableName = None
             if tableNameMap is not None:
                 _tableName = tableName[tableName.find("_")+1:]
@@ -37,14 +46,14 @@ class DataModel():
             if self.dataModelID in ('TRG', 'SUM'):
                 table = TrgTable(
                     self.dataConf,
-                    dataModelSchemaDesc['tableSchemas'][tableName],
+                    dmSchemaDesc['tableSchemas'][tableName],
                     self.datastore,
                     self.dataLayerID,
                     self.dataModelID)
             else:
                 table = Table(
                     self.dataConf,
-                    dataModelSchemaDesc['tableSchemas'][tableName],
+                    dmSchemaDesc['tableSchemas'][tableName],
                     self.datastore,
                     self.dataLayerID,
                     self.dataModelID,
@@ -94,7 +103,7 @@ class SrcDataModel(DataModel):
 
     def __init__(self,
                  dataConf,
-                 dataModelSchemaDesc,
+                 dmSchemaDesc,
                  tableNameMap,
                  datastore,
                  dataLayerID):
@@ -102,7 +111,7 @@ class SrcDataModel(DataModel):
         DataModel.__init__(
             self,
             dataConf,
-            dataModelSchemaDesc,
+            dmSchemaDesc,
             datastore,
             dataLayerID,
             tableNameMap)
@@ -115,3 +124,15 @@ class EmptyDataModel():
     def __init__(self):
 
         self.tables = {}
+
+    def getSqlDropStatements(self):
+        return []
+
+    def getSqlCreateStatements(self):
+        return []
+
+    def getListOfTables(self):
+        return []
+
+    def getColumnsForTable(self, tableName):
+        return None

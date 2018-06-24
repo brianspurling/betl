@@ -177,7 +177,7 @@ def logSetupFinish():
     JOB_LOG.info(op)
 
 
-def logRebuildPhysicalDataModelStart():
+def logRebuildPhysicalSchemaStart():
 
     op = ''
     op += '\n'
@@ -187,7 +187,7 @@ def logRebuildPhysicalDataModelStart():
     JOB_LOG.info(op)
 
 
-def logRebuildPhysicalDataModelFinish():
+def logRebuildPhysicalSchemaFinish():
 
     op = ''
     op += '\n'
@@ -419,16 +419,24 @@ def getSampleValue(df, colName, rowNum):
 
 def logDeleteSrcSchemaDescWsFromSS():
     op = ''
-    op += 'Deleting all SRC worksheets from the ETL Schema Desc spreadsheet'
-    op += '\n'
+    op += '  - Deleting all SRC worksheets from ETL Schema Desc Gsheet'
     JOB_LOG.info(op)
 
 
-def logAutoPopSchemaDescsFromSrc(srcSysID):
+def logAutoPopSchemaDescsFromSrcStart():
     op = ''
-    op += 'Auto-populating ETL Schema Desc spreadsheet with '
-    op += 'schema from source system: ' + srcSysID
     op += '\n'
+    op += '                 -------------------------------' + '\n'
+    op += '                 | Autopop SRC datalayer schema |' + '\n'
+    op += '                 | descriptions from src system |' + '\n'
+    JOB_LOG.info(op)
+
+
+def logAutoPopSchemaDescsFromSrcFinish():
+    op = ''
+    op += '                 |    Schema desc populated   |' + '\n'
+    op += '                 ------------------------------' + '\n'
+
     JOB_LOG.info(op)
 
 
@@ -461,7 +469,6 @@ def logVariancesReport():
     op = ''
     op += '\n'
     op += '*** REPORTS ***'
-    op += '\n'
     JOB_LOG.info(op)
 
 

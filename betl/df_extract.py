@@ -15,9 +15,10 @@ def defaultExtract(betl):
 def defaultExtract_bulk(betl):
     srcTablesToExclude = \
         betl.CONF.SCHEDULE.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
-    srcLayer = betl.CONF.DATA.getLogicalDataModel('SRC')
+    srcLayer = betl.CONF.DATA.getDataLayerLogicalSchema('SRC')
     for dmID in srcLayer.dataModels:
         for tableName in srcLayer.dataModels[dmID].tables:
+
             mappedTableName = \
                 srcLayer.dataModels[dmID].tables[tableName].srcTableName
             if tableName in srcTablesToExclude:
@@ -50,7 +51,7 @@ def defaultExtract_bulk(betl):
     # srcTablesToExclude = \
     #     scheduler.conf.SCHEDULE.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
     #
-    # srcLayer = scheduler.conf.DATA.getLogicalDataModel('SRC')
+    # srcLayer = scheduler.conf.DATA.getDataLayerLogicalSchema('SRC')
     #
     # for dmID in srcLayer.dataModels:
     #     for tableName in srcLayer.dataModels[dmID].tables:

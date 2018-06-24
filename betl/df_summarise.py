@@ -10,7 +10,7 @@ JOB_LOG = logger.getLogger()
 #
 def defaultSummarisePrep(betl):
 
-    sumLayer = betl.CONF.DATA.getLogicalDataModel('SUM')
+    sumLayer = betl.CONF.DATA.getDataLayerLogicalSchema('SUM')
 
     sumTables = sumLayer.dataModels['SUM'].tables
     nonDefaultTrgTables = \

@@ -6,7 +6,7 @@ def defaultTransform(betl):
     # step breaks on rerun
 
     trgTables = \
-        betl.CONF.DATA.getLogicalDataModel('TRG').dataModels['TRG'].tables
+        betl.CONF.DATA.getDataLayerLogicalSchema('TRG').dataModels['TRG'].tables
 
     nonDefaultStagingTables = \
         betl.CONF.SCHEDULE.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD

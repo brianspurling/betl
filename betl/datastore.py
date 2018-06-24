@@ -67,7 +67,7 @@ class PostgresDatastore(Datastore):
         tempConnectionString = "host='" + self.host + "' "\
                                "dbname='postgres' " + \
                                "user='" + self.user + "' " + \
-                               "password='" + self.password + "' "
+                               'password="' + self.password + '"'
 
         tempConn = psycopg2.connect(tempConnectionString)
         tempDBCursor = tempConn.cursor()
@@ -146,7 +146,7 @@ class GsheetDatastore(Datastore):
 
     def __init__(self,
                  ssID,
-                 apiUrl,
+                 apiScope,
                  apiKey,
                  filename,
                  isSrcSys=False,
@@ -161,7 +161,7 @@ class GsheetDatastore(Datastore):
         # TODO don't do all this on init, it slows down the start
         # of the job, which has a diproportionate effect on dev time.
         self.ssID = ssID
-        self.apiUrl = apiUrl
+        self.apiScope = apiScope
         self.apiKey = apiKey
         self.filename = filename
         self.conn = self.getGsheetConnection()
@@ -173,7 +173,7 @@ class GsheetDatastore(Datastore):
         _client = gspread.authorize(
             ServiceAccountCredentials.from_json_keyfile_name(
                 self.apiKey,
-                self.apiUrl))
+                self.apiScope))
         return _client.open(self.filename)
 
     def getGdriveConnection(self):

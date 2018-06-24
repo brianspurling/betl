@@ -120,12 +120,13 @@ App Config
 
    [data]
 
+     GSHEETS_API_URL = https://spreadsheets.google.com/feeds
+     GSHEETS_API_KEY_FILE = <filename of your API key file>
+
      [[schema_descs]]
 
-       GSHEETS_API_URL = 'https://spreadsheets.google.com/feeds'
-       GSHEETS_API_KEY_FILE = '<filename of your API key file>'
-       ETL_FILENAME = ''
-       TRG_FILENAME = ''
+       ETL_FILENAME =
+       TRG_FILENAME =
 
      [[dwh_dbs]]
 
@@ -145,42 +146,42 @@ App Config
 
      [[default_rows]]
 
-       GSHEETS_API_URL = 'https://spreadsheets.google.com/feeds'
-       GSHEETS_API_KEY_FILE = '<filename of your API key file>'
-       FILENAME = ''
+       GSHEETS_API_URL = https://spreadsheets.google.com/feeds
+       GSHEETS_API_KEY_FILE = <filename of your API key file>
+       FILENAME =
 
      [[mdm]]
 
        TYPE = GSHEET
-       GSHEETS_API_URL = 'https://spreadsheets.google.com/feeds'
-       GSHEETS_API_KEY_FILE = '<filename of your API key file>'
-       FILENAME = ''
+       GSHEETS_API_URL = https://spreadsheets.google.com/feeds
+       GSHEETS_API_KEY_FILE = <filename of your API key file>
+       FILENAME =
 
      [[src_sys]]
 
        [[[SQLLITE_EXAMPLE]]]
          TYPE = SQLITE
-         PATH = 'src_data/'
-         FILENAME = ''
+         PATH = src_data/
+         FILENAME =
 
        [[[FILE_SYSTEM_EXAMPLE]]]
          TYPE = FILESYSTEM
-         PATH = 'src_data/'
-         FILE_EXT = '.csv'
+         PATH = src_data/
+         FILE_EXT = .csv
          DELIMITER = ','
          QUOTECHAR = '"'
 
        [[[GSHEET_EXAMPLE]]]
          TYPE = GSHEET
-         GOOGLE_SHEETS_API_URL = 'https://spreadsheets.google.com/feeds'
-         GOOGLE_SHEETS_API_KEY_FILE = '<filename of your API key file>'
-         FILENAME = ''
+         GOOGLE_SHEETS_API_URL = https://spreadsheets.google.com/feeds
+         GOOGLE_SHEETS_API_KEY_FILE = <filename of your API key file>
+         FILENAME =
 
        [[[EXCEL_EXAMPLE]]]
          TYPE = EXCEL
-         PATH = 'src_data/'
-         FILENAME = ''
-         FILE_EXT = '.xlsx'
+         PATH = src_data/
+         FILENAME =
+         FILE_EXT = .xlsx
 
 Schedule Config
 ===============

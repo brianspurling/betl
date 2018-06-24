@@ -193,7 +193,8 @@ class Scheduler():
                          "updated)\n\n" +
                          "THE error was >>> \n\n" + tb1)
                 alerts.logAlert(self.conf, alert)
-                logger.logExecutionFinish('FAILED')
+                logger.logBETLFinish('FAILED')
+                logger.logExecutionFinish()
 
             except Exception as e2:
                 tb2 = traceback.format_exc()
@@ -208,4 +209,5 @@ class Scheduler():
                          "THE first error was >>> \n\n" + tb1 + "\n\n" +
                          "The second error was >>> \n\n" + tb2)
                 alerts.logAlert(self.conf, alert)
-                logger.logExecutionFinish('FAILED_RECOVERY', tb1, tb2)
+                logger.logBETLFinish('FAILED_RECOVERY')
+                logger.logExecutionFinish()

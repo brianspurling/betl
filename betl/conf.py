@@ -56,20 +56,25 @@ class Conf():
 
 class Ctrl():
 
-    def __init__(self, config, runSetup):
+    def __init__(self, config, runReset):
 
         self.config = config
 
         self.DWH_ID = self.config['DWH_ID']
-        self.TMP_DATA_PATH = self.config['TMP_DATA_PATH']
-        self.REPORTS_PATH = self.config['REPORTS_PATH']
-        self.LOG_PATH = self.config['LOG_PATH']
+        self.TMP_DATA_PATH = self.config['TMP_DATA_PATH'] + '/'
+        self.REPORTS_PATH = self.config['REPORTS_PATH'] + '/'
+        self.LOG_PATH = self.config['LOG_PATH'] + '/'
 
-        self.CTRL_DB = CtrlDB(self.config['ctl_db'])
+        dbConfigObj = self.config['ctl_db']
+        self.CTRL_DB = CtrlDB(
+            host=dbConfigObj['HOST'],
+            dbName=dbConfigObj['DBNAME'],
+            username=dbConfigObj['USER'],
+            password=dbConfigObj['PASSWORD'])
 
         # If the run_reset parameter was passed in at the command line,
         # we rebuild the ctl database / archive old logs / etc
-        if runSetup:
+        if runReset:
             self.reset()
 
     def initExecution(self, exeConf, stateConf):
@@ -165,10 +170,22 @@ class Ctrl():
 
     def createSchemaDir(self):
 
-        dir = 'schemas/'
-        shutil.rmtree(dir)
-        os.makedirs(dir)
-        open(dir + 'lastModifiedTimes.txt', 'a').close()
+        # The mapping file is created on auto-pop, i.e. once, so we need
+        # to preserve it
+        tableNameMap = None
+        try:
+            mapFile = open('schemas/tableNameMapping.txt', 'r')
+            tableNameMap = ast.literal_eval(mapFile.read())
+        except FileNotFoundError:
+            pass
+
+        shutil.rmtree('schemas/')
+        os.makedirs('schemas/')
+        open('schemas/lastModifiedTimes.txt', 'a').close()
+
+        if tableNameMap is not None:
+            with open('schemas/tableNameMapping.txt', 'w+') as file:
+                file.write(json.dumps(tableNameMap))
 
     def createReportsDir(self):
         path = self.REPORTS_PATH.replace('/', '')
@@ -313,6 +330,9 @@ class Data():
         for srcSysID in self.CONF.allConfig['data']['src_sys']:
             self.SRC_SYSTEM_LIST.append(srcSysID)
 
+        self.GOOGLE_API_SCOPE = [
+            'https://spreadsheets.google.com/feeds',
+            'https://www.googleapis.com/auth/drive']
         # The following are either datastore(s) or require datastores to
         # initialise them. Therefore we init these as-and-when we need them,
         # to avoid long delays at the start of every execution
@@ -323,10 +343,9 @@ class Data():
         self.MDM_SRC = None
         self.SRC_SYSTEMS = {}
 
-        # We'll need these later, when we connect to the various Google Sheets
-        self.apiUrl = self.CONF.allConfig['data']['schema_descs']['GSHEETS_API_URL']
+        # We'll need this later, when we connect to the various Google Sheets
         self.apiKey = \
-            self.CONF.allConfig['data']['schema_descs']['GSHEETS_API_KEY_FILE']
+            self.CONF.allConfig['data']['GSHEETS_API_KEY_FILE']
 
     def getSchemaDescGSheetDatastore(self, dbID):
         if dbID in self.SCHEMA_DESCRIPTION_GSHEETS:
@@ -336,13 +355,13 @@ class Data():
             self.SCHEMA_DESCRIPTION_GSHEETS[dbID] = \
                 GsheetDatastore(
                     ssID=dbID,
-                    apiUrl=self.apiUrl,
+                    apiScope=self.GOOGLE_API_SCOPE,
                     apiKey=self.apiKey,
                     filename=self.CONF.allConfig['data']['schema_descs'][fname],
                     isSchemaDesc=True)
             return self.SCHEMA_DESCRIPTION_GSHEETS[dbID]
 
-    def getLogicalDataModel(self, dataLayerID):
+    def getDataLayerLogicalSchema(self, dataLayerID):
         if dataLayerID in self.LOGICAL_DATA_MODELS:
             return self.LOGICAL_DATA_MODELS[dataLayerID]
         else:
@@ -374,13 +393,12 @@ class Data():
         if self.DEFAULT_ROW_SRC is not None:
             return self.DEFAULT_ROW_SRC
         else:
-            apiUrl = self.CONF.allConfig['data']['default_rows']['GSHEETS_API_URL']
-            apiKy = self.CONF.allConfig['data']['default_rows']['GSHEETS_API_KEY_FILE']
+            apiKy = self.CONF.allConfig['data']['GSHEETS_API_KEY_FILE']
             fname = self.CONF.allConfig['data']['default_rows']['FILENAME']
             self.DEFAULT_ROW_SRC = \
                 GsheetDatastore(
                     ssID='DR',
-                    apiUrl=apiUrl,
+                    apiScope=self.GOOGLE_API_SCOPE,
                     apiKey=apiKy,
                     filename=fname)
             return self.DEFAULT_ROW_SRC
@@ -392,8 +410,8 @@ class Data():
             self.MDM_SRC = \
                 GsheetDatastore(
                     ssID='MDM',
-                    apiUrl=self.CONF.allConfig['data']['mdm']['GSHEETS_API_URL'],
-                    apiKey=self.CONF.allConfig['data']['mdm']['GSHEETS_API_KEY_FILE'],
+                    apiScope=self.GOOGLE_API_SCOPE,
+                    apiKey=self.CONF.allConfig['data']['GSHEETS_API_KEY_FILE'],
                     filename=self.CONF.allConfig['data']['mdm']['FILENAME'])
             return self.MDM_SRC
 
@@ -440,12 +458,11 @@ class Data():
                         isSrcSys=True)
 
             elif self.CONF.allConfig['data']['src_sys'][ssID]['TYPE'] == 'GSHEET':
-                apiUrl = self.CONF.allConfig['data']['src_sys'][ssID]['GSHEETS_API_URL']
-                apiKey = self.CONF.allConfig['data']['src_sys'][ssID]['GSHEETS_API_KEY_FILE']
+                apiKey = self.CONF.allConfig['data']['GSHEETS_API_KEY_FILE']
                 self.SRC_SYSTEMS[ssID] = \
                     GsheetDatastore(
                         ssID=ssID,
-                        apiUrl=apiUrl,
+                        apiScope=self.GOOGLE_API_SCOPE,
                         apiKey=apiKey,
                         filename=self.CONF.allConfig['data']['src_sys'][ssID]['FILENAME'],
                         isSrcSys=True)
@@ -468,7 +485,7 @@ class Data():
 
         logger.logCheckLastModTimeOfSchemaDescGSheet()
         # Get the last modified dates of the versions saved to csv
-        modTimesFile = open('schemas/lastModifiedTimes.txt', 'r')
+        modTimesFile = open('schemas/lastModifiedTimes.txt', 'w+')
         fileContent = modTimesFile.read()
         if fileContent == '':
             lastModifiedTimes = {}
@@ -582,12 +599,14 @@ class Data():
     # TODO: this is a HORRIBLE mess of code and needs heavy refactoring!
     def autoPopulateSrcSchemaDescriptions(self):
 
+        logger.logAutoPopSchemaDescsFromSrcStart()
+
         # First, loop through the ETL DB schema desc spreadsheet and delete
         # any worksheets prefixed ETL.SRC.
 
+        logger.logDeleteSrcSchemaDescWsFromSS()
         ss = self.getSchemaDescGSheetDatastore('ETL').conn
 
-        logger.logDeleteSrcSchemaDescWsFromSS()
         for ws in ss.worksheets():
             if ws.title.find('ETL.SRC.') == 0:
                 ss.del_worksheet(ws)
@@ -703,7 +722,7 @@ class Data():
 
                         for colName in df:
                             colSchemas[colName] = {
-                                'tableName': tableName,
+                                'tableName': cleanFName,
                                 'columnName': colName,
                                 'dataType': 'TEXT',
                                 'columnType': 'Attribute',
@@ -711,7 +730,7 @@ class Data():
                             }
 
                         tableSchema = {
-                            'tableName': tableName,
+                            'tableName': cleanFName,
                             'columnSchemas': colSchemas
                         }
 
@@ -800,7 +819,6 @@ class Data():
                 srcTableMap = {}
 
                 for srcSysID in srcSysSchemas:
-                    logger.logAutoPopSchemaDescsFromSrc(srcSysID)
 
                     srcTableMap[srcSysID] = {}
 
@@ -838,8 +856,10 @@ class Data():
                             rangeRowCount += 3
 
                         ws.update_cells(cell_list)
-                    with open('schemas/tableNameMapping.txt', 'w') as file:
+                    with open('schemas/tableNameMapping.txt', 'w+') as file:
                         file.write(json.dumps(srcTableMap))
+
+        logger.logAutoPopSchemaDescsFromSrcFinish()
 
     def cleanTableName(self, tableName_src):
         tableName = tableName_src
@@ -854,6 +874,7 @@ class Data():
         query = ("SELECT table_name FROM information_schema.tables " +
                  "WHERE table_schema = 'public'")
 
+        temp = self.getDWHDatastore('ETL')
         etlDBCursor = self.getDWHDatastore('ETL').cursor()
         etlDBCursor.execute(query)
         trgDBCursor = self.getDWHDatastore('TRG').cursor()
@@ -867,7 +888,7 @@ class Data():
         dataModelTables = []
         for dataLayerID in self.DATA_LAYERS:
             dataModelTables.extend(
-                self.getLogicalDataModel(dataLayerID).getListOfTables())
+                self.getDataLayerLogicalSchema(dataLayerID).getListOfTables())
 
         superflousTableNames = []
         for tableName in allTables:

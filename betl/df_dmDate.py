@@ -81,36 +81,6 @@ def transformDMDate(betl):
 
         startDate = startDate + timedelta(1)
 
-    # Minus one rows
-
-    dmDateList.append({
-        'date_id': -1,
-        'date_yyyymmdd': 00000000,  # Natural key
-        'cal_date': 'MISSING',
-        'cal_day': None,
-        'cal_month': None,
-        'cal_year': None,
-        'day_of_week_sunday_0_monday_1': None,
-        'day_of_week_sunday_1_monday_2': None,
-        'day_of_week_sunday_6_monday_0': None,
-        'day_of_week_sunday_7_monday_1': None,
-        'day_number': None,
-        'week_number': None})
-
-    dmDateList.append({
-        'date_id': -2,
-        'date_yyyymmdd': 00000000,  # Natural key
-        'cal_date': 'UNRECOGNISED',
-        'cal_day': None,
-        'cal_month': None,
-        'cal_year': None,
-        'day_of_week_sunday_0_monday_1': None,
-        'day_of_week_sunday_1_monday_2': None,
-        'day_of_week_sunday_6_monday_0': None,
-        'day_of_week_sunday_7_monday_1': None,
-        'day_number': None,
-        'week_number': None})
-
     df = pd.DataFrame(dmDateList)
 
     dfl = betl.DataFlow(desc='Generate the dm_date rows')
@@ -124,3 +94,34 @@ def transformDMDate(betl):
         dataset='trg_dm_date',
         targetTableName='trg_dm_date',
         dataLayerID='STG')
+
+
+def getDefaultRows():
+
+    return[{
+        'date_id': -1,
+        'date_yyyymmdd': 1,  # Natural key
+        'cal_date': 'MISSING',
+        'cal_day': None,
+        'cal_month': None,
+        'cal_year': None,
+        'day_of_week_sunday_0_monday_1': None,
+        'day_of_week_sunday_1_monday_2': None,
+        'day_of_week_sunday_6_monday_0': None,
+        'day_of_week_sunday_7_monday_1': None,
+        'day_number': None,
+        'week_number': None},
+
+        {
+        'date_id': -2,
+        'date_yyyymmdd': 2,  # Natural key
+        'cal_date': 'UNRECOGNISED',
+        'cal_day': None,
+        'cal_month': None,
+        'cal_year': None,
+        'day_of_week_sunday_0_monday_1': None,
+        'day_of_week_sunday_1_monday_2': None,
+        'day_of_week_sunday_6_monday_0': None,
+        'day_of_week_sunday_7_monday_1': None,
+        'day_number': None,
+        'week_number': None}]
