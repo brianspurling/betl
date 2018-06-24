@@ -43,14 +43,14 @@ class Scheduler():
                 self.srcTablesToExcludeFromExtract = \
                     self.conf.SCHEDULE.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
 
-            for function in self.conf.SCHEDULE.EXTRACT_DFS:
+            for function in self.conf.SCHEDULE.EXTRACT_DATAFLOWS:
                 self.addFunctionToList(
                     function=function,
                     stage='EXTRACT')
 
         if self.conf.EXE.RUN_TRANSFORM:
 
-            for function in self.conf.SCHEDULE.TRANSFORM_DFS:
+            for function in self.conf.SCHEDULE.TRANSFORM_DATAFLOWS:
                 self.addFunctionToList(
                     function=function,
                     stage='TRANSFORM')
@@ -77,7 +77,7 @@ class Scheduler():
                     function=df_load.defaultLoad,
                     stage='LOAD')
 
-            for function in self.conf.SCHEDULE.LOAD_DFS:
+            for function in self.conf.SCHEDULE.LOAD_DATAFLOWS:
                 self.addFunctionToList(
                     function=function,
                     stage='LOAD')
@@ -89,7 +89,7 @@ class Scheduler():
                     function=df_summarise.defaultSummarisePrep,
                     stage='SUMMARISE')
 
-            for function in self.conf.SCHEDULE.SUMMARISE_DFS:
+            for function in self.conf.SCHEDULE.SUMMARISE_DATAFLOWS:
                 self.addFunctionToList(
                     function=function,
                     stage='SUMMARISE')

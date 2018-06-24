@@ -24,8 +24,8 @@ defaultScheduleConfig = {
     'DEFAULT_SUMMARISE': False,
     'DEFAULT_DM_DATE': False,
     'TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD': [],
-    'EXTRACT_DFS': [],
-    'TRANSFORM_DFS': [],
-    'LOAD_DFS': [],
-    'SUMMARISE_DFS': []
+    'EXTRACT_DATAFLOWS': [],
+    'TRANSFORM_DATAFLOWS': [],
+    'LOAD_DATAFLOWS': [],
+    'SUMMARISE_DATAFLOWS': []
 }

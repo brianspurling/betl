@@ -310,10 +310,10 @@ class Schedule():
             scheduleConfig['SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT']
         self.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD = \
             scheduleConfig['TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD']
-        self.EXTRACT_DFS = scheduleConfig['EXTRACT_DFS']
-        self.TRANSFORM_DFS = scheduleConfig['TRANSFORM_DFS']
-        self.LOAD_DFS = scheduleConfig['LOAD_DFS']
-        self.SUMMARISE_DFS = scheduleConfig['SUMMARISE_DFS']
+        self.EXTRACT_DATAFLOWS = scheduleConfig['EXTRACT_DATAFLOWS']
+        self.TRANSFORM_DATAFLOWS = scheduleConfig['TRANSFORM_DATAFLOWS']
+        self.LOAD_DATAFLOWS = scheduleConfig['LOAD_DATAFLOWS']
+        self.SUMMARISE_DATAFLOWS = scheduleConfig['SUMMARISE_DATAFLOWS']
 
 
 class Data():
