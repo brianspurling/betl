@@ -2,7 +2,10 @@
    :hidden:
    :titlesonly:
 
+   setup
    schedule-config
+   command-line
+
 
 ===================================================================
 BETL: A Python framework, for robust, Kimball-esque data pipelining
@@ -28,46 +31,24 @@ This config comes from the following sources:
 - App config: static configuration, which betl loads from a config file
 - Schedule config: dynamic configuration, which your main script will pass to betl on init
 - Parameters: run-time parameters, which you specify on the command line
+- Data: schema descriptions, master data mappings, default rows
 
-- Data:
-  - Schema descriptions
-  - Master data mappings
-  - Default rows
+By FAR the easist way to setup all the config is through BETL's built-in setup module. In advance you only need to get a Google API Key file and set up a Postgres database (localhost is fine). Then...
 
-The rest of this quick start guide takes you through these config setups.
+Create the root directory for your data pipeline repo, then run::
 
-Databases
-=========
+  $ python
+  >>> import betl
+  >>> betl.setup()
 
-You need to create three Postgres databases:
+... and follow the instructions (:ref:`more help here <setup>`)
 
-- Control DB: This is BETL's config and logging database
-- ETL DB: This is the database that will act as the persistent storage for your data pipelining. It will only be accessed by your pipeline application.
-- Target DB: This is the database that will hold your data warehouse. This is written to by your data pipeline application and read from by end users / analytical applications
+Configuring Source Systems
+==========================
 
-``sudo -u <user> createdb <dwhId>_etl``
-``sudo -u <user> createdb <dwhId>_trg``
+After setting up BETL, you need to tell it where your source data is.
 
-Schema Description Google Sheets
-================================
-
-Kimbal data pipelines require carefully controlled schemas. You need to define the schemas in two separate Google Sheets documents.
-
-- ETL schemas: intermediary datalayers that the data will work its way through on route to the target data layers (you will always need a source data layer (which can be auto-populated), any additional ETL data layers are optional)
-- TRG schemas: target datalayers from which the end users and analytical applications will read
-
-Create these Google Sheets, and use the Google API Console to get an API Key file. Share the Google Sheets with your api account.
-
-MDM and Default Rows
-====================
-
-*Optional*
-
-- MDM (Master Data Mappings): if you have any master data mappings to apply, create a separate Google Sheet to hold these
-- Default Rows: if you would like to add default rows to your dimensions, create a separate Google Sheet to hold these
-
-Source Systems
-==============
+Editing the newly created ``appConfig.ini`` file and replace the template source system configs with your actual source system(s) config.
 
 BETL currently supports the following source system datastore types:
 
@@ -77,175 +58,92 @@ BETL currently supports the following source system datastore types:
 - Google Sheets
 - Excel (xlsx)
 
+Extracting your source data
+===========================
 
-Starting your data pipeline app: main.py
-========================================
+As instructed at the end of ``betl.setup()``, you are now one command away from having your source data extracted into your ETL database and your SRC schema descriptions defined in a Google Sheet.
 
-Create a new directory (this will be your data pipeline application), and create a ``main.py`` script in the root.
+To get there you just need to run::
 
-This script sets up your scheduleConfig, initialises a Betl instance, and runs your job
+  $ python main.py readsrc rebuildall bulk run
 
-For detailed documentation of the scheduleConfig object: ?? ::
+This does three things:
 
-  from betl import Betl
-  import sys
+  - ``readsrc``   auto populates your SRC schema description spreadsheet with an exact copy of your source system(s) schema(s)
+  - ``rebuildall``   creates your physical schemas (i.e. database tables) in your ETL and TRG postgres databases (of course, you haven't defined much of your DWH schemas yet, so this is really just creating the SRC data layer tables, and a couple of default target dimensions)
+  - ``bulk run``   executes your data pipeline.  Without any bespoke code yet, all this will do is extract the source data from the source system(s) and load it into your ETL database (and create a couple of default target dimensions)
 
-  scheduleConfig = {}
+When you run it again, you just need the last bit::
 
-  betl = Betl(appConfigFile='./appConfig.ini',
-              scheduleConfig=scheduleConfig,
-              runTimeParams=sys.argv)
+  $ python main.py bulk run
 
-  betl.run()
+Check out the full list of commands in the help (:ref:`more details here <command-line>`)::
 
+  $ python main.py help
 
-App Config
-==========
+Adding functions to your data pipeline
+======================================
 
- Create an ``appConfig.ini`` file in your root::
+Check out the ``main.py`` script that was created by ``betl.setup()``. It contains a ``scheduleConfig`` object (full documentation :ref:`here <schedule-config>`).
 
-   [ctrl]
+This scheduleConfig object contains four lists:
 
-     DWH_ID = <short code to identify the data warehouse>
-     TMP_DATA_PATH = tmp_data/
-     REPORTS_PATH = reports/
-     LOG_PATH = logs/
+  - EXTRACT_DATAFLOWS
+  - TRANSFORM_DATAFLOWS
+  - LOAD_DATAFLOWS
+  - SUMMARISE_DATAFLOWS
 
-     [[ctl_db]]
+Add your pipeline functions to these lists and BETL will execute them in sequence.
 
-       HOST =
-       DBNAME =
-       USER =
-       PASSWORD =
+Each of your data pipeline functions must take a single argument: an instance of the ``Betl()`` class that we instantiate at the end of ``main.py``.
 
-   [data]
-
-     GSHEETS_API_URL = https://spreadsheets.google.com/feeds
-     GSHEETS_API_KEY_FILE = <filename of your API key file>
-
-     [[schema_descs]]
-
-       ETL_FILENAME =
-       TRG_FILENAME =
-
-     [[dwh_dbs]]
-
-       [[[ETL]]]
-
-         HOST =
-         DBNAME =
-         USER =
-         PASSWORD =
-
-       [[[TRG]]]
-
-         HOST =
-         DBNAME =
-         USER =
-         PASSWORD =
-
-     [[default_rows]]
-
-       GSHEETS_API_URL = https://spreadsheets.google.com/feeds
-       GSHEETS_API_KEY_FILE = <filename of your API key file>
-       FILENAME =
-
-     [[mdm]]
-
-       TYPE = GSHEET
-       GSHEETS_API_URL = https://spreadsheets.google.com/feeds
-       GSHEETS_API_KEY_FILE = <filename of your API key file>
-       FILENAME =
-
-     [[src_sys]]
-
-       [[[SQLLITE_EXAMPLE]]]
-         TYPE = SQLITE
-         PATH = src_data/
-         FILENAME =
-
-       [[[FILE_SYSTEM_EXAMPLE]]]
-         TYPE = FILESYSTEM
-         PATH = src_data/
-         FILE_EXT = .csv
-         DELIMITER = ','
-         QUOTECHAR = '"'
-
-       [[[GSHEET_EXAMPLE]]]
-         TYPE = GSHEET
-         GOOGLE_SHEETS_API_URL = https://spreadsheets.google.com/feeds
-         GOOGLE_SHEETS_API_KEY_FILE = <filename of your API key file>
-         FILENAME =
-
-       [[[EXCEL_EXAMPLE]]]
-         TYPE = EXCEL
-         PATH = src_data/
-         FILENAME =
-         FILE_EXT = .xlsx
-
-Schedule Config
-===============
-
-In ``main.py``, replace your scheduleConfig object with the following::
+So scheudleConfig looks like this::
 
   scheduleConfig = {
 
-      # Control whether default transformations should be run
-      'DEFAULT_EXTRACT': True,
-      'DEFAULT_TRANSFORM': True,
-      'DEFAULT_LOAD': True,
-      'DEFAULT_SUMMARISE': True,
+      ...
 
-      # Data BETL can generate itself
-      'DEFAULT_DM_DATE': True,
-      'DEFAULT_DM_AUDIT': True,
-
-      # Define tables to exclude from default processing
-      'SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT': [],
-      'TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD': [],
-
-      # Here you define the bespoke parts of your data pipeline.
-      # Pass in your app's functions to the following four lists,
-      # in the order you want them executed
-      'EXTRACT_DFS': [],
-      'TRANSFORM_DFS': [],
-      'LOAD_DFS': [],
-      'SUMMARISE_DFS': []
+      'EXTRACT_DATAFLOWS': [],
+      'TRANSFORM_DATAFLOWS': [
+        examplePipelineFunction
+      ],
+      'LOAD_DATAFLOWS': [],
+      'SUMMARISE_DATAFLOWS': []
   }
 
-BETL Setup
-==========
+And ``examplePipelineFunction`` looks like this::
 
-A few bits need to be setup before BETL can run (e.g. the Control database). So execute your application's main.py with the following parameters::
+  def examplePipelineFunction(betl):
 
-  python main.py setup
+    # Your pipeline code here
 
-Auto-populate your source data layer schema
+Manipulating data in your pipeline functions
 ============================================
 
-The first thing BETL does is extract all the data from your source systems and saves it in the source datalayer (in the ETL database).
+To benefit from the full power of the BETL framework, all data manipulation within your pipeline functions should be performed via a ``DataFlow()`` object.
 
-To do this, BETL needs the source datalayer schema defined. You can define this yourself, and thus choose which tables/columns to extract.
+You start by telling the dataflow object what data to read from disk. Then you transform it. Then you write it back to disk. The next dataflow can pick up the output of the previous dataflow, and so on.
 
-Alternatively, BETL can auto-populate the source datalayer schema description by copying the schema of the source system(s). To do this, execute your application's main.py with the following parameters::
+Thus the common pattern for a pipeline functions is::
 
-  python main.py readsrc
+  def examplePipelineFunction(betl):
 
-Build your physical schema
-==========================
-::
-  python main.py rebuildall
+      # Instantiate an instance of the DataFlow class
+      dfl = betl.DataFlow(desc='An example pipeline function')
 
-Running Your Pipeline
-=====================
+      # Read some data into the DataFlow object
+      dfl.read(tableName='src_example_src_data', dataLayer='SRC')
 
-Execute main.py with the following parameters::
+      # Perform some transformations on the data, via the DataFlow object
+      dfl.renameColumns(
+          dataset='src_example_src_data',
+          columns={'col_to_rename': 'new_column_name'},
+          desc='Rename the column')
 
-  python main.py bulk run
+      # Write the databack to disk (so it is available for the next DataFlow to read
+      dfl.write(
+          dataset='src_example_src_data',
+          targetTableName='example_staging_data',
+          dataLayerID='STG')
 
-Default Links
-=============
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+Each "step" (each DataFlow method called) must be given a description that is unique within the dataflow. And each dataflow must be given a description that is unique across the whole pipeline. This allows us to compare stats across executions.

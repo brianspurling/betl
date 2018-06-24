@@ -1,3 +1,4 @@
+.. _schedule-config:
 
 ===============
 Schedule Config
@@ -26,10 +27,10 @@ A standard schedule config looks like this::
       # Here you define the bespoke parts of your data pipeline.
       # Pass in your app's functions to the following four lists,
       # in the order you want them executed
-      'EXTRACT_DFS': [],
-      'TRANSFORM_DFS': [],
-      'LOAD_DFS': [],
-      'SUMMARISE_DFS': []
+      'EXTRACT_DATAFLOWS': [],
+      'TRANSFORM_DATAFLOWS': [],
+      'LOAD_DATAFLOWS': [],
+      'SUMMARISE_DATAFLOWS': []
   }
 
 DEFAULT_EXTRACT
@@ -80,14 +81,14 @@ SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
 TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 ---------------------------------------
 
-EXTRACT_DFS
------------
+EXTRACT_DATAFLOWS
+-----------------
 
-TRANSFORM_DFS
--------------
+TRANSFORM_DATAFLOWS
+-------------------
 
-LOAD_DFS
---------
+LOAD_DATAFLOWS
+--------------
 
-SUMMARISE_DFS
--------------
+SUMMARISE_DATAFLOWS
+-------------------
