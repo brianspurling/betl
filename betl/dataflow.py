@@ -764,6 +764,9 @@ class DataFlow():
                       masterDataCols,
                       desc):
 
+        # TODO: I can't stop eg. '16 ' being converted to '16' when it gets
+        # written to Sheets, which can created dupes in the mapping cols.
+        # So trim in app before calling this :(
         self.stepStart(desc=desc)
 
         ws = self.conf.DATA.getMDMDatastore().conn.worksheet(mdmWS)
@@ -801,7 +804,12 @@ class DataFlow():
                 cellPos += 1
             for i, row in df_unique.iterrows():
                 for colName in joinCols + masterDataCols:
-                    cell_list[cellPos].value = row[colName]
+                    value = str(row[colName])
+                    if value is None or value == 'None':
+                        # TODO they appears to be coming through as 'None',
+                        # but I'm leaving None in for good measure
+                        value = ''
+                    cell_list[cellPos].value = value
                     cellPos += 1
             ws.update_cells(cell_list)
             # Remove the master data cols again
@@ -836,7 +844,12 @@ class DataFlow():
                 cellPos = 0
                 for i, row in df_unmapped_rows.iterrows():
                     for colName in joinCols + masterDataCols:
-                        cell_list[cellPos].value = row[colName]
+                        value = str(row[colName])
+                        if value is None or value == 'None':
+                            # TODO they appears to be coming through as 'None',
+                            # but I'm leaving None in for good measure
+                            value = ''
+                        cell_list[cellPos].value = value
                         cellPos += 1
                 ws.update_cells(cell_list)
 
