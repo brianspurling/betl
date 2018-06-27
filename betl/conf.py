@@ -613,9 +613,9 @@ class Data():
 
         # Each source system will create a new data model within our SRC data
         # layer (within our ETL database)
+        srcSysSchemas = {}
+        srcTableMap = {}
         for srcSysID in self.SRC_SYSTEM_LIST:
-
-            srcSysSchemas = {}
 
             srcSysDS = self.getSrcSysDatastore(srcSysID)
 
@@ -816,48 +816,46 @@ class Data():
                 # to postgres names, to be used whenever we need to pull data
                 # out of source. For simplicity, we'll do this for
                 # all sources, even though some will always be the same.
-                srcTableMap = {}
 
-                for srcSysID in srcSysSchemas:
+                srcTableMap[srcSysID] = {}
 
-                    srcTableMap[srcSysID] = {}
+                tableSchemas = srcSysSchemas[srcSysID]['tableSchemas']
+                for tableName_src in tableSchemas:
 
-                    tableSchemas = srcSysSchemas[srcSysID]['tableSchemas']
-                    for tableName_src in tableSchemas:
+                    tableName = self.cleanTableName(tableName_src)
+                    srcTableMap[srcSysID][tableName] = tableName_src
 
-                        tableName = self.cleanTableName(tableName_src)
-                        srcTableMap[srcSysID][tableName] = tableName_src
+                    colSchemas = \
+                        tableSchemas[tableName_src]['columnSchemas']
 
-                        colSchemas = \
-                            tableSchemas[tableName_src]['columnSchemas']
+                    wsName = 'ETL.SRC.' + srcSysID + '.' + 'src_' + \
+                        srcSysID.lower() + '_' + tableName
 
-                        wsName = 'ETL.SRC.' + srcSysID + '.' + 'src_' + \
-                            srcSysID.lower() + '_' + tableName
+                    ws = ss.add_worksheet(title=wsName,
+                                          rows=len(colSchemas)+1,
+                                          cols=3)
 
-                        ws = ss.add_worksheet(title=wsName,
-                                              rows=len(colSchemas)+1,
-                                              cols=3)
-
-                        # We build up our new GSheets table first, in memory,
-                        # then write it all in one go.
-                        cell_list = ws.range('A1:C'+str(len(colSchemas)+1))
-                        rangeRowCount = 0
-                        cell_list[rangeRowCount].value = 'Column Name'
-                        cell_list[rangeRowCount+1].value = 'Data Type'
-                        cell_list[rangeRowCount+2].value = 'Column Type'
+                    # We build up our new GSheets table first, in memory,
+                    # then write it all in one go.
+                    cell_list = ws.range('A1:C'+str(len(colSchemas)+1))
+                    rangeRowCount = 0
+                    cell_list[rangeRowCount].value = 'Column Name'
+                    cell_list[rangeRowCount+1].value = 'Data Type'
+                    cell_list[rangeRowCount+2].value = 'Column Type'
+                    rangeRowCount += 3
+                    for col in colSchemas:
+                        cell_list[rangeRowCount].value = \
+                            colSchemas[col]['columnName']
+                        cell_list[rangeRowCount+1].value = \
+                            colSchemas[col]['dataType']
+                        cell_list[rangeRowCount+2].value = \
+                            colSchemas[col]['columnType']
                         rangeRowCount += 3
-                        for col in colSchemas:
-                            cell_list[rangeRowCount].value = \
-                                colSchemas[col]['columnName']
-                            cell_list[rangeRowCount+1].value = \
-                                colSchemas[col]['dataType']
-                            cell_list[rangeRowCount+2].value = \
-                                colSchemas[col]['columnType']
-                            rangeRowCount += 3
 
-                        ws.update_cells(cell_list)
-                    with open('schemas/tableNameMapping.txt', 'w+') as file:
-                        file.write(json.dumps(srcTableMap))
+                    ws.update_cells(cell_list)
+
+        with open('schemas/tableNameMapping.txt', 'w+') as file:
+            file.write(json.dumps(srcTableMap))
 
         logger.logAutoPopSchemaDescsFromSrcFinish()
 
@@ -874,7 +872,6 @@ class Data():
         query = ("SELECT table_name FROM information_schema.tables " +
                  "WHERE table_schema = 'public'")
 
-        temp = self.getDWHDatastore('ETL')
         etlDBCursor = self.getDWHDatastore('ETL').cursor()
         etlDBCursor.execute(query)
         trgDBCursor = self.getDWHDatastore('TRG').cursor()
