@@ -510,22 +510,26 @@ class DataFlow():
     def cleanColumn(self,
                     dataset,
                     cleaningFunc,
-                    column,
+                    columns,
                     desc,
-                    cleanedColumn=None):
+                    cleanedColumns=None):
 
         self.stepStart(desc=desc)
 
-        if cleanedColumn is None:
-            cleanedColumn = column
+        cnt = 0
+        cleanedColName = ''
+        for column in columns:
+            if cleanedColumns is None:
+                cleanedColName = column
+            else:
+                cleanedColName = cleanedColumns[cnt]
+            cnt += 1
 
-        self.data[dataset][cleanedColumn] = \
-            cleaningFunc(self.data[dataset][column])
-
-        report = 'Cleaned ' + column + ' to ' + cleanedColumn
+            self.data[dataset][cleanedColName] = \
+                cleaningFunc(self.data[dataset][column])
 
         self.stepEnd(
-            report=report,
+            report='',
             datasetName=dataset,
             df=self.data[dataset])
 
