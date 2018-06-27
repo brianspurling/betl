@@ -896,6 +896,32 @@ class DataFlow():
                 df=df_m,
                 shapeOnly=False)
 
+    def pivotColsToRows(self,
+                        dataset,
+                        colsNotToPivot,
+                        colsToPivot,
+                        varName,
+                        valueName,
+                        desc):
+
+        self.stepStart(desc=desc)
+
+        self.data[dataset] = pd.melt(
+            self.data[dataset],
+            id_vars=colsNotToPivot,
+            value_vars=colsToPivot,
+            var_name=varName,
+            value_name=valueName)
+
+        report = ''
+
+        self.stepEnd(
+            report=report,
+            datasetName=dataset,  # optional
+            df=self.data[dataset],  # optional
+            shapeOnly=False)  # optional
+
+
     def templateStep(self, dataset, desc):
 
         self.stepStart(desc=desc)
