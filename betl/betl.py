@@ -95,7 +95,7 @@ class Betl():
             # failure was a DB failure we won't be able to access the DB
             if response == 'SUCCESS':
                 self.CONF.DATA.checkDBsForSuperflousTables(self.CONF)
-                
+
         # Even if we didn't execute the dataflows, we still created a new
         # execution in the CtrlDB, so we need to mark this as complete
         if response == 'SUCCESS':
@@ -105,13 +105,15 @@ class Betl():
                 status='SUCCESSFUL',
                 statusMessage='')
 
-        if self.CONF.EXE.RUN_DATAFLOWS:
+        if self.CONF.EXE.RUN_DATAFLOWS and response == 'SUCCESS':
 
             reporting.generateExeSummary(
                 conf=self.CONF,
                 execId=self.CONF.STATE.EXEC_ID,
                 bulkOrDelta=self.CONF.EXE.BULK_OR_DELTA,
                 limitedData=self.CONF.EXE.DATA_LIMIT_ROWS)
+
+        if self.CONF.EXE.RUN_DATAFLOWS:
 
             logger.logAlerts()
 
