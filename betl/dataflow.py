@@ -454,9 +454,13 @@ class DataFlow():
                     self.data[dataset] = \
                         self.data[dataset].loc[
                             self.data[dataset][f] == filters[f][1]]
+                elif filters[f][0] == '!=':
+                    self.data[dataset] = \
+                        self.data[dataset].loc[
+                            self.data[dataset][f] != filters[f][1]]
                 else:
                     raise ValueError(
-                        'Filter currently only support ==, < or >')
+                        'Filter currently only support ==, !=, < or >')
             else:
                 raise ValueError('filter value must be str or tuple (not ' +
                                  str(type(filters[f])) + ')')
