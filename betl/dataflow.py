@@ -646,9 +646,11 @@ class DataFlow():
     def join(self,
              datasets,
              targetDataset,
-             joinCol,
              how,
              desc,
+             joinCol=None,
+             leftJoinCol=None,
+             rightJoinCol=None,
              keepCols=None):
 
         self.stepStart(desc=desc)
@@ -660,6 +662,8 @@ class DataFlow():
             self.data[datasets[0]],
             self.data[datasets[1]],
             on=joinCol,
+            left_on=leftJoinCol,
+            right_on=rightJoinCol,
             how=how)
         if keepCols is not None:
             self.data[targetDataset] = self.data[targetDataset][keepCols]
