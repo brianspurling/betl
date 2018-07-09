@@ -999,9 +999,11 @@ class DataFlow():
 
         self.stepStart(desc=desc)
 
+        auditCols = self.conf.DATA.AUDIT_COLS['colNames'].tolist()
+
         self.data[dataset] = pd.melt(
             self.data[dataset],
-            id_vars=colsNotToPivot,
+            id_vars=colsNotToPivot + auditCols,
             value_vars=colsToPivot,
             var_name=varName,
             value_name=valueName)
