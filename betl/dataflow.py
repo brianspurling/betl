@@ -1016,6 +1016,42 @@ class DataFlow():
             df=self.data[dataset],  # optional
             shapeOnly=False)  # optional
 
+    def replace(self,
+                dataset,
+                columnNames,
+                toReplace,
+                value,
+                desc,
+                regex=False):
+
+        self.stepStart(desc=desc)
+
+        if columnNames is not None:
+
+            if isinstance(columnNames, str):
+                columnNames = [columnNames]
+
+            for columnName in columnNames:
+                self.data[dataset][columnName].replace(
+                        to_replace=toReplace,
+                        value=value,
+                        regex=regex,
+                        inplace=True)
+        else:
+            self.data[dataset].replace(
+                    to_replace=toReplace,
+                    value=value,
+                    regex=regex,
+                    inplace=True)
+
+        # TODO: report
+        report = ''
+
+        self.stepEnd(
+            report=report,
+            datasetName=dataset,  # optional
+            df=self.data[dataset],  # optional
+            shapeOnly=False)  # optional
 
     def templateStep(self, dataset, desc):
 
