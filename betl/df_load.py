@@ -175,6 +175,14 @@ def bulkLoadDimension(betl, defaultRows, table):
              'these SKs (and their corresponding NKs) when we load the fact ' +
              'table (later), so we pull the sk/nks mapping back out now)')
 
+    dfl.replace(
+        dataset=table.tableName,
+        columnNames=None,
+        toReplace=np.nan,
+        value='',
+        regex=True,
+        desc='Make all None values come through as empty strings')
+
     dfl.dropColumns(
         dataset=table.tableName,
         colsToKeep=[table.surrogateKeyColName] + table.colNames_NKs,
