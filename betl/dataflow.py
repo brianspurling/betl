@@ -779,139 +779,214 @@ class DataFlow():
 
         self.stepEnd(report=report)
 
+    # TODO: I can't stop eg. '16 ' being converted to '16' when it gets
+    # written to Sheets, which can created dupes in the mapping cols.
+    # So trim in app before calling this :(
     def mapMasterData(self,
                       dataset,
                       mdmWS,
                       joinCols,
                       masterDataCols,
-                      desc):
+                      desc,
+                      autoPopMappingCols=[]):
 
-        # TODO: I can't stop eg. '16 ' being converted to '16' when it gets
-        # written to Sheets, which can created dupes in the mapping cols.
-        # So trim in app before calling this :(
         self.stepStart(desc=desc)
 
+        ############################
+        # Connect to MDM Worksheet #
+        ############################
+
         ws = self.conf.DATA.getMDMDatastore().conn.worksheet(mdmWS)
+
+        #################################
+        # Extract the current MDM table #
+        #################################
+
         mdm_list = ws.get_all_values()
-        mdm = pd.DataFrame(mdm_list[1:], columns=mdm_list[0:1][0])
 
-        numberOfCols = len(joinCols) + len(masterDataCols)
-
-        # If the MDM file is empty, we're going to populate it with the
-        # joinCols from the DWH dataset, plus the masterDataCols (headers
-        # only, obvs)
-        if len(mdm) == 0:
-
-            # Let's add our new (master data) columns manually, since we won't
-            # be doing a merge later
-            for colName in masterDataCols:
-                self.data[dataset][colName] = ""
-
-            # We need a unique list of just the joinCols
-            df_unique = self.data[dataset].copy()
-            colsToDrop = list(df_unique)
-            colsToDrop = \
-                [x for x in colsToDrop if x not in joinCols + masterDataCols]
-            df_unique.drop(colsToDrop, axis=1, inplace=True)
-            df_unique.drop_duplicates(inplace=True)
-            numberOfRows = len(df_unique.index) + 1
-
-            # We build up our new GSheets table first, in memory,
-            # then write it all in one go. Col Names first, then
-            # data.
-            cell_list = ws.range(1, 1, numberOfRows, numberOfCols)
-            cellPos = 0
-            for colName in joinCols + masterDataCols:
-                cell_list[cellPos].value = colName
-                cellPos += 1
-            for i, row in df_unique.iterrows():
-                for colName in joinCols + masterDataCols:
-                    value = str(row[colName])
-                    if value is None or value == 'None':
-                        # TODO they appears to be coming through as 'None',
-                        # but I'm leaving None in for good measure
-                        value = ''
-                    cell_list[cellPos].value = value
-                    cellPos += 1
-            ws.update_cells(cell_list)
-            # Remove the master data cols again
-            # Add the new column(s) onto the dataset
+        if(len(mdm_list)) == 0:
+            raise ValueError('MDM column headings must be entered into the ' +
+                             'Google Sheet')
+        if(len(mdm_list)) == 1:
+            df_mdm = pd.DataFrame(columns=mdm_list[0:1][0])
         else:
-            df_m = pd.merge(
-                self.data[dataset],
-                mdm,
-                on=joinCols,
-                how='left',
-                indicator=True)
+            df_mdm = pd.DataFrame(mdm_list[1:], columns=mdm_list[0:1][0])
 
-            # left_only rows are "unmapped" rows - i.e. there was no master
-            # data mapping for them. This needs to be reported, so the user
-            # knows to enter new mappings. We update the MDM spreadsheet with
-            # the empty mappings
-            df_unmapped_rows = df_m.loc[df_m['_merge'] == 'left_only'].copy()
-            df_unmapped_rows.drop_duplicates(inplace=True)
-            numOfUnmappedRows = len(df_unmapped_rows.index)
-            if len(df_unmapped_rows.index) > 0:
-                df_unmapped_rows.drop('_merge', axis=1, inplace=True)
-                # update nans to empty strings
-                for colName in masterDataCols:
-                    df_unmapped_rows[colName] = ''
-                numOfMappedRows = len(df_m.loc[df_m['_merge'] == 'both'].index)
-                firstRow = numOfMappedRows+2
-                cell_list = ws.range(
-                    firstRow,
-                    1,
-                    numOfUnmappedRows + firstRow,
-                    numberOfCols)
-                cellPos = 0
-                for i, row in df_unmapped_rows.iterrows():
-                    for colName in joinCols + masterDataCols:
-                        value = str(row[colName])
-                        if value is None or value == 'None':
-                            # TODO they appears to be coming through as 'None',
-                            # but I'm leaving None in for good measure
-                            value = ''
-                        cell_list[cellPos].value = value
-                        cellPos += 1
-                ws.update_cells(cell_list)
+        #####################
+        # Fill NaNs in data #
+        #####################
 
-            df_m.drop('_merge', axis=1, inplace=True)
-            # Regardless of whether we found any new mappings, we also will
-            # report on the number of missing values on the mappings.
-            # This is a bit blunt: we assume that every mapping col must be
-            # populated. TODO: should at least check whether 1+ are populated
-            df_no_value = df_m.loc[df_m[masterDataCols[0]] == ''].copy()
-            colsToDrop = list(df_no_value)
-            colsToDrop = \
-                [x for x in colsToDrop if x not in joinCols]
-            df_no_value.drop(colsToDrop, axis=1, inplace=True)
-            df_no_value.drop_duplicates(inplace=True)
-            numOfBlankValues = len(df_no_value.index)
+        # NaNs won't join to empty cells in our Gsheet, so we replace
+        self.data[dataset] = self.data[dataset].fillna(value='')
 
-            # Add the report to the alerts log
+        ##########################
+        # Rename autoPop columns #
+        ##########################
 
-            report = ('For MDM ' + mdmWS + ' there were ' +
-                      str(numOfUnmappedRows) + ' unmapped rows and there ' +
-                      'are now a total of ' +
-                      str(numOfBlankValues) + ' rows with missing master data')
+        # We might have masterDataCols in our dataset, so we will rename
+        # them before we join to allow us to control them later
+        # Note that we assume any autoPop map columns have been joined to
+        # the main dataset with the same logic the MDM will be using (i.e.
+        # the join columns). Which would mean that you couldn't have
+        # two identical joinCol combos with different autoPopMapCols.
+        # This is important, because we will group below before writing back
+        # to the MDM spreadsheet, and we'll get multiple rows
+        # where we don't want them if this is not the case.
+        renamedAutoPopColNames = []
+        for colName in autoPopMappingCols:
+            autoPopColName = 'autoPop_' + colName
+            self.data[dataset].rename(index=str,
+                                      columns={colName: autoPopColName},
+                                      inplace=True)
+            renamedAutoPopColNames.append(autoPopColName)
 
-            alerts.logAlert(self.conf, report)
+        ##########################
+        # Merge the two datasets #
+        ##########################
 
-            # Need to set the original dataset to the result of our mdm
-            self.data[dataset] = df_m
+        df_m = pd.merge(
+            self.data[dataset],
+            df_mdm,
+            on=joinCols,
+            how='outer',
+            indicator=True)
 
-        report = ''
+        #################
+        # Auto Populate #
+        #################
 
-        if len(mdm) == 0:
+        # AutoPop does not overwrite data already in the MDM spreadsheet
+
+        for autoPopCol in renamedAutoPopColNames:
+            mapCol = autoPopCol[8:]
+            df_m.loc[df_m[mapCol].isnull(), mapCol] = \
+                df_m[df_m[mapCol].isnull()][autoPopCol]
+            df_m.loc[df_m[mapCol] == '', mapCol] = \
+                df_m[df_m[mapCol] == ''][autoPopCol]
+
+        numOfRowsWithMatchingMDM = \
+            len(df_m.loc[df_m['_merge'] == 'both'].index)
+        numOfRowsWithoutMatchingMDM = \
+            len(df_m.loc[df_m['_merge'] == 'left_only'].index)
+        numOfUnmatchedRowsInMDM = \
+            len(df_m.loc[df_m['_merge'] == 'right_only'].index)
+
+        #########################
+        # Drop unneeded columns #
+        #########################
+
+        if 'count' in list(df_m):
+            colsToDrop = ['count'] + renamedAutoPopColNames
+        else:
+            colsToDrop = renamedAutoPopColNames
+        df_m.drop(
+            labels=colsToDrop,
+            axis=1,
+            inplace=True)
+
+        ###################################
+        # Replace NaNs with empty strings #
+        ###################################
+
+        # If the mapping was missing, we treat it as though it was a blank
+        # cell in the Gsheet
+        df_m[masterDataCols] = df_m[masterDataCols].fillna(value='')
+
+        ###############################
+        # Update our output dataframe #
+        ###############################
+
+        self.data[dataset] = df_m.loc[df_m['_merge'] != 'right_only'].copy()
+        self.data[dataset].drop(
+            labels='_merge',
+            axis=1,
+            inplace=True)
+
+        ######################################################
+        # Prepare new MDM dataset for write back (to gsheet) #
+        ######################################################
+
+        # Drop any additional columns (not part of the MDM dataset)
+        colsToDrop = list(df_m)
+        colsToDrop = \
+            [x for x in list(df_m) if x not in joinCols + masterDataCols]
+        df_m.drop(
+            labels=colsToDrop,
+            axis=1,
+            inplace=True)
+
+        # Group up to distinct set of rows
+        df_m = df_m.groupby(
+            df_m.columns.tolist(),
+            sort=False,
+            as_index=False).size().reset_index(name='count')
+        df_m.sort_values(by='count', ascending=False, inplace=True)
+
+        ###############################
+        # Count up empty mapping rows #
+        ###############################
+
+        numOfMDMRowsWithNoFilledInValues = 0
+        for i, row in df_m.iterrows():
+            rowIsAllBlank = True
+            for colName in masterDataCols:
+                if row[colName] != '':
+                    rowIsAllBlank = False
+            if rowIsAllBlank:
+                numOfMDMRowsWithNoFilledInValues += 1
+
+        ####################
+        # Write to GSheets #
+        ####################
+
+        colsToWriteBack = joinCols + masterDataCols + ['count']
+        ws.resize(rows=len(df_m)+1, cols=len(colsToWriteBack))
+        cell_list = ws.range(1, 1, len(df_m)+1, len(colsToWriteBack))
+        cellPos = 0
+        for colName in colsToWriteBack:
+            cell_list[cellPos].value = colName
+            cellPos += 1
+        for i, row in df_m.iterrows():
+            for colName in colsToWriteBack:
+                value = str(row[colName])
+                if value == '£$%^NOTAVALUE^%$£':
+                    value = ''
+                cell_list[cellPos].value = value
+                cellPos += 1
+        ws.clear()
+        ws.update_cells(cell_list)
+
+        ###########
+        # Wrap Up #
+        ###########
+
+        r = ''
+
+        r += ('For MDM ' + mdmWS + ' there were \n'
+              '       - ' + str(numOfRowsWithoutMatchingMDM) + ' rows in ' +
+              'the data without a corresponding MDM row (these have now ' +
+              'been added)\n' +
+              '       - There are now ' +
+              str(numOfMDMRowsWithNoFilledInValues) + ' rows in the MDM ' +
+              'without any mapped values filled in\n')
+        if (numOfRowsWithoutMatchingMDM > 0 or
+                numOfMDMRowsWithNoFilledInValues > 0):
+            alerts.logAlert(self.conf, r)
+        r += ('       - ' + str(numOfRowsWithMatchingMDM) + ' rows in the ' +
+              'data were matched to corresponding MDM rows, and\n' +
+              '       - ' + str(numOfUnmatchedRowsInMDM) + ' rows in the ' +
+              'MDM did not find a match in the data')
+
+        if len(self.data[dataset]) == 0:
             self.stepEnd(
-                report=report,
+                report=r,
                 datasetName=dataset,
                 shapeOnly=False)
         else:
             self.stepEnd(
-                report=report,
+                report=r,
                 datasetName=dataset,
-                df=df_m,
+                df=self.data[dataset],
                 shapeOnly=False)
 
     def pivotColsToRows(self,
