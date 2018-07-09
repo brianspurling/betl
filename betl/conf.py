@@ -485,7 +485,7 @@ class Data():
 
         logger.logCheckLastModTimeOfSchemaDescGSheet()
         # Get the last modified dates of the versions saved to csv
-        modTimesFile = open('schemas/lastModifiedTimes.txt', 'w+')
+        modTimesFile = open('schemas/lastModifiedTimes.txt', 'r+')
         fileContent = modTimesFile.read()
         if fileContent == '':
             lastModifiedTimes = {}
@@ -513,7 +513,7 @@ class Data():
                     gSheet.getLastModifiedTime()
             logger.logRefreshingSchemaDescsFromGsheets_done()
 
-        if lastModTimesChanged:
+        if len(lastModTimesChanged) > 0:
             modTimesFile = open('schemas/lastModifiedTimes.txt', 'w')
             modTimesFile.write(json.dumps(lastModifiedTimes))
 
