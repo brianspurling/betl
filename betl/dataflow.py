@@ -479,32 +479,42 @@ class DataFlow():
 
     def toNumeric(self,
                   dataset,
-                  column,
+                  columns,
                   desc,
-                  cleanedColumn=None,
+                  cleanedColumns=None,
                   cast=None):
 
         self.stepStart(desc=desc)
 
-        if cleanedColumn is None:
-            cleanedColumn = column
+        if isinstance(columns, str):
+            columns = [columns]
 
-        self.data[dataset][cleanedColumn] = \
-            self.data[dataset][column].str.replace(r"[^\d.]+", '')
+        cnt = 0
+        for column in columns:
 
-        self.data[dataset][cleanedColumn] = \
-            pd.to_numeric(
-                arg=self.data[dataset][cleanedColumn],
-                errors='coerce')
+            if cleanedColumns is None:
+                cleanedColumn = column
+            else:
+                cleanedColumn = cleanedColumns[cnt]
+            cnt += 1
 
-        if cast == 'integer':
             self.data[dataset][cleanedColumn] = \
-                self.data[dataset][cleanedColumn].fillna(0).astype(int)
-        else:
-            raise ValueError('You tried to cast to a type not yet handled by' +
-                             ' dataflow.toNumeric: ' + cast)
+                self.data[dataset][column].str.replace(r"[^\d.]+", '')
 
-        report = 'Cleaned ' + column + ' to ' + cleanedColumn
+            self.data[dataset][cleanedColumn] = \
+                pd.to_numeric(
+                    arg=self.data[dataset][cleanedColumn],
+                    errors='coerce')
+
+            if cast == 'integer':
+                self.data[dataset][cleanedColumn] = \
+                    self.data[dataset][cleanedColumn].fillna(0).astype(int)
+            else:
+                raise ValueError('You tried to cast to a type not yet handled by' +
+                                 ' dataflow.toNumeric: ' + cast)
+
+            # TODO need to pick up look here
+            report = 'Cleaned ' + column + ' to ' + cleanedColumn
 
         self.stepEnd(
             report=report,
