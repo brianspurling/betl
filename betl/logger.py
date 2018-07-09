@@ -83,7 +83,6 @@ def logBETLFinish(response):
     # Just in case (of error)
     global MEMORY_USAGE_LOOP
     MEMORY_USAGE_LOOP = 'STOP'
-
     op = '\n'
     op += '                  *****************************' + '\n'
     op += '                  *                           *' + '\n'
@@ -92,7 +91,7 @@ def logBETLFinish(response):
         op += '                  *                           *' + '\n'
     if response == 'SUCCESS':
         op += '                  *   COMPLETED SUCCESSFULLY  *' + '\n'
-    elif response == 'FAILED':
+    elif response == 'FAIL':
         op += '                  *     FAILED GRACEFULLY     *' + '\n'
     elif response == 'FAILED_RECOVERY':
         op += '                  * FAILED & DID NOT RECOVER  *' + '\n'
