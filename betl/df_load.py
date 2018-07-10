@@ -165,6 +165,25 @@ def bulkLoadDimension(betl, defaultRows, table):
             desc='Adding default rows to ' + table.tableName,
             keepDataflowOpen=True)
 
+    elif table.tableName == 'dm_audit' and betl.CONF.SCHEDULE.DEFAULT_DM_AUDIT:
+
+        dfl.createDataset(
+            dataset='dm_audit_default_rows',
+            data={'audit_id': [-1],
+                  'latest_delta_load_operation': ['N/A'],
+                  'data_quality_score': [-1]},
+            desc='Loading the dm_audit default row')
+
+        dfl.write(
+            dataset='dm_audit_default_rows',
+            targetTableName='dm_audit',
+            dataLayerID='TRG',
+            forceDBWrite=True,
+            append_or_replace='append',
+            writingDefaultRows=True,
+            desc='Adding default rows to dm_audit',
+            keepDataflowOpen=True)
+            
     # RETRIEVE SK/NK MAPPING (FOR LATER)
 
     dfl.read(
