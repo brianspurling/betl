@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import os
 import pprint
 from datetime import datetime
@@ -153,7 +154,8 @@ class DataFlow():
         self.data[_targetDataset] = pd.DataFrame()
 
         if forceDBRead:
-            dbID = self.conf.DATA.getDataLayerLogicalSchema(dataLayer).databaseID
+            dbID = \
+                self.conf.DATA.getDataLayerLogicalSchema(dataLayer).databaseID
             self.data[_targetDataset] = dbIO.readDataFromDB(
                 tableName=tableName,
                 conn=self.conf.DATA.getDWHDatastore(dbID).conn)
@@ -430,32 +432,36 @@ class DataFlow():
 
         self.stepEnd(report=report)
 
-    def filter(self, dataset, filters, desc):
+    def filter(self, dataset, filters, desc, targetDataset=None):
 
         self.stepStart(desc=desc)
+
+        _targetDataset = dataset
+        if targetDataset is not None:
+            _targetDataset = targetDataset
 
         originalLength = self.data[dataset].shape[0]
 
         for f in filters:
             if isinstance(filters[f], str):
-                self.data[dataset] = \
+                self.data[_targetDataset] = \
                     self.data[dataset].loc[
                         self.data[dataset][f] == filters[f]]
             elif isinstance(filters[f], tuple):
                 if filters[f][0] == '>':
-                    self.data[dataset] = \
+                    self.data[_targetDataset] = \
                         self.data[dataset].loc[
                             self.data[dataset][f] > filters[f][1]]
                 elif filters[f][0] == '<':
-                    self.data[dataset] = \
+                    self.data[_targetDataset] = \
                         self.data[dataset].loc[
                             self.data[dataset][f] > filters[f][1]]
                 elif filters[f][0] == '==':
-                    self.data[dataset] = \
+                    self.data[_targetDataset] = \
                         self.data[dataset].loc[
                             self.data[dataset][f] == filters[f][1]]
                 elif filters[f][0] == '!=':
-                    self.data[dataset] = \
+                    self.data[_targetDataset] = \
                         self.data[dataset].loc[
                             self.data[dataset][f] != filters[f][1]]
                 else:
@@ -465,7 +471,7 @@ class DataFlow():
                 raise ValueError('filter value must be str or tuple (not ' +
                                  str(type(filters[f])) + ')')
 
-        newLength = self.data[dataset].shape[0]
+        newLength = self.data[_targetDataset].shape[0]
         pcntChange = (originalLength - newLength) / originalLength
         pcntChange = round(pcntChange * 100, 1)
         report = 'Filtered dataset from ' + str(originalLength) + ' to ' + \
@@ -473,8 +479,8 @@ class DataFlow():
 
         self.stepEnd(
             report=report,
-            datasetName=dataset,
-            df=self.data[dataset],
+            datasetName=_targetDataset,
+            df=self.data[_targetDataset],
             shapeOnly=True)
 
     def toNumeric(self,
@@ -510,8 +516,8 @@ class DataFlow():
                 self.data[dataset][cleanedColumn] = \
                     self.data[dataset][cleanedColumn].fillna(0).astype(int)
             else:
-                raise ValueError('You tried to cast to a type not yet handled by' +
-                                 ' dataflow.toNumeric: ' + cast)
+                raise ValueError('You tried to cast to a type not yet ' +
+                                 'handled by dataflow.toNumeric: ' + cast)
 
             # TODO need to pick up look here
             report = 'Cleaned ' + column + ' to ' + cleanedColumn
@@ -623,6 +629,9 @@ class DataFlow():
 
         self.stepStart(desc=desc)
 
+        if isinstance(targetDatasets, str):
+            targetDatasets = [targetDatasets]
+
         for targetDataset in targetDatasets:
             self.data[targetDataset] = self.data[dataset].copy()
 
@@ -733,7 +742,8 @@ class DataFlow():
 
         self.stepStart(desc=desc, additionalDesc=sql)
 
-        datastore = self.conf.DATA.getDataLayerLogicalSchema(dataLayer).datastore
+        datastore = \
+            self.conf.DATA.getDataLayerLogicalSchema(dataLayer).datastore
 
         if dataset is not None:
             self.data[dataset] = dbIO.customSQL(sql, datastore)
@@ -1052,6 +1062,58 @@ class DataFlow():
             datasetName=dataset,  # optional
             df=self.data[dataset],  # optional
             shapeOnly=False)  # optional
+
+    def filterWhereNotIn(self,
+                         datasetToBeFiltered,
+                         columnsToBeFiltered,
+                         datasetToFilterBy,
+                         columnsToFilterBy,
+                         targetDataset,
+                         desc):
+
+        self.stepStart(desc=desc)
+
+        origCols = list(self.data[datasetToBeFiltered])
+
+        if isinstance(columnsToBeFiltered, str):
+            columnToBeFiltered = columnsToBeFiltered
+        if isinstance(columnsToBeFiltered, list):
+            if len(columnsToBeFiltered) == 1:
+                columnToBeFiltered = columnsToBeFiltered[0]
+            else:
+                columnToBeFiltered = "".join(columnsToBeFiltered) + 'pwqnct'
+                self.data[datasetToBeFiltered][columnToBeFiltered] = ''
+                for col in columnsToBeFiltered:
+                    self.data[datasetToBeFiltered][columnToBeFiltered] = \
+                        self.data[datasetToBeFiltered][columnToBeFiltered] + \
+                        self.data[datasetToBeFiltered][col].map(str)
+
+        if isinstance(columnsToFilterBy, str):
+            columnToFilterBy = columnsToFilterBy
+        if isinstance(columnsToFilterBy, list):
+            if len(columnsToFilterBy) == 1:
+                columnToFilterBy = columnsToFilterBy[0]
+            else:
+                columnToFilterBy = "".join(columnsToFilterBy) + 'pwqnct'
+                self.data[datasetToFilterBy][columnToFilterBy] = ''
+                for col in columnsToFilterBy:
+                    self.data[datasetToFilterBy][columnToFilterBy] = \
+                        self.data[datasetToFilterBy][columnToFilterBy] + \
+                        self.data[datasetToFilterBy][col].map(str)
+
+        self.data[targetDataset] = self.data[datasetToBeFiltered].loc[
+            (np.logical_not(
+                self.data[datasetToBeFiltered][columnToBeFiltered].isin(
+                    self.data[datasetToFilterBy][columnToFilterBy]))),
+            origCols].copy()
+
+        report = ''
+
+        self.stepEnd(
+            report=report,
+            datasetName=targetDataset,
+            df=self.data[targetDataset],
+            shapeOnly=False)
 
     def templateStep(self, dataset, desc):
 
