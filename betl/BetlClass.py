@@ -1,10 +1,10 @@
-from . import dataflow
-from . import logger
-from . conf import Conf
+from .dataflow import DataFlow
+from .logger import logger
+from .conf import Conf
 from . import betlConfig
-from . import cli
-from . import reporting
-from . scheduler import Scheduler
+from .conf import processArgs
+from .reporting import reporting
+from .scheduler import Scheduler
 
 
 #
@@ -38,7 +38,7 @@ class Betl():
 
         self.CONF = Conf(
             appConfigFile=appConfigFile,
-            runTimeParams=cli.processArgs(runTimeParams),
+            runTimeParams=processArgs(runTimeParams),
             scheduleConfig=scheduleConfig)
 
         logger.initialiseLogging(self.CONF)
@@ -123,12 +123,4 @@ class Betl():
             logger.logExecutionFinish()
 
     def DataFlow(self, desc):
-        return dataflow.DataFlow(self.CONF, desc)
-
-
-def help():
-    print(cli.HELP)
-
-
-def setup():
-    cli.runSetup()
+        return DataFlow(self.CONF, desc)

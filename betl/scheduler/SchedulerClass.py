@@ -1,12 +1,13 @@
 import traceback
-from . import logger
-from . import alerts
-from . import df_extract
-from . import df_transform
-from . import df_load
-from . import df_summarise
-from . import df_dmDate
-from . import df_dmAudit
+from betl.logger import logger
+from betl.logger import alerts
+
+from betl.defaultdataflows import stageExtract
+from betl.defaultdataflows import stageTransform
+from betl.defaultdataflows import stageLoad
+from betl.defaultdataflows import stageSummarise
+from betl.defaultdataflows import dmDate
+from betl.defaultdataflows import dmAudit
 
 
 class Scheduler():
@@ -37,7 +38,7 @@ class Scheduler():
         if self.conf.EXE.RUN_EXTRACT:
             if self.conf.SCHEDULE.DEFAULT_EXTRACT:
                 self.addFunctionToList(
-                    function=df_extract.defaultExtract,
+                    function=stageExtract.defaultExtract,
                     stage='EXTRACT')
 
                 self.srcTablesToExcludeFromExtract = \
@@ -57,24 +58,24 @@ class Scheduler():
 
             if self.conf.SCHEDULE.DEFAULT_DM_DATE:
                 self.addFunctionToList(
-                    function=df_dmDate.transformDMDate,
+                    function=dmDate.transformDMDate,
                     stage='TRANSFORM')
 
             if self.conf.SCHEDULE.DEFAULT_DM_AUDIT:
                 self.addFunctionToList(
-                    function=df_dmAudit.transformDMAudit,
+                    function=dmAudit.transformDMAudit,
                     stage='TRANSFORM')
 
             if self.conf.SCHEDULE.DEFAULT_TRANSFORM:
                 self.addFunctionToList(
-                    function=df_transform.defaultTransform,
+                    function=stageTransform.defaultTransform,
                     stage='TRANSFORM')
 
         if self.conf.EXE.RUN_LOAD:
 
             if self.conf.SCHEDULE.DEFAULT_LOAD:
                 self.addFunctionToList(
-                    function=df_load.defaultLoad,
+                    function=stageLoad.defaultLoad,
                     stage='LOAD')
 
             for function in self.conf.SCHEDULE.LOAD_DATAFLOWS:
@@ -86,7 +87,7 @@ class Scheduler():
 
             if self.conf.SCHEDULE.DEFAULT_SUMMARISE:
                 self.addFunctionToList(
-                    function=df_summarise.defaultSummarisePrep,
+                    function=stageSummarise.defaultSummarisePrep,
                     stage='SUMMARISE')
 
             for function in self.conf.SCHEDULE.SUMMARISE_DATAFLOWS:
@@ -96,7 +97,7 @@ class Scheduler():
 
             if self.conf.SCHEDULE.DEFAULT_SUMMARISE:
                 self.addFunctionToList(
-                    function=df_summarise.defaultSummariseFinish,
+                    function=stageSummarise.defaultSummariseFinish,
                     stage='SUMMARISE')
 
     def addFunctionToList(self, function, stage):

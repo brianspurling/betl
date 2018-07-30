@@ -2,39 +2,6 @@ import pandas as pd
 import os
 
 
-def writeDataToCsv(conf, df, path, filename, headers, mode):
-
-    _filename = ''
-
-    if filename in conf.STATE.FILE_NAME_MAP:
-        _filename = conf.STATE.FILE_NAME_MAP[filename]
-    else:
-        prefix = \
-            str(conf.STATE.nextFilePrefix).zfill(conf.STATE.filePrefixLength)
-        _filename = prefix + "-" + filename
-        conf.STATE.nextFilePrefix += 1
-        conf.STATE.FILE_NAME_MAP[filename] = _filename
-
-    _file = open(path + _filename, mode)
-
-    # If we're appending, we never put the column headers in
-    colHeaders = headers
-    if mode == 'a':
-        colHeaders = None
-
-    df.to_csv(_file, header=colHeaders, index=False)
-
-
-def truncateFile(conf, path, filename):
-
-    _filename = ''
-    if filename in conf.STATE.FILE_NAME_MAP:
-        _filename = conf.STATE.FILE_NAME_MAP[filename]
-        if os.path.exists(path + _filename):
-            _file = open(path + _filename, 'w')
-            _file.close()
-
-
 def readDataFromCsv(fileNameMap,
                     path,
                     filename,
@@ -75,3 +42,36 @@ def readDataFromCsv(fileNameMap,
                        dtype=dtype,
                        na_filter=False,
                        nrows=nrows)
+
+
+def writeDataToCsv(conf, df, path, filename, headers, mode):
+
+    _filename = ''
+
+    if filename in conf.STATE.FILE_NAME_MAP:
+        _filename = conf.STATE.FILE_NAME_MAP[filename]
+    else:
+        prefix = \
+            str(conf.STATE.nextFilePrefix).zfill(conf.STATE.filePrefixLength)
+        _filename = prefix + "-" + filename
+        conf.STATE.nextFilePrefix += 1
+        conf.STATE.FILE_NAME_MAP[filename] = _filename
+
+    _file = open(path + _filename, mode)
+
+    # If we're appending, we never put the column headers in
+    colHeaders = headers
+    if mode == 'a':
+        colHeaders = None
+
+    df.to_csv(_file, header=colHeaders, index=False)
+
+
+def truncateFile(conf, path, filename):
+
+    _filename = ''
+    if filename in conf.STATE.FILE_NAME_MAP:
+        _filename = conf.STATE.FILE_NAME_MAP[filename]
+        if os.path.exists(path + _filename):
+            _file = open(path + _filename, 'w')
+            _file.close()

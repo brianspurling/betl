@@ -1,4 +1,4 @@
-from .datastore import PostgresDatastore
+from betl.io import PostgresDatastore
 
 
 class CtrlDB():

@@ -19,6 +19,7 @@ PREVIOUS_MEM_USAGE = None
 EXE_START_TIME = None
 
 MEMORY_USAGE_LOOP = 'STOP'
+MEM_USAGE_AT_START = None
 
 
 def initialiseLogging(conf):
@@ -448,7 +449,8 @@ def logRefreshingSchemaDescsFromGsheets(dbCount):
 
 def logLoadingDBSchemaDescsFromGsheets(dbID):
     op = ''
-    op += '    - Extracting schema descriptions for the ' + dbID + ' database...'
+    op += '    - Extracting schema descriptions for the ' + dbID
+    op += ' database...'
     JOB_LOG.info(op)
 
 

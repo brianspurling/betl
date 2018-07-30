@@ -1,4 +1,4 @@
-from . import logger
+from betl.logger import logger
 
 JOB_LOG = logger.getLogger()
 

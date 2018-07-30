@@ -1,11 +1,11 @@
-from . import logger
-from . import alerts
-from .dataModel import DataModel
-from .dataModel import SrcDataModel
-from .dataModel import EmptyDataModel
-from .table import TrgTable
-from . import df_dmDate
-from . import df_dmAudit
+from betl.logger import logger
+from betl.logger import alerts
+from .DatasetClass import Dataset
+from .DatasetClass import SrcDataset
+from .DatasetClass import EmptyDataset
+from .TableClass import TrgTable
+from betl.defaultdataflows import dmDate
+from betl.defaultdataflows import dmAudit
 
 import ast
 
@@ -100,7 +100,7 @@ class SrcDataLayer(DataLayer):
 
             alert = 'Did not find a schema description for datalayer SRC'
             alerts.logAlert(self.conf, alert)
-            self.dataModels['SRC'] = EmptyDataModel()
+            self.dataModels['SRC'] = EmptyDataset()
 
         else:
 
@@ -119,7 +119,7 @@ class SrcDataLayer(DataLayer):
                     mappedTableName = tableNameMap[dmId]
 
                 # Each dataModel in the SRC dataLayer is a source system
-                self.dataModels[dmId] = SrcDataModel(
+                self.dataModels[dmId] = SrcDataset(
                         dataConf=conf.DATA,
                         dmSchemaDesc=dlSchemaDesc['dataModelSchemas'][dmId],
                         tableNameMap=mappedTableName,
@@ -152,7 +152,7 @@ class StgDataLayer(DataLayer):
 
             alert = 'Did not find a schema description for datalayer STG'
             alerts.logAlert(self.conf, alert)
-            self.dataModels['STG'] = EmptyDataModel()
+            self.dataModels['STG'] = EmptyDataset()
 
         else:
 
@@ -163,7 +163,7 @@ class StgDataLayer(DataLayer):
                 # Each dataModel in the STG dataLayer is an optionally-defined
                 # schema through which the ETL transformations move the data
 
-                self.dataModels[dmId] = DataModel(
+                self.dataModels[dmId] = Dataset(
                     dataConf=self.conf.DATA,
                     dmSchemaDesc=dlSchemaDesc['dataModelSchemas'][dmId],
                     datastore=self.datastore,
@@ -196,10 +196,10 @@ class TrgDataLayer(DataLayer):
             alert = 'Did not find a schema description for datalayer TRG'
             alerts.logAlert(self.conf, alert)
 
-            # Unlike the other datalayers, we don't create an empty DataModel
+            # Unlike the other datalayers, we don't create an empty Dataset
             # because we must have, at least, a TRG datamodel
 
-            self.dataModels['TRG'] = DataModel(
+            self.dataModels['TRG'] = Dataset(
                 dataConf=self.conf.DATA,
                 dmSchemaDesc=None,
                 datastore=self.datastore,
@@ -214,7 +214,7 @@ class TrgDataLayer(DataLayer):
                 # There's usually only one dataModels in the TRG dataLayer: TRG
                 # TODO: confirm, can you have custom TRG dataModels?
 
-                self.dataModels[dmId] = DataModel(
+                self.dataModels[dmId] = Dataset(
                     dataConf=self.conf.DATA,
                     dmSchemaDesc=dlSchemaDesc['dataModelSchemas'][dmId],
                     datastore=self.datastore,
@@ -225,7 +225,7 @@ class TrgDataLayer(DataLayer):
         if conf.SCHEDULE.DEFAULT_DM_DATE:
             self.dataModels['TRG'].tables['dm_date'] = \
                 TrgTable(self.conf.DATA,
-                         df_dmDate.getSchemaDescription(),
+                         dmDate.getSchemaDescription(),
                          self.datastore,
                          dataLayerID='TRG',
                          dataModelID='TRG')
@@ -233,7 +233,7 @@ class TrgDataLayer(DataLayer):
         if conf.SCHEDULE.DEFAULT_DM_AUDIT:
             self.dataModels['TRG'].tables['dm_audit'] = \
                 TrgTable(self.conf.DATA,
-                         df_dmAudit.getSchemaDescription(),
+                         dmAudit.getSchemaDescription(),
                          self.datastore,
                          dataLayerID='TRG',
                          dataModelID='TRG')
@@ -264,7 +264,7 @@ class SumDataLayer(DataLayer):
 
             alert = 'Did not find a schema description for datalayer SUM'
             alerts.logAlert(self.conf, alert)
-            self.dataModels['SUM'] = EmptyDataModel()
+            self.dataModels['SUM'] = EmptyDataset()
 
         else:
 
@@ -275,7 +275,7 @@ class SumDataLayer(DataLayer):
                 # There's usually only one dataModels in the SUM dataLayer: SUM
                 # TODO: confirm, can you have custom SUM dataModels?
 
-                self.dataModels[dmId] = DataModel(
+                self.dataModels[dmId] = Dataset(
                     dataConf=self.conf.DATA,
                     dmSchemaDesc=dlSchemaDesc['dataModelSchemas'][dmId],
                     datastore=self.datastore,

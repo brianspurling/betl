@@ -1,5 +1,5 @@
-from .table import Table
-from .table import TrgTable
+from .TableClass import Table
+from .TableClass import TrgTable
 
 #
 # A data model is a collection of tables, and it sits below dataLayer in the
@@ -11,7 +11,7 @@ from .table import TrgTable
 #
 
 
-class DataModel():
+class Dataset():
 
     def __init__(self,
                  dataConf,
@@ -99,7 +99,7 @@ class DataModel():
         return string
 
 
-class SrcDataModel(DataModel):
+class SrcDataset(Dataset):
 
     def __init__(self,
                  dataConf,
@@ -108,7 +108,7 @@ class SrcDataModel(DataModel):
                  datastore,
                  dataLayerID):
 
-        DataModel.__init__(
+        Dataset.__init__(
             self,
             dataConf,
             dmSchemaDesc,
@@ -119,7 +119,7 @@ class SrcDataModel(DataModel):
         self.dataConf = dataConf
 
 
-class EmptyDataModel():
+class EmptyDataset():
 
     def __init__(self):
 

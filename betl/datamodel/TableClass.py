@@ -1,5 +1,5 @@
-from .column import Column
-from . import df_load
+from .ColumnClass import Column
+from betl.defaultdataflows import stageLoad
 
 
 class Table():
@@ -123,7 +123,12 @@ class Table():
 # TRG tables are any table in the TRG database, i.e. datalayers TRG & SUM
 class TrgTable(Table):
 
-    def __init__(self, dataConf, tableSchema, datastore, dataLayerID, dataModelID):
+    def __init__(self,
+                 dataConf,
+                 tableSchema,
+                 datastore,
+                 dataLayerID,
+                 dataModelID):
 
         Table.__init__(self, dataConf, tableSchema,
                        datastore, dataLayerID, dataModelID)
@@ -156,4 +161,4 @@ class TrgTable(Table):
 
     def loadTableToTrgModel(self):
 
-        df_load.loadTable(self)
+        stageLoad.loadTable(self)

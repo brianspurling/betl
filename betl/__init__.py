@@ -1,3 +1,3 @@
-from .betl import help
-from .betl import setup
-from .betl import Betl
+from .logger import help
+from .setup import setup
+from .BetlClass import Betl

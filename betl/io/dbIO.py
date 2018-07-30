@@ -1,8 +1,18 @@
 import pandas as pd
 import numpy as np
-from . import logger as logger
+from betl.logger import logger
 import psycopg2
 from sqlalchemy.types import Text
+
+
+def readDataFromDB(tableName, conn, cols='*', limitdata=None):
+
+    if limitdata is not None:
+        limitText = ' LIMIT ' + str(limitdata)
+    else:
+        limitText = ''
+    return pd.read_sql('SELECT ' + cols + ' FROM ' +
+                       tableName + limitText, con=conn)
 
 
 def writeDataToDB(df, tableName, eng, if_exists,
@@ -22,14 +32,11 @@ def writeDataToDB(df, tableName, eng, if_exists,
     # doing that... :s
 
 
-def readDataFromDB(tableName, conn, cols='*', limitdata=None):
-
-    if limitdata is not None:
-        limitText = ' LIMIT ' + str(limitdata)
-    else:
-        limitText = ''
-    return pd.read_sql('SELECT ' + cols + ' FROM ' +
-                       tableName + limitText, con=conn)
+def truncateTable(tableName, datastore):
+    truncateStatement = 'TRUNCATE ' + tableName + ' RESTART IDENTITY'
+    trgDbCursor = datastore.cursor()
+    trgDbCursor.execute(truncateStatement)
+    datastore.commit()
 
 
 def customSQL(sql, datastore):
@@ -49,10 +56,3 @@ def customSQL(sql, datastore):
         # TODO: can't remember putting this in, but doesn't seem right!
 
     return df
-
-
-def truncateTable(tableName, datastore):
-    truncateStatement = 'TRUNCATE ' + tableName + ' RESTART IDENTITY'
-    trgDbCursor = datastore.cursor()
-    trgDbCursor.execute(truncateStatement)
-    datastore.commit()

@@ -1,5 +1,5 @@
-from . import dbIO
-from . import logger
+from betl.io import dbIO
+from betl.logger import logger
 import plotly.graph_objs as go
 import plotly.offline as py
 
