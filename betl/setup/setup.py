@@ -1,7 +1,7 @@
 from .SetupClass import Setup
 
 
-def setup():
+def setupWithUserInput():
 
     print('\nBefore setting up BETL you will need a Google API Key file \n' +
           'in your current directory. Get your file from Google API ' +
@@ -9,11 +9,11 @@ def setup():
           'for the default postgres database.' +
           '\n\nTo select default values, press enter.')
 
-    tasks = getTasks(Setup())
+    tasks = getQuestionsForUserInput(Setup())
 
     for task in tasks:
         response = input('\n' + task['QU'] + ' ')
-        task['FUNC'](response)
+        task['FUNC'](response, task['DEFAULT'])
 
     print("\nWe've done as much as we can. Now you need to: \n" +
           "  - replace the example source systems in appConfig.ini with " +
@@ -31,7 +31,7 @@ def setup():
           "your data pipeline\n\n")
 
 
-def getTasks(setup):
+def getQuestionsForUserInput(setup):
 
     # A series of questions and resulting functions to call.
     # Order matters.
