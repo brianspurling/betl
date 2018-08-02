@@ -5,6 +5,9 @@ def renameColumns(self, dataset, columns, desc):
 
     self.stepStart(desc=desc)
 
+    if isinstance(columns, str):
+        columns = [columns]
+
     self.data[dataset].rename(index=str,
                               columns=columns,
                               inplace=True)
@@ -56,6 +59,9 @@ def dropColumns(self,
 def addColumns(self, dataset, columns, desc):
 
     self.stepStart(desc=desc)
+
+    if isinstance(columns, str):
+        columns = [columns]
 
     # columns is a dictionary of columnName:value pairs
     # The value can be a hard-coded value or a series. Both will work
