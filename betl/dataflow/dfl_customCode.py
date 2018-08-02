@@ -26,7 +26,43 @@ def customSQL(self, sql, desc, dataLayer, dataset=None):
             datasetName=dataset)
 
 
-def iterate(self, dataset, function, desc):
+def applyFunctionToColumns(self,
+                           dataset,
+                           function,
+                           columns,
+                           desc,
+                           targetColumns=None):
+
+    self.stepStart(desc=desc)
+
+    if isinstance(columns, str):
+        columns = [columns]
+
+    if isinstance(targetColumns, str):
+        targetColumns = [targetColumns]
+
+    cnt = 0
+    cleanedColName = ''
+    for column in columns:
+        if targetColumns is None:
+            cleanedColName = column
+        else:
+            cleanedColName = targetColumns[cnt]
+        cnt += 1
+
+        self.data[dataset][cleanedColName] = \
+            function(self.data[dataset][column])
+
+    self.stepEnd(
+        report='',
+        datasetName=dataset,
+        df=self.data[dataset])
+
+
+def applyFunctionToRows(self,
+                        dataset,
+                        function,
+                        desc):
 
     self.stepStart(desc=desc)
 
@@ -36,30 +72,3 @@ def iterate(self, dataset, function, desc):
     report = ''
 
     self.stepEnd(report=report)
-
-
-def cleanColumn(self,
-                dataset,
-                cleaningFunc,
-                columns,
-                desc,
-                cleanedColumns=None):
-
-    self.stepStart(desc=desc)
-
-    cnt = 0
-    cleanedColName = ''
-    for column in columns:
-        if cleanedColumns is None:
-            cleanedColName = column
-        else:
-            cleanedColName = cleanedColumns[cnt]
-        cnt += 1
-
-        self.data[dataset][cleanedColName] = \
-            cleaningFunc(self.data[dataset][column])
-
-    self.stepEnd(
-        report='',
-        datasetName=dataset,
-        df=self.data[dataset])

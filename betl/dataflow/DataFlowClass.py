@@ -26,8 +26,8 @@ class DataFlow():
                                    pivotColsToRows)
 
     from .dfl_customCode import (customSQL,
-                                 iterate,
-                                 cleanColumn)
+                                 applyFunctionToColumns,
+                                 applyFunctionToRows)
 
     from .dfl_io import (read,
                          write,
