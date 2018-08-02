@@ -28,6 +28,8 @@ def processArgs(args):
 
         'RUN_REBUILDS': {},
 
+        'REFRESH_SCHEMA': False,
+
         'RUN_EXTRACT': True,
         'RUN_TRANSFORM': True,
         'RUN_LOAD': True,
@@ -81,6 +83,8 @@ def processArgs(args):
             params['RUN_REBUILDS']['TRG'] = True
         elif arg == 'rebuildsum':
             params['RUN_REBUILDS']['SUM'] = True
+        elif arg == 'refreshschema':
+            params['REFRESH_SCHEMA'] = True
         elif arg == 'noextract':
             params['RUN_EXTRACT'] = False
         elif arg == 'notransform':

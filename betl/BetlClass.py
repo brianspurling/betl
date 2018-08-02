@@ -82,10 +82,12 @@ class Betl():
 
             logger.logExecutionStart(self.CONF)
 
-            # We need to refresh the schema descriptions first, unless we
+            # If we need to refresh the schema descriptions, we pull them
+            # from Gsheets and update our quick-access txt files. Unless we
             # did a physical schema rebuild, in which case we've done this
             # already
-            if len(self.CONF.EXE.RUN_REBUILDS) == 0:
+            if self.CONF.EXE.REFRESH_SCHEMA \
+               and len(self.CONF.EXE.RUN_REBUILDS) == 0:
                 self.CONF.DATA.refreshSchemaDescsFromGsheets()
 
             # This is the main execution of the data pipeline

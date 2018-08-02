@@ -62,7 +62,10 @@ HELP = ("\n" +
         "\n" +
         "> [rebuildall | rebuildsrc | rebuildstg | rebuildtrg | " +
         "rebuildSum]\n" +
-        "  Reconstruct the physical data models - all data will be lost\n" +
+        "  Reconstruct the physical schema - all data will be lost\n" +
+        "\n" +
+        "> [refreshschema]\n" +
+        "  Refresh the schema descriptions from Google Sheets\n" +
         "\n" +
         "> [bulk | delta]\n" +
         "  Specify whether we're running a bulk or delta\n" +

@@ -19,6 +19,8 @@ class Exe():
 
         self.RUN_REBUILDS = params['RUN_REBUILDS']
 
+        self.REFRESH_SCHEMA = params['REFRESH_SCHEMA']
+
         self.RUN_EXTRACT = params['RUN_EXTRACT']
         self.RUN_TRANSFORM = params['RUN_TRANSFORM']
         self.RUN_LOAD = params['RUN_LOAD']
