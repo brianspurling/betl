@@ -22,7 +22,7 @@ def createGitignoreFile(self, response):
         op += self.TMP_DATA_PATH + '/' + '\n'
         op += self.REPORTS_PATH + '/' + '\n'
         op += self.LOG_PATH + '/' + '\n'
-        op += 'schemas/' + '\n'
+        op += 'schema/' + '\n'
         op += self.GOOGLE_API_KEY_FILENAME + '\n'
         op += '\n'
         op += '# Jupyter Notebooks' + '\n'
