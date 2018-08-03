@@ -27,7 +27,7 @@ class CtrlDB():
             "status_message text, " +
             "bulk_or_delta text NOT NULL, " +
             "limited_data boolean, " +
-            "log_file text)")
+            "log_file text);")
 
         self.datastore.commit()
 
@@ -46,7 +46,7 @@ class CtrlDB():
             "start_datetime timestamp without time zone, " +
             "end_datetime timestamp without time zone, " +
             "log text, " +
-            "UNIQUE(exec_id, function_name))")
+            "UNIQUE(exec_id, function_name));")
 
         self.datastore.commit()
 
@@ -66,7 +66,7 @@ class CtrlDB():
             "start_datetime timestamp without time zone, " +
             "end_datetime timestamp without time zone, " +
             "log text, " +
-            "UNIQUE(exec_id, description))")  # Controversial!
+            "UNIQUE(exec_id, description));")  # Controversial!
         # TODO: at the very least, handle duplicate dfl descs gracefully.
         # I do actually need this (or its equiv) because we need to be able
         # to find all identical dataflows across all execs
@@ -89,7 +89,7 @@ class CtrlDB():
             "start_datetime timestamp without time zone, " +
             "end_datetime timestamp without time zone, " +
             "log text, " +
-            "UNIQUE(exec_id, dataflow_id, description))")
+            "UNIQUE(exec_id, dataflow_id, description));")
         # TODO: at the very least, handle duplicate steps descs gracefully.
 
         self.datastore.commit()
@@ -120,7 +120,7 @@ class CtrlDB():
             "'PENDING', " +
             "NULL, " +
             "'" + bulkOrDelta + "', " +
-            limitedData + ")")
+            limitedData + ");")
 
         self.datastore.commit()
 
@@ -151,7 +151,7 @@ class CtrlDB():
                    "'PENDING', " +
                    "NULL, " +
                    "NULL, " +
-                   "NULL)")
+                   "NULL);")
             ctlDBCursor.execute(sql)
 
         self.datastore.commit()
@@ -177,7 +177,7 @@ class CtrlDB():
             "'STARTED', " +
             "current_timestamp, " +
             "NULL, " +
-            "NULL)")
+            "NULL);")
 
         self.datastore.commit()
 
@@ -211,7 +211,7 @@ class CtrlDB():
             "'STARTED', " +
             "current_timestamp, " +
             "NULL, " +
-            "NULL)")
+            "NULL);")
 
         self.datastore.commit()
 
@@ -232,7 +232,7 @@ class CtrlDB():
                "status = '" + status + "', " +
                "log_file = '" + 'placeholder' + "', " +  # TODO!
                "status_message = '" + statusMessage + "' " +
-               "WHERE exec_id = " + str(execId))
+               "WHERE exec_id = " + str(execId) + ";")
 
         ctlDBCursor = self.datastore.cursor()
         ctlDBCursor.execute(sql)
@@ -258,7 +258,7 @@ class CtrlDB():
         sql += "status = '" + status + "'"
 
         sql += "WHERE exec_id = " + str(execId) + " "
-        sql += "  AND function_name = '" + functionName + "' "
+        sql += "  AND function_name = '" + functionName + "'; "
 
         ctlDBCursor = self.datastore.cursor()
         ctlDBCursor.execute(sql)
@@ -283,7 +283,7 @@ class CtrlDB():
 
         sql += "status = '" + status + "'"
 
-        sql += "WHERE dataflow_id = " + str(dataflowId) + " "
+        sql += "WHERE dataflow_id = " + str(dataflowId) + "; "
 
         ctlDBCursor = self.datastore.cursor()
         ctlDBCursor.execute(sql)
@@ -308,7 +308,7 @@ class CtrlDB():
 
         sql += "status = '" + status + "'"
 
-        sql += "WHERE step_id = " + str(stepId) + " "
+        sql += "WHERE step_id = " + str(stepId) + "; "
 
         ctlDBCursor = self.datastore.cursor()
         ctlDBCursor.execute(sql)
@@ -322,22 +322,22 @@ class CtrlDB():
                             "SET status = 'FAILED' " +
                             "WHERE exec_id IN ( " +
                             "   SELECT max(exec_id) " +
-                            "   FROM executions)")
+                            "   FROM executions);")
         ctlDBCursor.execute("UPDATE functions " +
                             "SET status = 'FAILED' " +
                             "WHERE exec_id IN ( " +
                             "   SELECT max(exec_id) " +
-                            "   FROM executions)")
+                            "   FROM executions);")
         ctlDBCursor.execute("UPDATE dataflows " +
                             "SET status = 'FAILED' " +
                             "WHERE exec_id IN ( " +
                             "   SELECT max(exec_id) " +
-                            "   FROM executions)")
+                            "   FROM executions);")
         ctlDBCursor.execute("UPDATE steps " +
                             "SET status = 'FAILED' " +
                             "WHERE exec_id IN ( " +
                             "   SELECT max(exec_id) " +
-                            "   FROM executions)")
+                            "   FROM executions);")
 
     def getLastExecution(self):
 
@@ -345,7 +345,7 @@ class CtrlDB():
 
         ctlDBCursor.execute("SELECT exec_id, status FROM executions " +
                             "WHERE exec_id = (SELECT MAX(exec_id) " +
-                            "FROM executions)")
+                            "FROM executions);")
 
         return ctlDBCursor.fetchall()
 
@@ -364,7 +364,7 @@ class CtrlDB():
             "       log " +
             "FROM   functions " +
             "WHERE  exec_id = " + str(execId) + " " +
-            "ORDER BY sequence ASC")
+            "ORDER BY sequence ASC;")
         return ctlDBCursor.fetchall()
 
     def dropAllCtlTables(self, ):
@@ -373,13 +373,13 @@ class CtrlDB():
 
         ctlDBCursor.execute("SELECT * " +
                             "FROM   information_schema.tables t " +
-                            "WHERE  t.table_schema = 'public'")
+                            "WHERE  t.table_schema = 'public';")
 
         controlTables = ctlDBCursor.fetchall()
 
         counter = 0
         for controlTable in controlTables:
             counter += 1
-            ctlDBCursor.execute("DROP TABLE " + controlTable[2] + " CASCADE")
+            ctlDBCursor.execute("DROP TABLE " + controlTable[2] + " CASCADE;")
 
         self.datastore.commit()
