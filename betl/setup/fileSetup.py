@@ -11,8 +11,8 @@ def createDirectories(self, response):
             os.makedirs(self.LOG_PATH)
         if not os.path.exists(self.SRC_DATA_PATH):
             os.makedirs(self.SRC_DATA_PATH)
-        if not os.path.exists(self.SCHEMAS_PATH):
-            os.makedirs(self.SCHEMAS_PATH)
+        if not os.path.exists(self.SCHEMA_PATH):
+            os.makedirs(self.SCHEMA_PATH)
 
 
 def createGitignoreFile(self, response):
@@ -54,6 +54,7 @@ def createAppConfigFile(self, response):
         op += "  TMP_DATA_PATH = " + self.TMP_DATA_PATH + " \n"
         op += "  REPORTS_PATH = " + self.REPORTS_PATH + " \n"
         op += "  LOG_PATH = " + self.LOG_PATH + " \n"
+        op += "  SCHEMA_PATH = " + self.SCHEMA_PATH + " \n"
         op += "\n"
         op += "  [[ctl_db]] \n"
         op += " \n"
@@ -120,7 +121,7 @@ def createAppConfigFile(self, response):
         op += "      FILENAME =  \n"
         op += "      FILE_EXT = .xlsx \n"
 
-        with open('appConfig.ini', 'w+') as f:
+        with open(self.APP_ROOT_PATH + '/' + 'appConfig.ini', 'w+') as f:
             f.write(op)
 
 

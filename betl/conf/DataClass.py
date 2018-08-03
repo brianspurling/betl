@@ -190,7 +190,7 @@ class Data():
 
         logger.logCheckLastModTimeOfSchemaDescGSheet()
         # Get the last modified dates of the versions saved to csv
-        modTimesFile = open('schemas/lastModifiedTimes.txt', 'r+')
+        modTimesFile = open(self.CONF.CTRL.SCHEMA_PATH + '/lastModifiedTimes.txt', 'r+')
         fileContent = modTimesFile.read()
         if fileContent == '':
             lastModifiedTimes = {}
@@ -219,7 +219,7 @@ class Data():
             logger.logRefreshingSchemaDescsFromGsheets_done()
 
         if len(lastModTimesChanged) > 0:
-            modTimesFile = open('schemas/lastModifiedTimes.txt', 'w')
+            modTimesFile = open(self.CONF.CTRL.SCHEMA_PATH + '/lastModifiedTimes.txt', 'w')
             modTimesFile.write(json.dumps(lastModifiedTimes))
 
     def refreshSchemaDescCSVs(self, datastore, dbID):
@@ -298,7 +298,7 @@ class Data():
             # Finally, add the tableSchema to our data dataModel schema desc
             dmSchemaDesc['tableSchemas'][tableName] = tableSchema
 
-        with open('schemas/dbSchemaDesc_' + dbID + '.txt', 'w') as file:
+        with open(self.CONF.CTRL.SCHEMA_PATH + '/dbSchemaDesc_' + dbID + '.txt', 'w') as file:
             file.write(json.dumps(dbSchemaDesc))
 
     # TODO: this is a HORRIBLE mess of code and needs heavy refactoring!
@@ -559,7 +559,7 @@ class Data():
 
                     ws.update_cells(cell_list)
 
-        with open('schemas/tableNameMapping.txt', 'w+') as file:
+        with open(self.CONF.CTRL.SCHEMA_PATH + '/tableNameMapping.txt', 'w+') as file:
             file.write(json.dumps(srcTableMap))
 
         logger.logAutoPopSchemaDescsFromSrcFinish()

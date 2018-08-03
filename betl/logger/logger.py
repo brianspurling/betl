@@ -39,7 +39,7 @@ def initialiseLogging(conf):
     if logLevel is not None:
         LOG_LEVEL = logLevel
 
-    JOB_LOG_FILE_NAME = 'logs/' + str(EXEC_ID).zfill(4) + '_jobLog.log'
+    JOB_LOG_FILE_NAME = conf.CTRL.LOG_PATH + '/' + str(EXEC_ID).zfill(4) + '_jobLog.log'
 
     JOB_LOG = logging.getLogger('JOB_LOG')
     jobLogFileName = JOB_LOG_FILE_NAME

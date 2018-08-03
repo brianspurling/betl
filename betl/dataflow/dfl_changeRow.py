@@ -6,7 +6,7 @@ import numpy as np
 def truncate(self, dataset, dataLayerID, desc, forceDBWrite=False):
     self.stepStart(desc=desc)
 
-    path = (self.conf.CTRL.TMP_DATA_PATH + dataLayerID + '/')
+    path = (self.conf.CTRL.TMP_DATA_PATH + '/' + dataLayerID + '/')
     filename = dataset + '.csv'
 
     fileIO.truncateFile(self.conf, path, filename)

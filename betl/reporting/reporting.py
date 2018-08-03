@@ -101,8 +101,8 @@ def generateExeSummary(conf, execId, bulkOrDelta, limitedData):
                     text=df['tooltips'],
                     hoverinfo='text')]
 
-            df.to_csv(conf.CTRL.REPORTS_PATH + 'exeSummary.csv')
+            df.to_csv(conf.CTRL.REPORTS_PATH + '/exeSummary.csv')
             url = py.plot(
                 data,
-                filename=conf.CTRL.REPORTS_PATH + 'exeSummary.html')
+                filename=conf.CTRL.REPORTS_PATH + '/exeSummary.html')
             logger.logSomeVariancesReported(varianceLimit, url)

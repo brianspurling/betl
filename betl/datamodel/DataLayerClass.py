@@ -143,7 +143,7 @@ class StgDataLayer(DataLayer):
 
         self.datastore = conf.DATA.getDWHDatastore('ETL')
 
-        schemaFile = open('schemas/dbSchemaDesc_ETL.txt', 'r')
+        schemaFile = open(conf.CTRL.SCHEMA_PATH + '/dbSchemaDesc_ETL.txt', 'r')
         self.dbSchemaDesc = ast.literal_eval(schemaFile.read())
 
         self.dataModels = {}

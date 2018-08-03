@@ -26,7 +26,7 @@ def read(self,
         raise ValueError('There is already a dataset named ' +
                          _targetDataset + ' in this dataflow')
 
-    path = (self.conf.CTRL.TMP_DATA_PATH + dataLayer + '/')
+    path = (self.conf.CTRL.TMP_DATA_PATH + '/' + dataLayer + '/')
     filename = tableName + '.csv'
 
     self.data[_targetDataset] = pd.DataFrame()
@@ -179,7 +179,7 @@ def write(self,
             axis=1,
             inplace=True)
 
-    path = (self.conf.CTRL.TMP_DATA_PATH + dataLayerID + '/')
+    path = (self.conf.CTRL.TMP_DATA_PATH + '/' + dataLayerID + '/')
     if not os.path.exists(path):
         os.makedirs(path)
 

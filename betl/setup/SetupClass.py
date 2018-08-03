@@ -26,7 +26,6 @@ class Setup():
         self.GOOGLE_API_SCOPE = [
             'https://spreadsheets.google.com/feeds',
             'https://www.googleapis.com/auth/drive']
-        self.SCHEMAS_PATH = 'schemas'
 
     def setDwhId(self, dwhId):
         if dwhId == '':
@@ -66,29 +65,46 @@ class Setup():
         else:
             self.ADMIN_POSTGRES_PASSWORD = adminPostgresPassword
 
-    def setTmpDataPath(self, tmpDataPath):
-        if tmpDataPath == '':
-            self.TMP_DATA_PATH = 'tmp_data'
+    def setAppRootPath(self, appRootPath):
+        if appRootPath == '':
+            self.APP_ROOT_PATH = '.'
         else:
-            self.TMP_DATA_PATH = tmpDataPath
+            self.APP_ROOT_PATH = appRootPath
+
+    def setTmpDataPath(self, tmpDataPath):
+        self.TMP_DATA_PATH = self.APP_ROOT_PATH + '/'
+        if tmpDataPath == '':
+            self.TMP_DATA_PATH += 'tmp_data'
+        else:
+            self.TMP_DATA_PATH += tmpDataPath
 
     def setSrcDataPath(self, srcDataPath):
+        self.SRC_DATA_PATH = self.APP_ROOT_PATH + '/'
         if srcDataPath == '':
-            self.SRC_DATA_PATH = 'src_data'
+            self.SRC_DATA_PATH += 'src_data'
         else:
-            self.SRC_DATA_PATH = srcDataPath
+            self.SRC_DATA_PATH += srcDataPath
 
     def setReportsPath(self, reportsPath):
+        self.REPORTS_PATH = self.APP_ROOT_PATH + '/'
         if reportsPath == '':
-            self.REPORTS_PATH = 'reports'
+            self.REPORTS_PATH += 'reports'
         else:
-            self.REPORTS_PATH = reportsPath
+            self.REPORTS_PATH += reportsPath
 
     def setLogsPath(self, logsPath):
+        self.LOG_PATH = self.APP_ROOT_PATH + '/'
         if logsPath == '':
-            self.LOG_PATH = 'logs'
+            self.LOG_PATH += 'logs'
         else:
-            self.LOG_PATH = logsPath
+            self.LOG_PATH += logsPath
+
+    def setSchemaPath(self, schemaPath):
+        self.SCHEMA_PATH = self.APP_ROOT_PATH + '/'
+        if schemaPath == '':
+            self.SCHEMA_PATH += 'schema'
+        else:
+            self.SCHEMA_PATH += schemaPath
 
     def setCtlDBHostName(self, ctlDBHostName):
         if ctlDBHostName == '':

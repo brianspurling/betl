@@ -19,9 +19,10 @@ class Ctrl():
         self.config = config
 
         self.DWH_ID = self.config['DWH_ID']
-        self.TMP_DATA_PATH = self.config['TMP_DATA_PATH'] + '/'
-        self.REPORTS_PATH = self.config['REPORTS_PATH'] + '/'
-        self.LOG_PATH = self.config['LOG_PATH'] + '/'
+        self.TMP_DATA_PATH = self.config['TMP_DATA_PATH']
+        self.REPORTS_PATH = self.config['REPORTS_PATH']
+        self.LOG_PATH = self.config['LOG_PATH']
+        self.SCHEMA_PATH = self.config['SCHEMA_PATH']
 
         dbConfigObj = self.config['ctl_db']
         self.CTRL_DB = CtrlDB(
@@ -114,17 +115,17 @@ class Ctrl():
         ).strftime('%Y%m%d%H%M%S')
 
         source = self.LOG_PATH
-        dest = self.LOG_PATH + 'archive_' + timestamp + '/'
+        dest = self.LOG_PATH + '/archive_' + timestamp + '/'
 
         if not os.path.exists(dest):
             os.makedirs(dest)
 
         files = os.listdir(source)
-        for f in files:
-            if f.find('jobLog') > -1:
-                shutil.move(source+f, dest)
-            if f.find('alerts') > -1:
-                shutil.move(source+f, dest)
+        for file in files:
+            if file.find('jobLog') > -1:
+                shutil.move(source + '/' + file, dest)
+            if file.find('alerts') > -1:
+                shutil.move(source + '/' + file, dest)
 
     def createSchemaDir(self):
 
@@ -132,24 +133,22 @@ class Ctrl():
         # to preserve it
         tableNameMap = None
         try:
-            mapFile = open('schemas/tableNameMapping.txt', 'r')
+            mapFile = open(self.SCHEMA_PATH + '/tableNameMapping.txt', 'r')
             tableNameMap = ast.literal_eval(mapFile.read())
         except FileNotFoundError:
             pass
 
-        shutil.rmtree('schemas/')
-        os.makedirs('schemas/')
-        open('schemas/lastModifiedTimes.txt', 'a').close()
+        shutil.rmtree(self.SCHEMA_PATH + '/')
+        os.makedirs(self.SCHEMA_PATH + '/')
+        open(self.SCHEMA_PATH + '/lastModifiedTimes.txt', 'a').close()
 
         if tableNameMap is not None:
-            with open('schemas/tableNameMapping.txt', 'w+') as file:
+            with open(self.SCHEMA_PATH + '/tableNameMapping.txt', 'w+') as file:
                 file.write(json.dumps(tableNameMap))
 
     def createReportsDir(self):
-        path = self.REPORTS_PATH.replace('/', '')
-
-        if (os.path.exists(path)):
-            tmp = tempfile.mktemp(dir=os.path.dirname(path))
-            shutil.move(path, tmp)  # rename
+        if (os.path.exists(self.REPORTS_PATH)):
+            tmp = tempfile.mktemp(dir=os.path.dirname(self.REPORTS_PATH))
+            shutil.move(self.REPORTS_PATH, tmp)  # rename
             shutil.rmtree(tmp)  # delete
-        os.makedirs(path)  # create the new folder
+        os.makedirs(self.REPORTS_PATH)  # create the new folder
