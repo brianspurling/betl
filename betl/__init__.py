@@ -1,3 +1,3 @@
 from .logger import help
-from .setup import setupWithUserInput as setup
+from .betlUtils import setupBetl as setup
 from .BetlClass import Betl

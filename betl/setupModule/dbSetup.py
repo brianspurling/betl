@@ -57,3 +57,15 @@ def createDatabases(self, response):
         cur.execute("CREATE DATABASE " + self.TRG_DB_NAME + ";")
 
         print('TRG DB: ' + self.TRG_DB_NAME)
+
+
+def deleteDatabases(self):
+    con = psycopg2.connect(
+        dbname='postgres',
+        user=self.CTL_DB_USERNAME,
+        host=self.CTL_DB_HOST_NAME,
+        password=self.CTL_DB_PASSWORD)
+    cur = con.cursor()
+    cur.execute("DROP DATABASE IF EXISTS " + self.CTL_DB_NAME + ";")
+    cur.execute("DROP DATABASE IF EXISTS " + self.ETL_DB_NAME + ";")
+    cur.execute("DROP DATABASE IF EXISTS " + self.TRG_DB_NAME + ";")

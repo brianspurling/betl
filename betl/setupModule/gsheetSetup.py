@@ -1,9 +1,22 @@
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
 from betl.defaultdataflows import dmDate
+
+
+def connectToGSheets(self):
+    self.GSPREAD = gspread.authorize(
+        ServiceAccountCredentials.from_json_keyfile_name(
+            self.GOOGLE_API_KEY_FILENAME,
+            self.GOOGLE_API_SCOPE))
 
 
 def createSchemaDescGSheets(self, response):
     # TODO: error if titles already exist? and below.
     if response.lower() in ['y', '']:
+
+        if self.GSPREAD is None:
+            self.connectToGSheets()
 
         etl = self.GSPREAD.create(self.SCHEMA_DESC_ETL_GSHEET_TITLE)
         etl.share(
@@ -20,6 +33,10 @@ def createSchemaDescGSheets(self, response):
 
 def createMDMGsheet(self, response):
     if response.lower() in ['y', '']:
+
+        if self.GSPREAD is None:
+            self.connectToGSheets()
+
         mdm = self.GSPREAD.create(self.MDM_GHSEET_TITLE)
         mdm.share(
             self.GOOGLE_ACCOUNT,
@@ -29,6 +46,10 @@ def createMDMGsheet(self, response):
 
 def createDefaultRowsGsheet(self, response):
     if response.lower() in ['y', '']:
+
+        if self.GSPREAD is None:
+            self.connectToGSheets()
+
         dr = self.GSPREAD.create(self.DEFAULT_ROWS_GHSEET_TITLE)
         data = dmDate.getDefaultRows()
         colHeadings = list(data[0].keys())

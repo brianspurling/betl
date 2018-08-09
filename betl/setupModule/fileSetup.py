@@ -41,7 +41,7 @@ def createGitignoreFile(self, response):
         op += '*.egg-info/' + '\n'
         op += '*.egg' + '\n'
 
-        with open('.gitignore', 'w+') as f:
+        with open(self.APP_ROOT_PATH + '/' + '.gitignore', 'w+') as f:
             f.write(op)
 
 
@@ -151,7 +151,7 @@ def createMainScript(self, response):
         op += "    # Here you define the bespoke parts of your data "
         op += "pipeline.\n"
         op += "    'EXTRACT_DATAFLOWS': [\n"
-        op += "        df_example.exampleDataflow]\n"
+        op += "        dfl_example.exampleDataflow]\n"
         op += "    'TRANSFORM_DATAFLOWS': [\n"
         op += "    ],\n"
         op += "    'LOAD_DATAFLOWS': [],\n"
@@ -164,7 +164,7 @@ def createMainScript(self, response):
         op += "\n"
         op += "betl.run()\n"
 
-        with open('main.py', 'w+') as f:
+        with open(self.APP_ROOT_PATH + '/' + 'main.py', 'w+') as f:
             f.write(op)
 
 
@@ -187,5 +187,5 @@ def createExampleDataflow(self, response):
         op += "        dataset='src_example_table_name',\n"
         op += "        targetTableName='trg_dm_example',\n"
         op += "        dataLayerID='STG')\n"
-        with open('df_example.py', 'w+') as f:
+        with open(self.APP_ROOT_PATH + '/' + 'dfl_example.py', 'w+') as f:
             f.write(op)
