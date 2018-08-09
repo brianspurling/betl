@@ -1,3 +1,6 @@
+# App
+betl/test/test_app
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
