@@ -5,7 +5,7 @@ def setAuditCols(self, dataset, bulkOrDelta, sourceSystem, desc):
 
     self.stepStart(desc=desc)
 
-    if bulkOrDelta == 'BULK':
+    if bulkOrDelta.upper() == 'BULK':
         self.data[dataset]['audit_source_system'] = sourceSystem
         self.data[dataset]['audit_bulk_load_date'] = datetime.now()
         self.data[dataset]['audit_latest_delta_load_date'] = None
