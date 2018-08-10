@@ -5,13 +5,13 @@ from betl.dataflow import DataFlow
 
 
 @pytest.fixture
-def dataset_renameColumns():
+def dataset():
     return pd.DataFrame(
         {'col1': ['1', '2'],
          'col2': ['a', 'b']})
 
 
-def test_renameColumns(conf, dataset_renameColumns):
+def test_renameColumns(conf, dataset):
 
     dfl = DataFlow(
         desc='test_renameColumns',
@@ -20,7 +20,7 @@ def test_renameColumns(conf, dataset_renameColumns):
 
     dfl.createDataset(
         dataset='testDataset',
-        data=dataset_renameColumns,
+        data=dataset,
         desc='Create test dataset')
 
     dfl.renameColumns(

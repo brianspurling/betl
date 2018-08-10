@@ -5,7 +5,7 @@ from betl.dataflow import DataFlow
 
 
 @pytest.fixture
-def dataset_dropColumns():
+def dataset():
     return pd.DataFrame(
         {'col1': ['1', '2'],
          'col2': ['a', 'b'],
@@ -21,7 +21,7 @@ def dataset_dropColumns():
              'audit_latest_delta_load_date',
              'audit_latest_load_operation'])])
 def test_dropColumns_dropSingle(conf,
-                                dataset_dropColumns,
+                                dataset,
                                 dropAudit,
                                 expected):
 
@@ -32,7 +32,7 @@ def test_dropColumns_dropSingle(conf,
 
     dfl.createDataset(
         dataset='testDataset',
-        data=dataset_dropColumns,
+        data=dataset,
         desc='Create test dataset')
 
     print(dfl.data['testDataset'])
@@ -69,7 +69,7 @@ def test_dropColumns_dropSingle(conf,
              'audit_latest_delta_load_date',
              'audit_latest_load_operation'])])
 def test_dropColumns_dropMultiple(conf,
-                                  dataset_dropColumns,
+                                  dataset,
                                   dropAudit,
                                   expected):
 
@@ -80,7 +80,7 @@ def test_dropColumns_dropMultiple(conf,
 
     dfl.createDataset(
         dataset='testDataset',
-        data=dataset_dropColumns,
+        data=dataset,
         desc='Create test dataset')
 
     dfl.setAuditCols(
@@ -110,7 +110,7 @@ def test_dropColumns_dropMultiple(conf,
              'audit_latest_delta_load_date',
              'audit_latest_load_operation'])])
 def test_dropColumns_keepSingle(conf,
-                                dataset_dropColumns,
+                                dataset,
                                 dropAudit,
                                 expected):
 
@@ -121,7 +121,7 @@ def test_dropColumns_keepSingle(conf,
 
     dfl.createDataset(
         dataset='testDataset',
-        data=dataset_dropColumns,
+        data=dataset,
         desc='Create test dataset')
 
     dfl.setAuditCols(
@@ -152,7 +152,7 @@ def test_dropColumns_keepSingle(conf,
              'audit_latest_delta_load_date',
              'audit_latest_load_operation'])])
 def test_dropColumns_keepMultiple(conf,
-                                  dataset_dropColumns,
+                                  dataset,
                                   dropAudit,
                                   expected):
 
@@ -163,7 +163,7 @@ def test_dropColumns_keepMultiple(conf,
 
     dfl.createDataset(
         dataset='testDataset',
-        data=dataset_dropColumns,
+        data=dataset,
         desc='Create test dataset')
 
     dfl.setAuditCols(
