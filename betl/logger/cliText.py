@@ -105,7 +105,7 @@ HELP = ("\n" +
         "new repo and run the following:  \n" +
         " $ python \n" +
         " $ import betl \n" +
-        " $ betl.setup() \n" +
+        " $ betl.setupBetl() \n" +
         "\n" +
         "--------------------------------------------------------------\n" +
         "\n")

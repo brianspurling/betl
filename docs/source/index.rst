@@ -43,7 +43,7 @@ Then run::
 
   $ python
   >>> import betl
-  >>> betl.setup()
+  >>> betl.setupBetl()
 
 And follow the instructions (:ref:`more help here <setup>`)
 
@@ -95,7 +95,7 @@ Adding functions to your data pipeline
 
 So far our pipeline doesn't do much - it just extracts our source data and creates a default date dimension. The next step is to start adding bepsoke data pipeline functions: i.e. the actual code that will transform your data.
 
-Take a look at the ``main.py`` script that was created by ``betl.setup()``. It contains a ``scheduleConfig`` object (full documentation :ref:`here <schedule-config>`).
+Take a look at the ``main.py`` script that was created by ``betl.setupBetl()``. It contains a ``scheduleConfig`` object (full documentation :ref:`here <schedule-config>`).
 
 This scheduleConfig object contains four lists:
 
@@ -106,7 +106,7 @@ This scheduleConfig object contains four lists:
 
 Add your pipeline functions to these lists and BETL will execute them in sequence.
 
-Each of your data pipeline functions must take a single argument: an instance of the ``Betl()`` class that we instantiate at the end of ``main.py``.
+Each of your data pipeline functions must take a single argument: an instance of the ``Pipeline()`` class that we instantiate at the end of ``main.py``.
 
 So scheudleConfig looks like this::
 
