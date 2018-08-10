@@ -93,7 +93,7 @@ class SrcDataLayer(DataLayer):
 
         self.datastore = conf.DATA.getDWHDatastore('ETL')
 
-        schemaFile = open('schemas/dbSchemaDesc_ETL.txt', 'r')
+        schemaFile = open(self.conf.CTRL.SCHEMA_PATH + '/dbSchemaDesc_ETL.txt', 'r')
         self.dbSchemaDesc = ast.literal_eval(schemaFile.read())
 
         self.dataModels = {}
@@ -109,7 +109,7 @@ class SrcDataLayer(DataLayer):
             dlSchemaDesc = self.dbSchemaDesc['SRC']
 
             try:
-                mapFile = open('schemas/tableNameMapping.txt', 'r')
+                mapFile = open(self.conf.CTRL.SCHEMA_PATH + '/tableNameMapping.txt', 'r')
                 tableNameMap = ast.literal_eval(mapFile.read())
             except FileNotFoundError:
                 tableNameMap = None
@@ -188,7 +188,7 @@ class TrgDataLayer(DataLayer):
 
         self.datastore = conf.DATA.getDWHDatastore('TRG')
 
-        schemaFile = open('schemas/dbSchemaDesc_TRG.txt', 'r')
+        schemaFile = open(self.conf.CTRL.SCHEMA_PATH + '/dbSchemaDesc_TRG.txt', 'r')
         self.dbSchemaDesc = ast.literal_eval(schemaFile.read())
 
         self.dataModels = {}
@@ -257,7 +257,7 @@ class SumDataLayer(DataLayer):
 
         self.datastore = conf.DATA.getDWHDatastore('TRG')
 
-        schemaFile = open('schemas/dbSchemaDesc_TRG.txt', 'r')
+        schemaFile = open(self.conf.CTRL.SCHEMA_PATH + '/dbSchemaDesc_TRG.txt', 'r')
         self.dbSchemaDesc = ast.literal_eval(schemaFile.read())
 
         self.dataModels = {}
