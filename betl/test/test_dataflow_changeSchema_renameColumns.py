@@ -14,7 +14,7 @@ def dataset():
 def test_renameColumns(conf, dataset):
 
     dfl = DataFlow(
-        desc='test_renameColumns',
+        desc='test dataflow',
         conf=conf,
         recordInCtrlDB=False)
 

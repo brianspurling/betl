@@ -26,7 +26,7 @@ def test_dropColumns_dropSingle(conf,
                                 expected):
 
     dfl = DataFlow(
-        desc='test_dropColumns_dropSingle',
+        desc='test dataflow',
         conf=conf,
         recordInCtrlDB=False)
 
@@ -35,15 +35,11 @@ def test_dropColumns_dropSingle(conf,
         data=dataset,
         desc='Create test dataset')
 
-    print(dfl.data['testDataset'])
-
     dfl.setAuditCols(
         dataset='testDataset',
         bulkOrDelta='bulk',
         sourceSystem='TST',
         desc='Add audit cols')
-
-    print(dfl.data['testDataset'])
 
     dfl.dropColumns(
         dataset='testDataset',
@@ -51,13 +47,10 @@ def test_dropColumns_dropSingle(conf,
         desc='Drop columns',
         dropAuditCols=dropAudit)
 
-    print(dfl.data['testDataset'])
-
     colList = dfl.getColumnList(
         dataset='testDataset',
         desc='get col list')
 
-    print(dfl.data['testDataset'])
     assert colList == expected
 
 
@@ -74,7 +67,7 @@ def test_dropColumns_dropMultiple(conf,
                                   expected):
 
     dfl = DataFlow(
-        desc='test_dropColumns_dropSingle',
+        desc='test dataflow',
         conf=conf,
         recordInCtrlDB=False)
 
@@ -115,7 +108,7 @@ def test_dropColumns_keepSingle(conf,
                                 expected):
 
     dfl = DataFlow(
-        desc='test_dropColumns_keepSingle',
+        desc='test dataflow',
         conf=conf,
         recordInCtrlDB=False)
 
@@ -157,7 +150,7 @@ def test_dropColumns_keepMultiple(conf,
                                   expected):
 
     dfl = DataFlow(
-        desc='test_dropColumns_keepMultiple',
+        desc='test dataflow',
         conf=conf,
         recordInCtrlDB=False)
 
