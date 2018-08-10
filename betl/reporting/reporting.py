@@ -1,10 +1,12 @@
 from betl.io import dbIO
-from betl.logger import logger
+from betl.logger import Logger
 import plotly.graph_objs as go
 import plotly.offline as py
 
 
 def generateExeSummary(conf, execId, bulkOrDelta, limitedData):
+
+    log = Logger()
 
     if limitedData is None:
         limitedData = 'FALSE'
@@ -89,10 +91,10 @@ def generateExeSummary(conf, execId, bulkOrDelta, limitedData):
             'Latest: ' + df['latest_row_count'].map(str) + ' <br>' +
             df['step_description'].map(str))
 
-        logger.logVariancesReport()
+        log.logVariancesReport()
 
         if len(df) == 0:
-            logger.logNoVariancesReported(varianceLimit)
+            log.logNoVariancesReported(varianceLimit)
         else:
             data = [
                 go.Bar(
@@ -105,4 +107,4 @@ def generateExeSummary(conf, execId, bulkOrDelta, limitedData):
             url = py.plot(
                 data,
                 filename=conf.CTRL.REPORTS_PATH + '/exeSummary.html')
-            logger.logSomeVariancesReported(varianceLimit, url)
+            log.logSomeVariancesReported(varianceLimit, url)

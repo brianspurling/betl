@@ -26,20 +26,20 @@ def read(self,
         raise ValueError('There is already a dataset named ' +
                          _targetDataset + ' in this dataflow')
 
-    path = (self.conf.CTRL.TMP_DATA_PATH + '/' + dataLayer + '/')
+    path = (self.CONF.CTRL.TMP_DATA_PATH + '/' + dataLayer + '/')
     filename = tableName + '.csv'
 
     self.data[_targetDataset] = pd.DataFrame()
 
     if forceDBRead:
         dbID = \
-            self.conf.DATA.getDataLayerLogicalSchema(dataLayer).databaseID
+            self.CONF.DATA.getDataLayerLogicalSchema(dataLayer).databaseID
         self.data[_targetDataset] = dbIO.readDataFromDB(
             tableName=tableName,
-            conn=self.conf.DATA.getDWHDatastore(dbID).conn)
+            conn=self.CONF.DATA.getDWHDatastore(dbID).conn)
 
     else:
-        fileNameMap = self.conf.STATE.FILE_NAME_MAP
+        fileNameMap = self.CONF.STATE.FILE_NAME_MAP
         self.data[_targetDataset] = \
             fileIO.readDataFromCsv(fileNameMap=fileNameMap,
                                    path=path,
@@ -87,8 +87,8 @@ def write(self,
     elif forceDBWrite:
         writeToDB = True
     else:
-        writeToDB = self.conf.EXE.WRITE_TO_ETL_DB
-    dataLayer = self.conf.DATA.getDataLayerLogicalSchema(dataLayerID)
+        writeToDB = self.CONF.EXE.WRITE_TO_ETL_DB
+    dataLayer = self.CONF.DATA.getDataLayerLogicalSchema(dataLayerID)
     if (targetTableName not in dataLayer.getListOfTables()
        and not forceDBWrite):
         writeToDB = False
@@ -122,13 +122,13 @@ def write(self,
                 logDataModelColNames_sks.append(col.columnName)
         logDataModelColNames_all_plus_audit = \
             logDataModelColNames_all + \
-            self.conf.DATA.AUDIT_COLS['colNames'].tolist()
+            self.CONF.DATA.AUDIT_COLS['colNames'].tolist()
         colsIncludeSKs = False
         colsIncludeAudit = False
         for colName in list(self.trgDataset):
             if colName in logDataModelColNames_sks:
                 colsIncludeSKs = True
-            if colName in self.conf.DATA.AUDIT_COLS['colNames'].tolist():
+            if colName in self.CONF.DATA.AUDIT_COLS['colNames'].tolist():
                 colsIncludeAudit = True
 
             if colName not in logDataModelColNames_all_plus_audit:
@@ -146,7 +146,7 @@ def write(self,
                 colsToSortBy = logDataModelColNames_all
             if not colsIncludeSKs and colsIncludeAudit:
                 colsToSortBy = logDataModelColNames_noSKs + \
-                    self.conf.DATA.AUDIT_COLS['colNames'].tolist()
+                    self.CONF.DATA.AUDIT_COLS['colNames'].tolist()
             if not colsIncludeSKs and not colsIncludeAudit:
                 colsToSortBy = logDataModelColNames_noSKs
             self.trgDataset = self.trgDataset[colsToSortBy]
@@ -179,14 +179,14 @@ def write(self,
             axis=1,
             inplace=True)
 
-    path = (self.conf.CTRL.TMP_DATA_PATH + '/' + dataLayerID + '/')
+    path = (self.CONF.CTRL.TMP_DATA_PATH + '/' + dataLayerID + '/')
     if not os.path.exists(path):
         os.makedirs(path)
 
     filename = targetTableName + '.csv'
 
     fileIO.writeDataToCsv(
-        conf=self.conf,
+        conf=self.CONF,
         df=self.trgDataset,
         path=path,
         filename=filename,
@@ -205,9 +205,9 @@ def getDataFromSrc(self, tableName, srcSysID, desc, mappedTableName=None):
 
     self.stepStart(desc=desc)
 
-    srcSysDatastore = self.conf.DATA.getSrcSysDatastore(srcSysID)
+    srcSysDatastore = self.CONF.DATA.getSrcSysDatastore(srcSysID)
 
-    limitdata = self.conf.EXE.DATA_LIMIT_ROWS
+    limitdata = self.CONF.EXE.DATA_LIMIT_ROWS
 
     self.data[tableName] = pd.DataFrame()
 
@@ -226,7 +226,7 @@ def getDataFromSrc(self, tableName, srcSysID, desc, mappedTableName=None):
         quotechar = srcSysDatastore.quotechar
 
         if srcSysDatastore.fileExt == '.csv':
-            fileNameMap = self.conf.STATE.FILE_NAME_MAP
+            fileNameMap = self.CONF.STATE.FILE_NAME_MAP
             self.data[tableName] = \
                 fileIO.readDataFromCsv(fileNameMap=fileNameMap,
                                        path=path,

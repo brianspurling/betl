@@ -5,9 +5,6 @@ def renameColumns(self, dataset, columns, desc):
 
     self.stepStart(desc=desc)
 
-    if isinstance(columns, str):
-        columns = [columns]
-
     self.data[dataset].rename(index=str,
                               columns=columns,
                               inplace=True)
@@ -27,6 +24,11 @@ def dropColumns(self,
                 desc=None,
                 dropAuditCols=False):
 
+    if isinstance(colsToDrop, str):
+        colsToDrop = [colsToDrop]
+    if isinstance(colsToKeep, str):
+        colsToKeep = [colsToKeep]
+
     if desc is None:
         desc = 'Dropping columns from ' + dataset + ': ' + str(colsToDrop)
     self.stepStart(desc=desc)
@@ -34,7 +36,7 @@ def dropColumns(self,
     if colsToDrop is not None and colsToKeep is not None:
         raise ValueError("Nope!")
 
-    auditCols = self.conf.DATA.AUDIT_COLS['colNames'].tolist()
+    auditCols = self.CONF.DATA.AUDIT_COLS['colNames'].tolist()
     if colsToKeep is not None:
         colsToKeep = colsToKeep + auditCols
         colsToDrop = [col for col in list(self.data[dataset])
@@ -93,7 +95,7 @@ def pivotColsToRows(self,
 
     self.stepStart(desc=desc)
 
-    auditCols = self.conf.DATA.AUDIT_COLS['colNames'].tolist()
+    auditCols = self.CONF.DATA.AUDIT_COLS['colNames'].tolist()
 
     self.data[dataset] = pd.melt(
         self.data[dataset],

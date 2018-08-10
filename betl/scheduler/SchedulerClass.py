@@ -1,5 +1,5 @@
 import traceback
-from betl.logger import logger
+from betl.logger import Logger
 from betl.logger import alerts
 
 from betl.defaultdataflows import stageExtract
@@ -14,7 +14,8 @@ class Scheduler():
 
     def __init__(self, conf):
 
-        self.jobLog = logger.getLogger()
+        self.log = Logger()
+
         self.conf = conf
 
         self.funcSequence = 0
@@ -194,8 +195,8 @@ class Scheduler():
                          "updated)\n\n" +
                          "THE error was >>> \n\n" + tb1)
                 alerts.logAlert(self.conf, alert)
-                logger.logBETLFinish('FAILED')
-                logger.logExecutionFinish()
+                self.log.logBETLFinish('FAILED')
+                self.log.logExecutionFinish()
 
             except Exception as e2:
                 tb2 = traceback.format_exc()
@@ -210,5 +211,5 @@ class Scheduler():
                          "THE first error was >>> \n\n" + tb1 + "\n\n" +
                          "The second error was >>> \n\n" + tb2)
                 alerts.logAlert(self.conf, alert)
-                logger.logBETLFinish('FAILED_RECOVERY')
-                logger.logExecutionFinish()
+                self.log.logBETLFinish('FAILED_RECOVERY')
+                self.log.logExecutionFinish()

@@ -1,4 +1,4 @@
-from betl.logger import logger
+from betl.logger import Logger
 from betl.logger import alerts
 from .DatasetClass import Dataset
 from .DatasetClass import SrcDataset
@@ -13,6 +13,8 @@ import ast
 class DataLayer():
 
     def __init__(self, conf, dbID, dataLayerID, dataModels):
+
+        self.log = Logger()
 
         self.conf = conf
         self.databaseID = dbID
@@ -31,7 +33,7 @@ class DataLayer():
             dbCursor.execute(createStatement)
             self.datastore.commit()
 
-        logger.logRebuildingPhysicalDataModel(self.dataLayerID)
+        self.log.logRebuildingPhysicalDataModel(self.dataLayerID)
 
     def dropPhysicalSchema(self):
 

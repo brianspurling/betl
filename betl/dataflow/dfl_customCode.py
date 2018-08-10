@@ -6,7 +6,7 @@ def customSQL(self, sql, desc, dataLayer, dataset=None):
     self.stepStart(desc=desc, additionalDesc=sql)
 
     datastore = \
-        self.conf.DATA.getDataLayerLogicalSchema(dataLayer).datastore
+        self.CONF.DATA.getDataLayerLogicalSchema(dataLayer).datastore
 
     if dataset is not None:
         self.data[dataset] = dbIO.customSQL(sql, datastore)

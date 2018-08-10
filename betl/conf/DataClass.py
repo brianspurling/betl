@@ -3,7 +3,7 @@ import os
 import ast
 import json
 
-from betl.logger import logger
+from betl.logger import Logger
 from betl.logger import alerts
 from betl import betlConfig
 
@@ -24,6 +24,8 @@ from betl.datamodel import SumDataLayer
 class Data():
 
     def __init__(self, conf):
+
+        self.log = Logger()
 
         self.CONF = conf
 
@@ -125,7 +127,7 @@ class Data():
             return self.SRC_SYSTEMS[ssID]
         else:
 
-            logger.logInitialiseSrcSysDatastore(
+            self.log.logInitialiseSrcSysDatastore(
                 datastoreID=ssID,
                 datastoreType=self.CONF.allConfig['data']['src_sys'][ssID]['TYPE'])
 
@@ -185,10 +187,10 @@ class Data():
 
     def refreshSchemaDescsFromGsheets(self):
 
-        # Get the schema descriptions from schemas/, or from Google Sheets, if
+        # Get the schema descriptions from the schema dir, or from Google Sheets, if
         # the sheets have been edited since they were last saved to csv
 
-        logger.logCheckLastModTimeOfSchemaDescGSheet()
+        self.log.logCheckLastModTimeOfSchemaDescGSheet()
         # Get the last modified dates of the versions saved to csv
         modTimesFile = open(self.CONF.CTRL.SCHEMA_PATH + '/lastModifiedTimes.txt', 'r+')
         fileContent = modTimesFile.read()
@@ -209,14 +211,14 @@ class Data():
                 lastModTimesChanged[dbID] = True
 
         if oneOrMoreLastModTimesChanged:
-            logger.logRefreshingSchemaDescsFromGsheets(
+            self.log.logRefreshingSchemaDescsFromGsheets(
                 len(lastModTimesChanged))
             for dbID in lastModTimesChanged:
                 gSheet = self.getSchemaDescGSheetDatastore(dbID)
                 self.refreshSchemaDescCSVs(gSheet, dbID)
                 lastModifiedTimes[gSheet.filename] = \
                     gSheet.getLastModifiedTime()
-            logger.logRefreshingSchemaDescsFromGsheets_done()
+            self.log.logRefreshingSchemaDescsFromGsheets_done()
 
         if len(lastModTimesChanged) > 0:
             modTimesFile = open(self.CONF.CTRL.SCHEMA_PATH + '/lastModifiedTimes.txt', 'w')
@@ -242,7 +244,7 @@ class Data():
 
         dbSchemaDesc = {}
 
-        logger.logLoadingDBSchemaDescsFromGsheets(dbID)
+        self.log.logLoadingDBSchemaDescsFromGsheets(dbID)
 
         for ws in worksheets:
             # Get the dataLayer, dataModel and table name from the worksheet
@@ -304,12 +306,12 @@ class Data():
     # TODO: this is a HORRIBLE mess of code and needs heavy refactoring!
     def autoPopulateSrcSchemaDescriptions(self):
 
-        logger.logAutoPopSchemaDescsFromSrcStart()
+        self.log.logAutoPopSchemaDescsFromSrcStart()
 
         # First, loop through the ETL DB schema desc spreadsheet and delete
         # any worksheets prefixed ETL.SRC.
 
-        logger.logDeleteSrcSchemaDescWsFromSS()
+        self.log.logDeleteSrcSchemaDescWsFromSS()
         ss = self.getSchemaDescGSheetDatastore('ETL').conn
 
         for ws in ss.worksheets():
@@ -562,7 +564,7 @@ class Data():
         with open(self.CONF.CTRL.SCHEMA_PATH + '/tableNameMapping.txt', 'w+') as file:
             file.write(json.dumps(srcTableMap))
 
-        logger.logAutoPopSchemaDescsFromSrcFinish()
+        self.log.logAutoPopSchemaDescsFromSrcFinish()
 
     def cleanTableName(self, tableName_src):
         tableName = tableName_src

@@ -1,12 +1,15 @@
 import os
 import shutil
 import tempfile
-from betl.logger import logger
+from betl.logger import Logger
 
 
 class Exe():
 
     def __init__(self, params):
+
+        self.log = Logger()
+
         self.LOG_LEVEL = params['LOG_LEVEL']
 
         self.SKIP_WARNINGS = params['SKIP_WARNINGS']
@@ -57,4 +60,4 @@ class Exe():
             shutil.rmtree(tmp)  # delete
         os.makedirs(path)  # create the new folder
 
-        logger.logClearTempDataFinish()
+        self.log.logClearTempDataFinish()

@@ -1,6 +1,5 @@
 import pandas as pd
 import pprint
-from betl.logger import logger
 
 
 def join(self,
@@ -57,7 +56,7 @@ def union(self, datasets, targetDataset, desc):
                 self.data[dataset].columns)))
             error += '\n'
             error += '\n'
-        logger.logStepError(error)
+        self.log.logStepError(error)
         raise
 
     report = 'Concatenated ' + str(len(datasets)) + \

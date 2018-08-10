@@ -1,4 +1,4 @@
-from betl.logger import logger
+from betl.logger import Logger
 
 
 class Datastore():
@@ -9,8 +9,10 @@ class Datastore():
                  isSrcSys,
                  isSchemaDesc=False):
 
+        self.log = Logger()
+
         if not isSrcSys:
-            logger.logInitialiseDatastore(
+            self.log.logInitialiseDatastore(
                 datastoreID,
                 datastoreType,
                 isSchemaDesc)

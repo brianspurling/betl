@@ -19,7 +19,7 @@ def mapMasterData(self,
     # Connect to MDM Worksheet #
     ############################
 
-    ws = self.conf.DATA.getMDMDatastore().conn.worksheet(mdmWS)
+    ws = self.CONF.DATA.getMDMDatastore().conn.worksheet(mdmWS)
 
     #################################
     # Extract the current MDM table #
@@ -194,7 +194,7 @@ def mapMasterData(self,
           'without any mapped values filled in\n')
     if (numOfRowsWithoutMatchingMDM > 0 or
             numOfMDMRowsWithNoFilledInValues > 0):
-        alerts.logAlert(self.conf, r)
+        alerts.logAlert(self.CONF, r)
     r += ('       - ' + str(numOfRowsWithMatchingMDM) + ' rows in the ' +
           'data were matched to corresponding MDM rows, and\n' +
           '       - ' + str(numOfUnmatchedRowsInMDM) + ' rows in the ' +
