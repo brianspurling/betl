@@ -25,13 +25,6 @@ def conf(standardSetupParams, standardRunTimeParams, standardScheduleConfig):
     return conf
 
 
-#
-#     pl = betl.Pipeline(appConfigFile=appConfigFile,
-#                        scheduleConfig=standardScheduleConfig,
-#                        runTimeParams=standardRunTimeParams)
-#     return pl
-
-
 @pytest.fixture(scope='session')
 def standardSetupParams():
     params = {

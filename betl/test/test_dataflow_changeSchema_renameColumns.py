@@ -2,7 +2,6 @@ import pytest
 import pandas as pd
 
 from betl.dataflow import DataFlow
-from betl.test import conftest
 
 
 @pytest.fixture
