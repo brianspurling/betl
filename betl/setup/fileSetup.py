@@ -128,7 +128,7 @@ def createAppConfigFile(self, response):
 def createMainScript(self, response):
     if response.lower() in ['y', '']:
         op = ''
-        op += "from betl import Betl\n"
+        op += "import betl\n"
         op += "import sys\n"
         op += "\n"
         op += "scheduleConfig = {\n"
@@ -158,11 +158,11 @@ def createMainScript(self, response):
         op += "    'SUMMARISE_DATAFLOWS': []\n"
         op += "}\n"
         op += "\n"
-        op += "betl = Betl(appConfigFile='./appConfig.ini',\n"
-        op += "            scheduleConfig=scheduleConfig,\n"
-        op += "            runTimeParams=sys.argv)\n"
+        op += "pl = betl.pipeline(appConfigFile='./appConfig.ini',\n"
+        op += "                   scheduleConfig=scheduleConfig,\n"
+        op += "                   runTimeParams=sys.argv)\n"
         op += "\n"
-        op += "betl.run()\n"
+        op += "pl.run()\n"
 
         with open(self.APP_ROOT_PATH + '/' + 'main.py', 'w+') as f:
             f.write(op)

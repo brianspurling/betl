@@ -1,9 +1,10 @@
-from .setupModule import setup
-from .setupModule import setupWithUserInput
+import betl.setup.setupUtils
 
 
 def setupBetl(params=None):
     if params is None:
-        setupWithUserInput()
+        setup = betl.setup.setupUtils.setupWithUserInput()
     else:
-        setup(params)
+        setup = betl.setup.setupUtils.setup(params)
+
+    return setup
