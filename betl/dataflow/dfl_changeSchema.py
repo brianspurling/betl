@@ -92,6 +92,14 @@ def pivotColsToRows(self,
                     valueName,
                     desc):
 
+    """
+    Args:
+        colsNotToPivot (list): Columns that should remain as columns (id_vars in Pandas terminology)
+        colsToPivot (list): Columns to be pivoted to rows (value_vars in Pandas terminology)
+        varName (string): The name of the column the pivoted column headings should go into
+        valueName (string): The name of column the pivoted column values should go into
+    """
+
     self.stepStart(desc=desc)
 
     auditCols = self.CONF.DATA.AUDIT_COLS['colNames'].tolist()
