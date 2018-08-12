@@ -43,6 +43,8 @@ def dropColumns(self,
                       if col not in colsToKeep]
 
     if dropAuditCols and set(auditCols).issubset(list(self.data[dataset])):
+        if colsToDrop is None:
+            colsToDrop = []
         colsToDrop += auditCols
 
     self.data[dataset].drop(
