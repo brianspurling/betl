@@ -5,17 +5,24 @@ import pprint
 def join(self,
          datasets,
          targetDataset,
-         how,
          desc,
+         how=None,
          joinCol=None,
          leftJoinCol=None,
          rightJoinCol=None,
-         keepCols=None):
+         keepCols=None,
+         cartesianJoin=False):
 
     self.stepStart(desc=desc)
 
     if len(datasets) > 2:
         raise ValueError('You can only join two tables at once')
+
+    if cartesianJoin:
+        self.data[datasets[0]]['uniqueKey_tzyrhXfhXKS7'] = 1
+        self.data[datasets[1]]['uniqueKey_tzyrhXfhXKS7'] = 1
+        joinCol = 'uniqueKey_tzyrhXfhXKS7'
+        how = 'outer'
 
     self.data[targetDataset] = pd.merge(
         self.data[datasets[0]],
@@ -26,6 +33,11 @@ def join(self,
         how=how)
     if keepCols is not None:
         self.data[targetDataset] = self.data[targetDataset][keepCols]
+    elif cartesianJoin:
+        self.data[targetDataset].drop(
+            'uniqueKey_tzyrhXfhXKS7',
+            axis=1,
+            inplace=True)
 
     report = 'Joined datasets ' + datasets[0] + ' ('
     report += str(self.data[datasets[0]].shape[0]) + ' rows) and '

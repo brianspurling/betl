@@ -51,6 +51,7 @@ def transformDMAudit(betl):
               'temp_key': 1},
         desc='A row for each DQ score')
 
+    # TODO switch this to use the .join's cartesianJoin feature
     dfl.join(
         datasets=['ops', 'dq_scores'],
         targetDataset='trg_dm_audit',
