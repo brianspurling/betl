@@ -97,6 +97,8 @@ def filterWhereNotIn(self,
     self.stepStart(desc=desc)
 
     origCols = list(self.data[datasetToBeFiltered])
+    removeColumnToFilterBy = False
+    removeColumnToBeFiltered = False
 
     if isinstance(columnsToBeFiltered, str):
         columnToBeFiltered = columnsToBeFiltered
@@ -104,6 +106,7 @@ def filterWhereNotIn(self,
         if len(columnsToBeFiltered) == 1:
             columnToBeFiltered = columnsToBeFiltered[0]
         else:
+            removeColumnToBeFiltered = True
             columnToBeFiltered = "".join(columnsToBeFiltered) + 'pwqnct'
             self.data[datasetToBeFiltered][columnToBeFiltered] = ''
             for col in columnsToBeFiltered:
@@ -117,6 +120,7 @@ def filterWhereNotIn(self,
         if len(columnsToFilterBy) == 1:
             columnToFilterBy = columnsToFilterBy[0]
         else:
+            removeColumnToFilterBy = True
             columnToFilterBy = "".join(columnsToFilterBy) + 'pwqnct'
             self.data[datasetToFilterBy][columnToFilterBy] = ''
             for col in columnsToFilterBy:
@@ -129,6 +133,18 @@ def filterWhereNotIn(self,
             self.data[datasetToBeFiltered][columnToBeFiltered].isin(
                 self.data[datasetToFilterBy][columnToFilterBy]))),
         origCols].copy()
+
+    if removeColumnToBeFiltered:
+        self.data[datasetToBeFiltered].drop(
+            columnToBeFiltered,
+            axis=1,
+            inplace=True)
+
+    if removeColumnToFilterBy:
+        self.data[datasetToFilterBy].drop(
+            columnToFilterBy,
+            axis=1,
+            inplace=True)
 
     report = ''
 
