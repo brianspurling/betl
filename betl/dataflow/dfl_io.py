@@ -15,7 +15,7 @@ def read(self,
 
     if desc is None:
         desc = 'Read data from ' + dataLayer + '.' + tableName + \
-               ' (forceDBWrite = ' + str(forceDBRead) + ')'
+               ' (forceDBRead = ' + str(forceDBRead) + ')'
     self.stepStart(desc=desc)
 
     _targetDataset = tableName
