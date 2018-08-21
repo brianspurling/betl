@@ -66,6 +66,10 @@ def filter(self, dataset, filters, desc, targetDataset=None):
                 self.data[_targetDataset] = \
                     self.data[dataset].loc[
                         self.data[dataset][f] != filters[f][1]]
+            elif filters[f][0] == 'not in':
+                self.data[_targetDataset] = \
+                    self.data[dataset].loc[
+                        ~self.data[dataset][f].isin(filters[f][1])]
             else:
                 raise ValueError(
                     'Filter currently only support ==, !=, < or >')
