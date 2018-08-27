@@ -65,7 +65,7 @@ BETL currently supports the following source system datastore types:
 Extracting your source data
 ===========================
 
-You are now one command away from having your source data extracted into your ETL database and your SRC schema descriptions defined in a Google Sheet.
+You are now one command away from having your source data extracted into your ETL database and your EXT schema descriptions defined in a Google Sheet.
 
 To get there you need to run::
 
@@ -73,8 +73,8 @@ To get there you need to run::
 
 This does three things:
 
-  - ``readsrc``   auto populates your SRC schema description spreadsheet with an exact copy of your source system(s) schema(s)
-  - ``rebuildall``   creates your physical schemas (i.e. database tables) in your ETL and TRG postgres databases (of course, you haven't defined much of your DWH schemas yet, so this is really just creating the SRC data layer tables, and a couple of default target dimensions)
+  - ``readsrc``   auto populates your EXT schema description spreadsheet with an exact copy of your source system(s) schema(s)
+  - ``rebuildall``   creates your physical schemas (i.e. database tables) in your ETL and TRG postgres databases (of course, you haven't defined much of your DWH schemas yet, so this is really just creating the EXT datalayer, and a couple of default target dimensions in your BSE datalayer)
   - ``bulk run``   executes your data pipeline.  Without any bespoke code yet, all this will do is extract the source data from the source system(s) and load it into your ETL database (and create a couple of default target dimensions)
 
 Note, when you run your extract again you just need the last bit::
@@ -147,11 +147,11 @@ Thus the common pattern for a pipeline functions is::
       dfl = betl.DataFlow(desc='An example pipeline function')
 
       # Read some data into the DataFlow object
-      dfl.read(tableName='src_example_src_data', dataLayer='SRC')
+      dfl.read(tableName='example_src_data', dataLayer='EXT')
 
       # Perform some transformations on the data, via the DataFlow object
       dfl.renameColumns(
-          dataset='src_example_src_data',
+          dataset='example_src_data',
           columns={'col_to_rename': 'new_column_name'},
           desc='Rename the column')
 
@@ -161,8 +161,18 @@ Thus the common pattern for a pipeline functions is::
 
       # Write the databack to disk (so it is available for the next DataFlow to read
       dfl.write(
-          dataset='src_example_src_data',
+          dataset='example_src_data',
           targetTableName='example_staging_data',
-          dataLayerID='STG')
+          dataLayerID='TRN')
 
 Each "step" (each DataFlow method called) must be given a description that is unique within the dataflow. And each dataflow must be given a description that is unique across the whole pipeline. This allows us to compare stats across executions.
+
+Approach
+========
+
+Some thoughts on how to approach building a robust data pipeline:
+
+  - Build the dimensions first, then go back to the source data and build the facts
+  - But: always have a CLN layer that preceeds both - that way you don't end up repeating baisc basic cleaning logic
+  - In the absence of a built in testing framework, write SQL scripts to compare EXT to TRG as best as possible (temporarily pipe EXT tables into BSE to make this easier, if necessary).
+  - Again, though, you don't want to have to repeat cleaning logic. So if you have a CLN datset (you should do), test the EXT->CLN step, then test the CLN->BSE step

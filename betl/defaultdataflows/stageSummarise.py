@@ -9,9 +9,9 @@ def defaultSummarisePrep(betl):
 
     sumLayer = betl.CONF.DATA.getDataLayerLogicalSchema('SUM')
 
-    sumTables = sumLayer.dataModels['SUM'].tables
+    sumTables = sumLayer.datasets['SUM'].tables
     nonDefaultTrgTables = \
-        betl.CONF.SCHEDULE.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+        betl.CONF.SCHEDULE.BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
     if betl.CONF.EXE.BULK_OR_DELTA == 'BULK':
         dfl = betl.DataFlow(

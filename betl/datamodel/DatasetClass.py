@@ -1,5 +1,4 @@
 from .TableClass import Table
-from .TableClass import TrgTable
 
 #
 # A data model is a collection of tables, and it sits below dataLayer in the
@@ -15,50 +14,40 @@ class Dataset():
 
     def __init__(self,
                  dataConf,
-                 dmSchemaDesc,
+                 datasetSchemaDesc,
                  datastore,
-                 dataLayerID,
-                 tableNameMap=None):
+                 dataLayerID):
 
         self.dataConf = dataConf
 
         self.dataLayerID = dataLayerID
 
-        # if we have to TRG schemadesc, we create a "standard" TRG dm instead
-        if dmSchemaDesc is None:
-            self.dataModelID = 'TRG'
-            dmSchemaDesc = {
-                'tableSchemas': {}
-            }
-        else:
-            self.dataModelID = dmSchemaDesc['dataModelID']
+        # # if we have no TRG schemadesc, we create a "standard" BSE dataset
+        # if datasetSchemaDesc is None:
+        #     self.datasetID = 'BSE'
+        #     datasetSchemaDesc = {
+        #         'tableSchemas': {}
+        #     }
+        # else:
+        self.datasetID = datasetSchemaDesc['datasetID']
 
         self.datastore = datastore
 
         self.tables = {}
 
-        for tableName in dmSchemaDesc['tableSchemas']:
+        for tableName in datasetSchemaDesc['tableSchemas']:
+
             srcTableName = None
-            if tableNameMap is not None:
-                _tableName = tableName[tableName.find("_")+1:]
-                _tableName = _tableName[_tableName.find("_")+1:]
-                srcTableName = tableNameMap[_tableName]
-            if self.dataModelID in ('TRG', 'SUM'):
-                table = TrgTable(
-                    self.dataConf,
-                    dmSchemaDesc['tableSchemas'][tableName],
-                    self.datastore,
-                    self.dataLayerID,
-                    self.dataModelID)
-            else:
-                table = Table(
-                    self.dataConf,
-                    dmSchemaDesc['tableSchemas'][tableName],
-                    self.datastore,
-                    self.dataLayerID,
-                    self.dataModelID,
-                    srcTableName)
-            self.tables[tableName] = table
+            if 'srcTableName' in datasetSchemaDesc['tableSchemas'][tableName]:
+                srcTableName = datasetSchemaDesc['tableSchemas'][tableName]['srcTableName']
+
+            self.tables[tableName] = Table(
+                dataConf=self.dataConf,
+                tableSchema=datasetSchemaDesc['tableSchemas'][tableName],
+                datastore=self.datastore,
+                dataLayerID=self.dataLayerID,
+                datasetID=self.datasetID,
+                srcTableName=srcTableName)
 
     def getSqlCreateStatements(self):
 
@@ -93,30 +82,10 @@ class Dataset():
                 return self.tables[tableName].columns
 
     def __str__(self):
-        string = '\n' + '  ** ' + self.dataModelID + ' **' + '\n'
+        string = '\n' + '  ** ' + self.datasetID + ' **' + '\n'
         for tableName in self.tables:
             string += str(self.tables[tableName])
         return string
-
-
-class SrcDataset(Dataset):
-
-    def __init__(self,
-                 dataConf,
-                 dmSchemaDesc,
-                 tableNameMap,
-                 datastore,
-                 dataLayerID):
-
-        Dataset.__init__(
-            self,
-            dataConf,
-            dmSchemaDesc,
-            datastore,
-            dataLayerID,
-            tableNameMap)
-
-        self.dataConf = dataConf
 
 
 class EmptyDataset():

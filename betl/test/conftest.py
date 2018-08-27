@@ -84,13 +84,12 @@ def standardScheduleConfig():
 
     scheduleConfig = {
         'DEFAULT_EXTRACT': True,
-        'DEFAULT_TRANSFORM': True,
         'DEFAULT_LOAD': True,
         'DEFAULT_SUMMARISE': False,
         'DEFAULT_DM_DATE': False,
         'DEFAULT_DM_AUDIT': True,
-        'SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT': [],
-        'TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD': [],
+        'EXT_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT': [],
+        'BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD': [],
         'EXTRACT_DATAFLOWS': [],
         'TRANSFORM_DATAFLOWS': [],
         'LOAD_DATAFLOWS': [],

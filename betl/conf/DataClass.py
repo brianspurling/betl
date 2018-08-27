@@ -15,10 +15,7 @@ from betl.io import GsheetDatastore
 from betl.io import ExcelDatastore
 from betl.io import FileDatastore
 
-from betl.datamodel import SrcDataLayer
-from betl.datamodel import StgDataLayer
-from betl.datamodel import TrgDataLayer
-from betl.datamodel import SumDataLayer
+from betl.datamodel import DataLayer
 
 
 class Data():
@@ -29,7 +26,6 @@ class Data():
 
         self.CONF = conf
 
-        self.DATABASES = betlConfig.databases
         self.DATA_LAYERS = betlConfig.dataLayers
         self.AUDIT_COLS = pd.DataFrame(betlConfig.auditColumns)
         self.SRC_SYSTEM_LIST = []
@@ -45,10 +41,12 @@ class Data():
         # to avoid long delays at the start of every execution
         self.SCHEMA_DESCRIPTION_GSHEETS = {}
         self.LOGICAL_DATA_MODELS = {}
-        self.DWH_DATABASES = {}
         self.DEFAULT_ROW_SRC = None
         self.MDM_SRC = None
         self.SRC_SYSTEMS = {}
+        self.DWH_DATABASES = {
+            'IDs': betlConfig.databases,
+            'datastores': {}}
 
         # We'll need this later, when we connect to the various Google Sheets
         self.apiKey = \
@@ -72,21 +70,17 @@ class Data():
         if dataLayerID in self.LOGICAL_DATA_MODELS:
             return self.LOGICAL_DATA_MODELS[dataLayerID]
         else:
-            if dataLayerID == 'SRC':
-                self.LOGICAL_DATA_MODELS['SRC'] = SrcDataLayer(self.CONF)
-            elif dataLayerID == 'STG':
-                self.LOGICAL_DATA_MODELS['STG'] = StgDataLayer(self.CONF)
-            elif dataLayerID == 'TRG':
-                self.LOGICAL_DATA_MODELS['TRG'] = TrgDataLayer(self.CONF)
-            elif dataLayerID == 'SUM':
-                self.LOGICAL_DATA_MODELS['SUM'] = SumDataLayer(self.CONF)
+            self.LOGICAL_DATA_MODELS[dataLayerID] = \
+                DataLayer(
+                    conf=self.CONF,
+                    dataLayerID=dataLayerID)
             return self.LOGICAL_DATA_MODELS[dataLayerID]
 
     def getDWHDatastore(self, dbID):
-        if dbID in self.DWH_DATABASES:
-            return self.DWH_DATABASES[dbID]
+        if dbID in self.DWH_DATABASES['datastores']:
+            return self.DWH_DATABASES['datastores'][dbID]
         else:
-            self.DWH_DATABASES[dbID] = \
+            self.DWH_DATABASES['datastores'][dbID] = \
                 PostgresDatastore(
                     dbID=dbID,
                     host=self.CONF.allConfig['data']['dwh_dbs'][dbID]['HOST'],
@@ -94,7 +88,7 @@ class Data():
                     user=self.CONF.allConfig['data']['dwh_dbs'][dbID]['USER'],
                     password=self.CONF.allConfig['data']['dwh_dbs'][dbID]['PASSWORD'],
                     createIfNotFound=True)
-            return self.DWH_DATABASES[dbID]
+            return self.DWH_DATABASES['datastores'][dbID]
 
     def getDefaultRowsDatastore(self):
         if self.DEFAULT_ROW_SRC is not None:
@@ -188,41 +182,40 @@ class Data():
     def refreshSchemaDescsFromGsheets(self):
 
         # Get the schema descriptions from the schema dir, or from Google Sheets, if
-        # the sheets have been edited since they were last saved to csv
+        # the sheets have been edited since they were last saved to csv, or if
+        # the CSVs don't exist
 
         self.log.logCheckLastModTimeOfSchemaDescGSheet()
-        # Get the last modified dates of the versions saved to csv
-        modTimesFile = open(self.CONF.CTRL.SCHEMA_PATH + '/lastModifiedTimes.txt', 'r+')
-        fileContent = modTimesFile.read()
-        if fileContent == '':
-            lastModifiedTimes = {}
-        else:
-            lastModifiedTimes = ast.literal_eval(fileContent)
-        oneOrMoreLastModTimesChanged = False
-        lastModTimesChanged = {}
 
-        # Check the last modified time of the Google Sheets
-        for dbID in self.DATABASES:
+        dbsToRefresh = {}
+        lastModifiedTimes = {}
+
+        lastModFilePath = self.CONF.CTRL.SCHEMA_PATH + '/lastModifiedTimes.txt'
+
+        if os.path.exists(lastModFilePath):
+            modTimesFile = open(lastModFilePath, 'r+')
+            fileContent = modTimesFile.read()
+            if fileContent != '':
+                lastModifiedTimes = ast.literal_eval(fileContent)
+
+        # Check the last modified time of the Google Sheets, and whether
+        # the schemaDesc files even exist
+        for dbID in self.DWH_DATABASES['IDs']:
             gSheet = self.getSchemaDescGSheetDatastore(dbID)
             if (gSheet.filename not in lastModifiedTimes
-               or gSheet.getLastModifiedTime() !=
-               lastModifiedTimes[gSheet.filename]):
-                oneOrMoreLastModTimesChanged = True
-                lastModTimesChanged[dbID] = True
+               or not os.path.exists(self.CONF.CTRL.SCHEMA_PATH + '/dbSchemaDesc_' + dbID + '.txt')
+               or gSheet.getLastModifiedTime() != lastModifiedTimes[gSheet.filename]):
+                dbsToRefresh[dbID] = True
 
-        if oneOrMoreLastModTimesChanged:
-            self.log.logRefreshingSchemaDescsFromGsheets(
-                len(lastModTimesChanged))
-            for dbID in lastModTimesChanged:
+        if len(dbsToRefresh) > 0:
+            self.log.logRefreshingSchemaDescsFromGsheets(len(dbsToRefresh))
+            for dbID in dbsToRefresh:
                 gSheet = self.getSchemaDescGSheetDatastore(dbID)
                 self.refreshSchemaDescCSVs(gSheet, dbID)
-                lastModifiedTimes[gSheet.filename] = \
-                    gSheet.getLastModifiedTime()
-            self.log.logRefreshingSchemaDescsFromGsheets_done()
-
-        if len(lastModTimesChanged) > 0:
+                lastModifiedTimes[gSheet.filename] = gSheet.getLastModifiedTime()
             modTimesFile = open(self.CONF.CTRL.SCHEMA_PATH + '/lastModifiedTimes.txt', 'w')
             modTimesFile.write(json.dumps(lastModifiedTimes))
+            self.log.logRefreshingSchemaDescsFromGsheets_done()
 
     def refreshSchemaDescCSVs(self, datastore, dbID):
 
@@ -237,9 +230,8 @@ class Data():
         # I should probably work through all calls to conf and make them
         # consistently use these methods
         for gWorksheetTitle in datastore.getWorksheets():
-            # skip any sheets that aren't prefixed with the DB (e.g. ETL or
-            # TRG)
-            if gWorksheetTitle[0:4] == dbID + '.':
+            # skip README sheets, and any sheets prefixed with "IGN."
+            if gWorksheetTitle[0:4] != 'IGN.' and gWorksheetTitle.lower() != 'readme':
                 worksheets.append(datastore.worksheets[gWorksheetTitle])
 
         dbSchemaDesc = {}
@@ -247,13 +239,21 @@ class Data():
         self.log.logLoadingDBSchemaDescsFromGsheets(dbID)
 
         for ws in worksheets:
-            # Get the dataLayer, dataModel and table name from the worksheet
-            # title
-            dataLayerID = ws.title[ws.title.find('.')+1:ws.title.rfind('.')]
-            dataLayerID = dataLayerID[:dataLayerID.rfind('.')]
-            dataModelID = ws.title[ws.title.find('.')+1:ws.title.rfind('.')]
-            dataModelID = dataModelID[dataModelID.find('.')+1:]
-            tableName = ws.title[ws.title.rfind('.')+1:]
+            # Get the dataLayer, dataset and table name from the worksheet
+            # title. The TRG schmea desc spreadsheet only needs to code
+            # worksheets with the datalayer (beacuse there's only one dataset
+            # per datalayer: <dataLayerID>.<tableName>). We default the
+            # datasetID to the dataLayerID
+            # The ETL worksheet names are:
+            # <dataLayerID>.<datasetID>.<tableName>
+            if dbID == 'TRG':
+                dataLayerID = ws.title[0:ws.title.find('.')]
+                datasetID = dataLayerID
+                tableName = ws.title[ws.title.rfind('.')+1:]
+            elif dbID == 'ETL':
+                dataLayerID = ws.title[0:ws.title.find('.')]
+                datasetID = ws.title[ws.title.find('.')+1:ws.title.rfind('.')]
+                tableName = ws.title[ws.title.rfind('.')+1:]
 
             # If needed, create a new item in our db schema desc for
             # this data layer, and a new item in our dl schema desc for
@@ -263,15 +263,15 @@ class Data():
             if dataLayerID not in dbSchemaDesc:
                 dbSchemaDesc[dataLayerID] = {
                     'dataLayerID': dataLayerID,
-                    'dataModelSchemas': {}
+                    'datasetSchemas': {}
                 }
             dlSchemaDesc = dbSchemaDesc[dataLayerID]
-            if dataModelID not in dlSchemaDesc['dataModelSchemas']:
-                dlSchemaDesc['dataModelSchemas'][dataModelID] = {
-                    'dataModelID': dataModelID,
+            if datasetID not in dlSchemaDesc['datasetSchemas']:
+                dlSchemaDesc['datasetSchemas'][datasetID] = {
+                    'datasetID': datasetID,
                     'tableSchemas': {}
                 }
-            dmSchemaDesc = dlSchemaDesc['dataModelSchemas'][dataModelID]
+            datasetSchemaDesc = dlSchemaDesc['datasetSchemas'][datasetID]
 
             # Create a new table schema description
             tableSchema = {
@@ -297,38 +297,87 @@ class Data():
                     'fkDimension': fkDimension
                 }
 
-            # Finally, add the tableSchema to our data dataModel schema desc
-            dmSchemaDesc['tableSchemas'][tableName] = tableSchema
+            # Finally, add the tableSchema to our data dataset schema desc
+            datasetSchemaDesc['tableSchemas'][tableName] = tableSchema
 
         with open(self.CONF.CTRL.SCHEMA_PATH + '/dbSchemaDesc_' + dbID + '.txt', 'w') as file:
             file.write(json.dumps(dbSchemaDesc))
 
-    # TODO: this is a HORRIBLE mess of code and needs heavy refactoring!
-    def autoPopulateSrcSchemaDescriptions(self):
+    def autoPopulateExtSchemaDescriptions(self):
 
         self.log.logAutoPopSchemaDescsFromSrcStart()
 
         # First, loop through the ETL DB schema desc spreadsheet and delete
-        # any worksheets prefixed ETL.SRC.
+        # any worksheets prefixed ETL.EXT.
 
         self.log.logDeleteSrcSchemaDescWsFromSS()
         ss = self.getSchemaDescGSheetDatastore('ETL').conn
 
         for ws in ss.worksheets():
-            if ws.title.find('ETL.SRC.') == 0:
+            if ws.title.find('ETL.EXT.') == 0:
                 ss.del_worksheet(ws)
 
-        # Each source system will create a new data model within our SRC data
+        srcSysSchemas = self.readSrcSystemSchemas()
+
+        # Each source system will create a new dataset within our EXT data
         # layer (within our ETL database)
+
+        for srcSysID in self.SRC_SYSTEM_LIST:
+
+            tableSchemas = srcSysSchemas[srcSysID]['tableSchemas']
+
+            for srcTableName in tableSchemas:
+
+                extTableName = self.cleanTableName(srcTableName)
+
+                colSchemas = tableSchemas[srcTableName]['columnSchemas']
+
+                wsName = ('ETL.EXT.' + srcSysID + '.' +
+                          srcSysID.lower() + '_' + extTableName)
+
+                ws = ss.add_worksheet(title=wsName,
+                                      rows=len(colSchemas)+1,
+                                      cols=3)
+
+                # We build up our new GSheets table first, in memory,
+                # then write it all in one go.
+                cell_list = ws.range('A1:C'+str(len(colSchemas)+1))
+                rangeRowCount = 0
+                cell_list[rangeRowCount].value = 'Column Name'
+                cell_list[rangeRowCount+1].value = 'Data Type'
+                cell_list[rangeRowCount+2].value = 'Column Type'
+                rangeRowCount += 3
+                for col in colSchemas:
+                    cell_list[rangeRowCount].value = \
+                        colSchemas[col]['columnName']
+                    cell_list[rangeRowCount+1].value = \
+                        colSchemas[col]['dataType']
+                    cell_list[rangeRowCount+2].value = \
+                        colSchemas[col]['columnType']
+                    rangeRowCount += 3
+
+                ws.update_cells(cell_list)
+
+        # Finally, as we've rebuilt our EXT Layer schema description, we need
+        # to update the SrcTableMap as well.
+
+        self.populateSrcTableMap(srcSysSchemas)
+
+        self.log.logAutoPopSchemaDescsFromSrcFinish()
+
+    # TODO: this is a HORRIBLE mess of code and needs heavy refactoring!
+    # (although it's a bit less bad than it was, having split it out a little
+    def readSrcSystemSchemas(self):
+
         srcSysSchemas = {}
-        srcTableMap = {}
+
         for srcSysID in self.SRC_SYSTEM_LIST:
 
             srcSysDS = self.getSrcSysDatastore(srcSysID)
 
             # The object we're going to build up before writing to the GSheet
             srcSysSchemas[srcSysID] = {
-                'dataModelID': srcSysID,
+                'datasetID': srcSysID,
                 'tableSchemas': {}
             }
 
@@ -403,6 +452,7 @@ class Data():
 
             elif (srcSysDS.datastoreType == 'FILESYSTEM' and
                   srcSysDS.fileExt == '.csv'):
+
                 # one src filesystem will contain 1+ files. Each file is a
                 # table, obviously, and each will have a list of cols in the
                 # first row. Get all the files (in the root dir), then loop
@@ -411,6 +461,7 @@ class Data():
                 for (dirpath, dirnames, filenames) in os.walk(srcSysDS.path):
                     files.extend(filenames)
                     break  # Just the root
+
                 for filename in files:
 
                     if filename.find('.csv') > 0:
@@ -499,72 +550,51 @@ class Data():
 
             else:
                 raise ValueError(
-                    "Failed to auto-populate SRC Layer " +
+                    "Failed to auto-populate EXT Layer " +
                     "schema desc: Source system type is " +
                     srcSysDS.datastoreType +
                     ". Stopping execution. We only " +
                     "deal with 'POSTGRES', 'FILESYSTEM' & 'GSHEET' " +
                     " source system types, so cannot auto-populate " +
-                    "the ETL.SRC schemas for this source system")
+                    "the ETL.EXT schemas for this source system")
 
-            # Check we managed to find some kind of schema from the source
-            # system
-            if (len(srcSysSchemas[srcSysID]['tableSchemas']) == 0):
-                raise ValueError(
-                    "Failed to auto-populate SRC Layer schema desc:" +
-                    " we could not find any meta data in the src " +
-                    "system with which to construct a schema " +
-                    "description")
-            else:
+        # Check we managed to find some kind of schema from the source
+        # system
+        if (len(srcSysSchemas[srcSysID]['tableSchemas']) == 0):
+            raise ValueError(
+                "Failed to auto-populate EXT Layer schema desc:" +
+                " we could not find any meta data in the src " +
+                "system with which to construct a schema " +
+                "description")
+        else:
+            return srcSysSchemas
 
-                # Some data sources can provide us with table names
-                # incompatible with Postgres (e.g. worksheet names in
-                # Excel/GSheets). So we will create a mapping of actual names
-                # to postgres names, to be used whenever we need to pull data
-                # out of source. For simplicity, we'll do this for
-                # all sources, even though some will always be the same.
+    def populateSrcTableMap(self, srcSysSchemas):
 
-                srcTableMap[srcSysID] = {}
+        # Some data sources can provide us with table names
+        # incompatible with Postgres (e.g. worksheet names in
+        # Excel/GSheets). So we will create a mapping of actual names
+        # to postgres names (which will be used for our EXT layer).
+        # The mapping will be needed whenever we pull data
+        # out of source. For simplicity, we'll do this for
+        # all sources, even though some will always be the same.
 
-                tableSchemas = srcSysSchemas[srcSysID]['tableSchemas']
-                for tableName_src in tableSchemas:
+        srcTableMap = {}
 
-                    tableName = self.cleanTableName(tableName_src)
-                    srcTableMap[srcSysID][tableName] = tableName_src
+        for srcSysID in self.SRC_SYSTEM_LIST:
 
-                    colSchemas = \
-                        tableSchemas[tableName_src]['columnSchemas']
+            srcTableMap[srcSysID] = {}
 
-                    wsName = 'ETL.SRC.' + srcSysID + '.' + 'src_' + \
-                        srcSysID.lower() + '_' + tableName
+            tableSchemas = srcSysSchemas[srcSysID]['tableSchemas']
 
-                    ws = ss.add_worksheet(title=wsName,
-                                          rows=len(colSchemas)+1,
-                                          cols=3)
+            for srcTableName in tableSchemas:
 
-                    # We build up our new GSheets table first, in memory,
-                    # then write it all in one go.
-                    cell_list = ws.range('A1:C'+str(len(colSchemas)+1))
-                    rangeRowCount = 0
-                    cell_list[rangeRowCount].value = 'Column Name'
-                    cell_list[rangeRowCount+1].value = 'Data Type'
-                    cell_list[rangeRowCount+2].value = 'Column Type'
-                    rangeRowCount += 3
-                    for col in colSchemas:
-                        cell_list[rangeRowCount].value = \
-                            colSchemas[col]['columnName']
-                        cell_list[rangeRowCount+1].value = \
-                            colSchemas[col]['dataType']
-                        cell_list[rangeRowCount+2].value = \
-                            colSchemas[col]['columnType']
-                        rangeRowCount += 3
+                extTableName = srcSysID.lower() + '_' + self.cleanTableName(srcTableName)
+                srcTableMap[srcSysID][extTableName] = srcTableName
 
-                    ws.update_cells(cell_list)
-
-        with open(self.CONF.CTRL.SCHEMA_PATH + '/tableNameMapping.txt', 'w+') as file:
+        filePath = self.CONF.CTRL.SCHEMA_PATH + '/tableNameMapping.txt'
+        with open(filePath, 'w+') as file:
             file.write(json.dumps(srcTableMap))
-
-        self.log.logAutoPopSchemaDescsFromSrcFinish()
 
     def cleanTableName(self, tableName_src):
         tableName = tableName_src
@@ -589,14 +619,14 @@ class Data():
         allTables.extend([item[0] for item in etlDBCursor.fetchall()])
         allTables.extend([item[0] for item in trgDBCursor.fetchall()])
 
-        dataModelTables = []
-        for dataLayerID in self.DATA_LAYERS:
-            dataModelTables.extend(
-                self.getDataLayerLogicalSchema(dataLayerID).getListOfTables())
+        dataLayerTables = []
+        for dlID in self.DATA_LAYERS:
+            dataLayerTables.extend(
+                self.getDataLayerLogicalSchema(dlID).getListOfTables())
 
         superflousTableNames = []
         for tableName in allTables:
-            if tableName not in dataModelTables:
+            if tableName not in dataLayerTables:
                 superflousTableNames.append(tableName)
 
         if len(superflousTableNames) > 0:

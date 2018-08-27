@@ -3,7 +3,6 @@ from betl.logger import Logger
 from betl.logger import alerts
 
 from betl.defaultdataflows import stageExtract
-from betl.defaultdataflows import stageTransform
 from betl.defaultdataflows import stageLoad
 from betl.defaultdataflows import stageSummarise
 from betl.defaultdataflows import dmDate
@@ -43,7 +42,7 @@ class Scheduler():
                     stage='EXTRACT')
 
                 self.srcTablesToExcludeFromExtract = \
-                    self.conf.SCHEDULE.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
+                    self.conf.SCHEDULE.EXT_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
 
             for function in self.conf.SCHEDULE.EXTRACT_DATAFLOWS:
                 self.addFunctionToList(
@@ -65,11 +64,6 @@ class Scheduler():
             if self.conf.SCHEDULE.DEFAULT_DM_AUDIT:
                 self.addFunctionToList(
                     function=dmAudit.transformDMAudit,
-                    stage='TRANSFORM')
-
-            if self.conf.SCHEDULE.DEFAULT_TRANSFORM:
-                self.addFunctionToList(
-                    function=stageTransform.defaultTransform,
                     stage='TRANSFORM')
 
         if self.conf.EXE.RUN_LOAD:
@@ -126,7 +120,6 @@ class Scheduler():
         try:
             for i in range(len(functions)):
                 counter = i
-
                 # Check status of function in ctrlDB.funtions (because if we
                 # are re-running a failed job, we only want to pick up
                 # funtions that come after the point of failure

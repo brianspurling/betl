@@ -13,14 +13,16 @@ def defaultExtract(betl):
 
 
 def defaultExtract_bulk(betl):
+
     srcTablesToExclude = \
-        betl.CONF.SCHEDULE.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
-    srcLayer = betl.CONF.DATA.getDataLayerLogicalSchema('SRC')
-    for dmID in srcLayer.dataModels:
-        for tableName in srcLayer.dataModels[dmID].tables:
+        betl.CONF.SCHEDULE.EXT_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
+    extLayer = betl.CONF.DATA.getDataLayerLogicalSchema('EXT')
+
+    for dmID in extLayer.datasets:
+        for tableName in extLayer.datasets[dmID].tables:
 
             mappedTableName = \
-                srcLayer.dataModels[dmID].tables[tableName].srcTableName
+                extLayer.datasets[dmID].tables[tableName].srcTableName
             if tableName in srcTablesToExclude:
                 continue
             dfl = betl.DataFlow(desc='Default extract for ' + tableName)
@@ -40,7 +42,7 @@ def defaultExtract_bulk(betl):
             dfl.write(
                 dataset=tableName,
                 targetTableName=tableName,
-                dataLayerID='SRC',
+                dataLayerID='EXT',
                 desc="Write the data extract to the SRC data layer")
 
 
@@ -49,20 +51,20 @@ def defaultExtract_bulk(betl):
     # TODO not been refactored since dataframe class added to betl
 
     # srcTablesToExclude = \
-    #     scheduler.conf.SCHEDULE.SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
+    #     scheduler.conf.SCHEDULE.EXT_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
     #
-    # srcLayer = scheduler.conf.DATA.getDataLayerLogicalSchema('SRC')
+    # extLayer = scheduler.conf.DATA.getDataLayerLogicalSchema('EXT')
     #
-    # for dmID in srcLayer.dataModels:
-    #     for tableName in srcLayer.dataModels[dmID].tables:
+    # for dmID in extLayer.datasets:
+    #     for tableName in extLayer.datasets[dmID].tables:
     #         if tableName in srcTablesToExclude:
     #             continue
     # colNameList = \
-    #     srcLayer.dataModels[dmID].tables[tableName].colNames
+    #     extLayer.datasets[dmID].tables[tableName].colNames
     # nkList = \
-    #     srcLayer.dataModels[dmID].tables[tableName].colNames_NKs
+    #     extLayer.datasets[dmID].tables[tableName].colNames_NKs
     # nonNkList = \
-    #     srcLayer.dataModels[dmID].tables[tableName].colNames_withoutNKs
+    #     extLayer.datasets[dmID].tables[tableName].colNames_withoutNKs
     #
     # if len(nkList) == 0:
     #     raise ValueError(tableName + ' does not have a natural ' +
@@ -82,7 +84,7 @@ def defaultExtract_bulk(betl):
     # updatecolNameList = []
     # deletecolNameList = []
     #
-    # columns = srcLayer.dataModels[dmID]     \
+    # columns = extLayer.datasets[dmID]     \
     #     .tables[tableName].columns
     #
     # for column in columns:
@@ -98,7 +100,7 @@ def defaultExtract_bulk(betl):
     #         updatecolNameList.append(column.columnName)
     #         deletecolNameList.append(column.columnName + '_stg')
     #
-    # stgDF = betl.readData(tableName, 'SRC')
+    # stgDF = betl.readData(tableName, 'EXT')
     #
     # deltaDF = pd.merge(left=srcDF, right=stgDF, how='outer',
     #                    suffixes=('_src', '_stg'), on=nkList,
@@ -120,7 +122,7 @@ def defaultExtract_bulk(betl):
     #                                       sourceSystemId=dmID,
     #                                       action='INSERT')
     #     # NOTE: Check this logic
-    #     betl.writeData(insertsDF, tableName, 'SRC', 'append')
+    #     betl.writeData(insertsDF, tableName, 'EXT', 'append')
     #     stgDF = stgDF.append(insertsDF, ignore_index=True,
     #                          verify_integrity=True)
     # else:

@@ -71,16 +71,16 @@ def processArgs(args):
             params['READ_SRC'] = True
         elif arg == 'rebuildall':
             params['RUN_REBUILDS'] = {
-                'SRC': True,
-                'STG': True,
-                'TRG': True,
+                'EXT': True,
+                'TRN': True,
+                'BSE': True,
                 'SUM': True}
-        elif arg == 'rebuildsrc':
-            params['RUN_REBUILDS']['SRC'] = True
-        elif arg == 'rebuildstg':
-            params['RUN_REBUILDS']['STG'] = True
-        elif arg == 'rebuildtrg':
-            params['RUN_REBUILDS']['TRG'] = True
+        elif arg == 'rebuildext':
+            params['RUN_REBUILDS']['EXT'] = True
+        elif arg == 'rebuildtrn':
+            params['RUN_REBUILDS']['TRN'] = True
+        elif arg == 'rebuildbse':
+            params['RUN_REBUILDS']['BSE'] = True
         elif arg == 'rebuildsum':
             params['RUN_REBUILDS']['SUM'] = True
         elif arg == 'refreshschema':

@@ -21,8 +21,8 @@ A standard schedule config looks like this::
       'DEFAULT_DM_AUDIT': True,
 
       # Define tables to exclude from default processing
-      'SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT': [],
-      'TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD': [],
+      'EXT_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT': [],
+      'BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD': [],
 
       # Here you define the bespoke parts of your data pipeline.
       # Pass in your app's functions to the following four lists,
@@ -58,7 +58,7 @@ DEFAULT_LOAD
 
 NB. Delta loads not working in current version
 
-Like the extract stage, the load stage can be easily automated. The default load assumes you finished your transform stage by writing to a dataset named trg_<target table name>.
+Like the extract stage, the load stage can be easily automated. To have your transformed datasets picked up the default load, call dfl.prepForLoad(). This will place a CSV file in the LOD datalayer named the same as the target table.
 
 The default load picks up each of these files and loads them into the target model (bulk or delta). It loads the dimensions first, immediately updating the SK mappings after load. Then it loads the facts, looking up the SKs from the just-updated mappings.
 
@@ -75,10 +75,10 @@ DEFAULT_DM_DATE
 DEFAULT_DM_AUDIT
 ----------------
 
-SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
+EXT_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
 --------------------------------------
 
-TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 ---------------------------------------
 
 EXTRACT_DATAFLOWS

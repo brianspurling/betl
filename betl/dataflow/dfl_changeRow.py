@@ -78,7 +78,10 @@ def filter(self, dataset, filters, desc, targetDataset=None):
                              str(type(filters[f])) + ')')
 
     newLength = self.data[_targetDataset].shape[0]
-    pcntChange = (originalLength - newLength) / originalLength
+    if originalLength == 0:
+        pcntChange = 0
+    else:
+        pcntChange = (originalLength - newLength) / originalLength
     pcntChange = round(pcntChange * 100, 1)
     report = 'Filtered dataset from ' + str(originalLength) + ' to ' + \
              str(newLength) + ' rows (' + str(pcntChange) + ')'

@@ -31,6 +31,7 @@ class DataFlow():
 
     from .dfl_io import (read,
                          write,
+                         prepForLoad,
                          getDataFromSrc,
                          createDataset,
                          duplicateDataset,
@@ -56,9 +57,9 @@ class DataFlow():
         self.currentStepStartTime = None
         self.currentStepId = None
 
-        # The trgDataset is always the most recent dataset written to disk
+        # The targetDataset is always the most recent dataset written to disk
         self.data = {}
-        self.trgDataset = None
+        self.targetDataset = None
 
         if self.recordInCtrlDB:
             self.dataflowId = self.CONF.CTRL.CTRL_DB.insertDataflow(
@@ -76,17 +77,19 @@ class DataFlow():
                   desc,
                   datasetName=None,
                   df=None,
-                  additionalDesc=None):
+                  additionalDesc=None,
+                  silent=False):
 
         self.currentStepStartTime = datetime.now()
 
-        self.log.logStepStart(
-            startTime=self.currentStepStartTime,
-            desc=desc,
-            datasetName=datasetName,
-            df=df,
-            additionalDesc=additionalDesc,
-            monitorMemoryUsage=self.CONF.EXE.MONITOR_MEMORY_USAGE)
+        if not silent:
+            self.log.logStepStart(
+                startTime=self.currentStepStartTime,
+                desc=desc,
+                datasetName=datasetName,
+                df=df,
+                additionalDesc=additionalDesc,
+                monitorMemoryUsage=self.CONF.EXE.MONITOR_MEMORY_USAGE)
 
         if self.recordInCtrlDB:
             self.currentStepId = self.CONF.CTRL.CTRL_DB.insertStep(
@@ -99,18 +102,20 @@ class DataFlow():
                 report,
                 datasetName=None,
                 df=None,
-                shapeOnly=False):
+                shapeOnly=False,
+                silent=False):
 
         elapsedSeconds = \
             (datetime.now() - self.currentStepStartTime).total_seconds()
 
-        self.log.logStepEnd(
-            report=report,
-            duration=elapsedSeconds,
-            datasetName=datasetName,
-            df=df,
-            shapeOnly=shapeOnly,
-            monitorMemoryUsage=self.CONF.EXE.MONITOR_MEMORY_USAGE)
+        if not silent:
+            self.log.logStepEnd(
+                report=report,
+                duration=elapsedSeconds,
+                datasetName=datasetName,
+                df=df,
+                shapeOnly=shapeOnly,
+                monitorMemoryUsage=self.CONF.EXE.MONITOR_MEMORY_USAGE)
 
         if df is not None:
             rowCount = df.shape[0]
@@ -128,11 +133,11 @@ class DataFlow():
 
     def close(self):
         elapsedSeconds = (datetime.now() - self.dflStartTime).total_seconds()
-        self.log.logDFEnd(elapsedSeconds, self.trgDataset)
+        self.log.logDFEnd(elapsedSeconds, self.targetDataset)
 
-        if self.trgDataset is not None:
-            rowCount = self.trgDataset.shape[0]
-            colCount = self.trgDataset.shape[1]
+        if self.targetDataset is not None:
+            rowCount = self.targetDataset.shape[0]
+            colCount = self.targetDataset.shape[1]
         else:
             rowCount = None
             colCount = None
@@ -147,7 +152,7 @@ class DataFlow():
         # By removing all keys, we remove all pointers to the dataframes,
         # hence making them available to Python's garbage collection
         self.data.clear()
-        del(self.trgDataset)
+        del(self.targetDataset)
 
     def templateStep(self, dataset, desc):
 

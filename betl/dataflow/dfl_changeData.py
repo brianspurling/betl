@@ -1,9 +1,9 @@
 import pandas as pd
 
 
-def setNulls(self, dataset, columns, desc):
+def setNulls(self, dataset, columns, desc, silent=False):
 
-    self.stepStart(desc=desc)
+    self.stepStart(desc=desc, silent=silent)
 
     for col in columns:
         self.data[dataset].loc[self.data[dataset][col].isnull(), col] = \
@@ -11,7 +11,7 @@ def setNulls(self, dataset, columns, desc):
 
     report = ''
 
-    self.stepEnd(report=report)
+    self.stepEnd(report=report, silent=silent)
 
 
 def toNumeric(self,

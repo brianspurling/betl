@@ -13,14 +13,14 @@ import numpy as np
 # has to rerun
 def defaultLoad(betl):
 
-    trgLayer = betl.CONF.DATA.getDataLayerLogicalSchema('TRG')
+    bseLayer = betl.CONF.DATA.getDataLayerLogicalSchema('BSE')
     sumLayer = betl.CONF.DATA.getDataLayerLogicalSchema('SUM')
 
-    trgTables = trgLayer.dataModels['TRG'].tables
-    sumTables = sumLayer.dataModels['SUM'].tables
+    bseTables = bseLayer.datasets['BSE'].tables
+    sumTables = sumLayer.datasets['SUM'].tables
 
-    nonDefaultTrgTables = \
-        betl.CONF.SCHEDULE.TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+    nonDefaultBSETables = \
+        betl.CONF.SCHEDULE.BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
     # We must load the dimensions before the facts!
     loadSequence = []
@@ -33,7 +33,7 @@ def defaultLoad(betl):
 
         # DROP INDEXES
 
-        trgAndSumTbls = {**trgTables, **sumTables}
+        bseAndSumTbls = {**bseTables, **sumTables}
 
         dfl = betl.DataFlow(
             desc="If it's a bulk load, drop the indexes to speed up " +
@@ -41,17 +41,17 @@ def defaultLoad(betl):
                  "fact indexes first (or, to be precise, the facts' " +
                  "foreign key constraints, because the dim ID indexes " +
                  " cant be dropped until the FKs that point to them are gone)")
-        for tableName in trgAndSumTbls:
-            if trgAndSumTbls[tableName].getTableType() in ('FACT', 'SUMMARY'):
-                if tableName not in nonDefaultTrgTables:
+        for tableName in bseAndSumTbls:
+            if bseAndSumTbls[tableName].getTableType() in ('FACT', 'SUMMARY'):
+                if tableName not in nonDefaultBSETables:
                     counter = 0
-                    for sql in trgAndSumTbls[tableName].getSqlDropIndexes():
+                    for sql in bseAndSumTbls[tableName].getSqlDropIndexes():
                         # Multiple indexes per table, but desc, below, needs
                         # to be unique
                         counter += 1
                         dfl.customSQL(
                             sql,
-                            dataLayer='TRG',
+                            dataLayer='BSE',
                             desc='Dropping fact indexes for ' + tableName +
                                  ' (' + str(counter) + ')')
         dfl.close()
@@ -65,23 +65,23 @@ def defaultLoad(betl):
         for wsTitle in worksheets:
             defaultRows[wsTitle] = worksheets[wsTitle].get_all_records()
         for dimOrFactLoad in loadSequence:
-            for tableName in trgTables:
-                tableType = trgTables[tableName].getTableType()
+            for tableName in bseTables:
+                tableType = bseTables[tableName].getTableType()
                 if (tableType == dimOrFactLoad):
-                    if tableName not in nonDefaultTrgTables:
+                    if tableName not in nonDefaultBSETables:
                         bulkLoadTable(betl=betl,
-                                      table=trgTables[tableName],
+                                      table=bseTables[tableName],
                                       tableType=tableType,
                                       defaultRows=defaultRows)
 
     if betl.CONF.EXE.BULK_OR_DELTA == 'DELTA':
         for tableType in loadSequence:
-            for tableName in trgTables:
-                tableType = trgTables[tableName].getTableType()
+            for tableName in bseTables:
+                tableType = bseTables[tableName].getTableType()
                 if (tableType == tableType):
-                    if tableName not in nonDefaultTrgTables:
+                    if tableName not in nonDefaultBSETables:
                         deltaLoadTable(betl=betl,
-                                       table=trgTables[tableName],
+                                       table=bseTables[tableName],
                                        tableType=tableType)
 
 
@@ -106,22 +106,22 @@ def bulkLoadDimension(betl, defaultRows, table):
 
     dfl.truncate(
         dataset=table.tableName,
-        dataLayerID='TRG',
+        dataLayerID='BSE',
         forceDBWrite=True,
         desc='Because it is a bulk load, clear out the dim data (which also ' +
              'restarts the SK sequences)')
 
-    dataset = 'trg_' + table.tableName
+    dataset = table.tableName
     dfl.read(
         tableName=dataset,
-        dataLayer='STG',
-        desc='Read the data we are going to load to TRG (from file trg_' +
+        dataLayer='LOD',
+        desc='Read the data we are going to load to BSE (from file ' +
              table.tableName + ')')
 
     dfl.write(
         dataset=dataset,
         targetTableName=table.tableName,
-        dataLayerID='TRG',
+        dataLayerID='BSE',
         forceDBWrite=True,
         append_or_replace='append',  # stops it altering table & removing SK!
         writingDefaultRows=True,
@@ -135,7 +135,7 @@ def bulkLoadDimension(betl, defaultRows, table):
         counter += 1
         dfl.customSQL(
             sql,
-            dataLayer='TRG',
+            dataLayer='BSE',
             desc='Creating index for ' + table.tableName +
                  ' (' + str(counter) + ')')
 
@@ -158,7 +158,7 @@ def bulkLoadDimension(betl, defaultRows, table):
         dfl.write(
             dataset=table.tableName + '_defaultRows',
             targetTableName=table.tableName,
-            dataLayerID='TRG',
+            dataLayerID='BSE',
             forceDBWrite=True,
             append_or_replace='append',
             writingDefaultRows=True,
@@ -177,25 +177,28 @@ def bulkLoadDimension(betl, defaultRows, table):
         dfl.write(
             dataset='dm_audit_default_rows',
             targetTableName='dm_audit',
-            dataLayerID='TRG',
+            dataLayerID='BSE',
             forceDBWrite=True,
             append_or_replace='append',
             writingDefaultRows=True,
             desc='Adding default rows to dm_audit',
             keepDataflowOpen=True)
-            
+
     # RETRIEVE SK/NK MAPPING (FOR LATER)
+
+    skDatasetName = 'sk_' + table.tableName
 
     dfl.read(
         tableName=table.tableName,
-        dataLayer='TRG',
+        targetDataset=skDatasetName,
+        dataLayer='BSE',
         forceDBRead=True,
         desc='The SKs were generated as we wrote to the DB. We will need ' +
              'these SKs (and their corresponding NKs) when we load the fact ' +
              'table (later), so we pull the sk/nks mapping back out now)')
 
     dfl.replace(
-        dataset=table.tableName,
+        dataset=skDatasetName,
         columnNames=None,
         toReplace=np.nan,
         value='',
@@ -203,30 +206,30 @@ def bulkLoadDimension(betl, defaultRows, table):
         desc='Make all None values come through as empty strings')
 
     dfl.dropColumns(
-        dataset=table.tableName,
+        dataset=skDatasetName,
         colsToKeep=[table.surrogateKeyColName] + table.colNames_NKs,
         desc='Drop all cols except SK & NKs (including audit cols)',
         dropAuditCols=True)
 
     dfl.renameColumns(
-        dataset=table.tableName,
+        dataset=skDatasetName,
         columns={table.surrogateKeyColName: 'sk'},
         desc='Rename the SK column to "sk"')
 
     dfl.addColumns(
-        dataset=table.tableName,
+        dataset=skDatasetName,
         columns={'nk': concatenateNKs},
         desc='Concatenate the NK columns into a single "nk" column')
 
     dfl.dropColumns(
-        dataset=table.tableName,
+        dataset=skDatasetName,
         colsToKeep=['sk', 'nk'],
         desc='Drop all cols except the sk col and the new nk col')
 
     dfl.write(
-        dataset=table.tableName,
-        targetTableName='sk_' + table.tableName,
-        dataLayerID='STG')
+        dataset=skDatasetName,
+        targetTableName=skDatasetName,
+        dataLayerID='LOD')
 
 
 def concatenateNKs(row):
@@ -249,26 +252,27 @@ def bulkLoadFact(betl, table):
 
     dfl.truncate(
         dataset=table.tableName,
-        dataLayerID='TRG',
+        dataLayerID='BSE',
         forceDBWrite=True,
         desc='Because it is a bulk load, clear out the ft data (which also ' +
              'restarts the SK sequences)')
 
     dfl.read(
-        tableName='trg_' + table.tableName,
-        dataLayer='STG',
+        tableName=table.tableName,
+        dataLayer='LOD',
         targetDataset=table.tableName,
-        desc='Read the data we are going to load to TRG (from file ' +
-             'trg_' + table.tableName + ')')
-
-    dfl.write(
-        dataset=table.tableName,
-        targetTableName='trg_' + table.tableName,
-        dataLayerID='STG',
-        desc='Write it back to ' + table.tableName + ' for debug',
-        keepDataflowOpen=True)
+        desc='Read the data we are going to load to BSE (from file ' +
+             table.tableName + ')')
 
     # SK/NK MAPPINGS
+
+    # collapose the dm_audit nk first
+
+    dfl.createAuditNKs(
+        dataset=table.tableName,
+        desc='Collapse the audit columns into their NK')
+
+    # now join all nks to their respective dims sk/nk mappings, & load the fact
 
     for column in table.columns:
         if column.isFK:
@@ -276,8 +280,11 @@ def bulkLoadFact(betl, table):
             dfl.read(
                 tableName=keyMapTableName,
                 targetDataset=keyMapTableName + '.' + column.columnName,
-                dataLayer='STG',
-                desc='Read the SK/NK mapping for column ' + column.columnName)
+                dataLayer='LOD',
+                desc='Read the SK/NK mapping for column ' + column.columnName +
+                     '. Then (silently) rename the sk/nk mapping cols to ' +
+                     'match the fact table, join with the dim, assign all ' +
+                     'missing rows to -1 row, & drop the nk col from the fact')
 
             nkColName = column.columnName.replace('fk_', 'nk_')
 
@@ -288,7 +295,8 @@ def bulkLoadFact(betl, table):
                     'nk': nkColName},
                 desc='Rename the columns of the ' + column.fkDimension + ' ' +
                      'SK/NK mapping to match the fact table column names ' +
-                     ' (' + column.columnName + ')')
+                     ' (' + column.columnName + ')',
+                silent=True)
 
             dfl.join(
                 datasets=[
@@ -298,25 +306,28 @@ def bulkLoadFact(betl, table):
                 joinCol=nkColName,
                 how='left',
                 desc="Merging dim's SK with fact for column " +
-                     column.columnName)
+                     column.columnName,
+                silent=True)
 
             dfl.setNulls(
                 dataset=table.tableName,
                 columns={column.columnName: -1},
                 desc='Assigning all missing rows to default -1 row (' +
-                     column.columnName + ')')
+                     column.columnName + ')',
+                silent=True)
 
             dfl.dropColumns(
                 dataset=table.tableName,
                 colsToDrop=[nkColName],
-                desc='Dropping the natural key column: ' + nkColName)
+                desc='Dropping the natural key column: ' + nkColName,
+                silent=True)
 
     # WRITE DATA
 
     dfl.write(
         dataset=table.tableName,
         targetTableName=table.tableName,
-        dataLayerID='TRG',
+        dataLayerID='BSE',
         append_or_replace='append',  # stops it altering table & removing SK!
         keepDataflowOpen=True)
 
@@ -327,7 +338,7 @@ def bulkLoadFact(betl, table):
         counter += 1
         dfl.customSQL(
             sql,
-            dataLayer='TRG',
+            dataLayer='BSE',
             desc='Creating index for ' + table.tableName +
                  ' (' + str(counter) + ')')
     dfl.close()

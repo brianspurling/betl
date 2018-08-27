@@ -107,8 +107,8 @@ def test_setDwhId(dwhId, expected):
     (None, '', True),
 ])
 def test_setGoogleAPIKeyFilename(apiKeyFilename,
-                                       expected,
-                                       expectRaise):
+                                 expected,
+                                 expectRaise):
     setup = Setup()
     if expectRaise:
         with pytest.raises(ValueError):
@@ -124,8 +124,8 @@ def test_setGoogleAPIKeyFilename(apiKeyFilename,
     (None, '', True),
 ])
 def test_setGoogleAccount(googleAccount,
-                                expected,
-                                expectRaise):
+                          expected,
+                          expectRaise):
 
     setup = Setup()
     if expectRaise:
@@ -142,8 +142,8 @@ def test_setGoogleAccount(googleAccount,
     (None, '', True),
 ])
 def test_setAdminPostgresUsername(adminPostgresUsername,
-                                        expected,
-                                        expectRaise):
+                                  expected,
+                                  expectRaise):
     setup = Setup()
     if expectRaise:
         with pytest.raises(ValueError):
@@ -255,10 +255,10 @@ def test_setCtlDBName(ctlDBName, expected):
      ('', 'test_value_10', True, 'test_value_10', False),
      (None, 'test_value_10', True, 'test_value_10', False)])
 def test_setCtlDBUsername(ctlDBUsername,
-                                expected,
-                                runAdminUNFuncFirst,
-                                adminPostgresUsername,
-                                expectRaise):
+                          expected,
+                          runAdminUNFuncFirst,
+                          adminPostgresUsername,
+                          expectRaise):
     setup = Setup()
     if runAdminUNFuncFirst:
         setup.setAdminPostgresUsername(adminPostgresUsername)
@@ -332,10 +332,10 @@ def test_setETLDBName(etlDBName, expected):
      ('', 'test_value_16', True, 'test_value_16', False),
      (None, 'test_value_16', True, 'test_value_16', False)])
 def test_setETLDBUsername(etlDBUsername,
-                                expected,
-                                runAdminUNFuncFirst,
-                                adminPostgresUsername,
-                                expectRaise):
+                          expected,
+                          runAdminUNFuncFirst,
+                          adminPostgresUsername,
+                          expectRaise):
     setup = Setup()
     if runAdminUNFuncFirst:
         setup.setAdminPostgresUsername(adminPostgresUsername)

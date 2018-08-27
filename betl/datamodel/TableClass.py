@@ -9,12 +9,15 @@ class Table():
                  tableSchema,
                  datastore,
                  dataLayerID,
-                 dataModelID,
+                 datasetID=None,
                  srcTableName=None):
 
         self.dataConf = dataConf
         self.dataLayerID = dataLayerID
-        self.dataModelID = dataModelID
+        if dataLayerID in ['LOD', 'BSE', 'SUM']:
+            self.datasetID = dataLayerID
+        else:
+            self.datasetID = datasetID
         self.tableName = tableSchema['tableName'].lower()
         self.srcTableName = srcTableName
         self.datastore = datastore
@@ -99,8 +102,8 @@ class Table():
 
         tableType = 'UNKNOWN'
 
-        if self.dataLayerID not in ('TRG', 'SUM'):
-            tableType = 'Not TRG Layer'
+        if self.dataLayerID not in ('BSE', 'SUM'):
+            tableType = 'Table ' + self.tableName + ' is not in the BSE or SUM dataLayers'
         elif self.tableName[:3] == 'dm_':
             tableType = 'DIMENSION'
         elif self.tableName[:3] == 'ft_':
@@ -113,26 +116,7 @@ class Table():
 
         return tableType
 
-    def __str__(self):
-
-        string = '\n' + '    ' + self.tableName + '\n'
-        string += ''.join(map(str, self.columns))
-        return string
-
-
-# TRG tables are any table in the TRG database, i.e. datalayers TRG & SUM
-class TrgTable(Table):
-
-    def __init__(self,
-                 dataConf,
-                 tableSchema,
-                 datastore,
-                 dataLayerID,
-                 dataModelID):
-
-        Table.__init__(self, dataConf, tableSchema,
-                       datastore, dataLayerID, dataModelID)
-
+    # TODO: These apply to bse & sum tables only: separate class?
     def getSqlDropIndexes(self):
 
         sqlStatements = []
@@ -162,3 +146,10 @@ class TrgTable(Table):
     def loadTableToTrgModel(self):
 
         stageLoad.loadTable(self)
+
+
+    def __str__(self):
+
+        string = '\n' + '    ' + self.tableName + '\n'
+        string += ''.join(map(str, self.columns))
+        return string

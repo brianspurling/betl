@@ -1,6 +1,10 @@
 databases = ['ETL', 'TRG']
 
-dataLayers = ['SRC', 'STG', 'TRG', 'SUM']
+dataLayers = {'EXT': 'ETL',
+              'TRN': 'ETL',
+              'LOD': 'ETL',
+              'BSE': 'TRG',
+              'SUM': 'TRG'}
 
 auditColumns = {
     'colNames': [
@@ -19,11 +23,11 @@ auditColumns = {
 
 defaultScheduleConfig = {
     'DEFAULT_EXTRACT': False,
-    'SRC_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT': [],
+    'EXT_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT': [],
     'DEFAULT_LOAD': False,
     'DEFAULT_SUMMARISE': False,
     'DEFAULT_DM_DATE': False,
-    'TRG_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD': [],
+    'BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD': [],
     'EXTRACT_DATAFLOWS': [],
     'TRANSFORM_DATAFLOWS': [],
     'LOAD_DATAFLOWS': [],

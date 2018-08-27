@@ -60,7 +60,7 @@ HELP = ("\n" +
         "> [readsrc]\n" +
         "  Auto-populate SRC layer schema descs from the source systems\n" +
         "\n" +
-        "> [rebuildall | rebuildsrc | rebuildstg | rebuildtrg | " +
+        "> [rebuildall | rebuildext | rebuildtrn | rebuildbse | " +
         "rebuildSum]\n" +
         "  Reconstruct the physical schema - all data will be lost\n" +
         "\n" +

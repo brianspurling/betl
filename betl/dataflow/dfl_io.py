@@ -77,17 +77,18 @@ def write(self,
                ' forceDBWrite = ' + str(forceDBWrite) + ')'
     self.stepStart(desc=desc, datasetName=dataset)
 
-    self.trgDataset = self.data[dataset]
+    self.targetDataset = self.data[dataset]
 
     # Work out whether we need to write to DB as well as CSV
     writeToDB = False
 
-    if dataLayerID in ['TRG', 'SUM']:
+    if dataLayerID in ['BSE', 'SUM']:
         writeToDB = True
     elif forceDBWrite:
         writeToDB = True
     else:
         writeToDB = self.CONF.EXE.WRITE_TO_ETL_DB
+
     dataLayer = self.CONF.DATA.getDataLayerLogicalSchema(dataLayerID)
     if (targetTableName not in dataLayer.getListOfTables()
        and not forceDBWrite):
@@ -125,7 +126,7 @@ def write(self,
             self.CONF.DATA.AUDIT_COLS['colNames'].tolist()
         colsIncludeSKs = False
         colsIncludeAudit = False
-        for colName in list(self.trgDataset):
+        for colName in list(self.targetDataset):
             if colName in logDataModelColNames_sks:
                 colsIncludeSKs = True
             if colName in self.CONF.DATA.AUDIT_COLS['colNames'].tolist():
@@ -149,7 +150,7 @@ def write(self,
                     self.CONF.DATA.AUDIT_COLS['colNames'].tolist()
             if not colsIncludeSKs and not colsIncludeAudit:
                 colsToSortBy = logDataModelColNames_noSKs
-            self.trgDataset = self.trgDataset[colsToSortBy]
+            self.targetDataset = self.targetDataset[colsToSortBy]
 
         except KeyError as e:
             raise ValueError(
@@ -163,7 +164,7 @@ def write(self,
     if writeToDB:
         dbEng = dataLayer.datastore.eng
         dbIO.writeDataToDB(
-            self.trgDataset,
+            self.targetDataset,
             targetTableName,
             dbEng,
             append_or_replace)
@@ -174,8 +175,8 @@ def write(self,
         mode = 'a'
 
     if writingDefaultRows:
-        self.trgDataset.drop(
-            self.trgDataset.columns[0],
+        self.targetDataset.drop(
+            self.targetDataset.columns[0],
             axis=1,
             inplace=True)
 
@@ -187,16 +188,16 @@ def write(self,
 
     fileIO.writeDataToCsv(
         conf=self.CONF,
-        df=self.trgDataset,
+        df=self.targetDataset,
         path=path,
         filename=filename,
         headers=True,
         mode=mode)
 
-    report = str(self.trgDataset.shape[0]) + ' rows written to '
+    report = str(self.targetDataset.shape[0]) + ' rows written to '
     report += targetTableName
 
-    self.stepEnd(report=report, df=self.trgDataset)
+    self.stepEnd(report=report, df=self.targetDataset)
     if not keepDataflowOpen:
         self.close()
 
@@ -214,7 +215,7 @@ def getDataFromSrc(self, tableName, srcSysID, desc, mappedTableName=None):
     if mappedTableName is not None:
         srcTableName = mappedTableName
     else:
-        # Cut off the src_<dataModelID>_ prefix, by doing
+        # Cut off the src_<datasetID>_ prefix, by doing
         # two "left trims" on the "_" char
         srcTableName = tableName[tableName.find("_")+1:]
         srcTableName = srcTableName[srcTableName.find("_")+1:]
@@ -375,3 +376,21 @@ def getColumnList(self, dataset, desc=None):
     self.stepEnd(report=report)
 
     return colList
+
+
+def prepForLoad(self,
+                dataset,
+                targetTableName=None,
+                keepDataflowOpen=False,
+                desc=None):
+
+    if targetTableName is None:
+        targetTableName = dataset
+
+    self.write(
+        dataset=dataset,
+        targetTableName=targetTableName,
+        dataLayerID='LOD',
+        keepDataflowOpen=keepDataflowOpen,
+        forceDBWrite=False,  # We never write the LOD layer to db
+        desc=desc)

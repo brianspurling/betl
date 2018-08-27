@@ -54,13 +54,10 @@ def transformDMAudit(betl):
     # TODO switch this to use the .join's cartesianJoin feature
     dfl.join(
         datasets=['ops', 'dq_scores'],
-        targetDataset='trg_dm_audit',
+        targetDataset='dm_audit',
         joinCol='temp_key',
         how='left',
         keepCols=['latest_delta_load_operation', 'data_quality_score'],
         desc='Cartesian join the two datasets together on the temp_key')
 
-    dfl.write(
-        dataset='trg_dm_audit',
-        targetTableName='trg_dm_audit',
-        dataLayerID='STG')
+    dfl.prepForLoad(dataset='dm_audit')

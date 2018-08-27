@@ -11,9 +11,10 @@ def join(self,
          leftJoinCol=None,
          rightJoinCol=None,
          keepCols=None,
-         cartesianJoin=False):
+         cartesianJoin=False,
+         silent=False):
 
-    self.stepStart(desc=desc)
+    self.stepStart(desc=desc, silent=silent)
 
     if len(datasets) > 2:
         raise ValueError('You can only join two tables at once')
@@ -49,7 +50,8 @@ def join(self,
     self.stepEnd(
         report=report,
         datasetName=targetDataset,
-        df=self.data[targetDataset])
+        df=self.data[targetDataset],
+        silent=silent)
 
 
 def union(self, datasets, targetDataset, desc):

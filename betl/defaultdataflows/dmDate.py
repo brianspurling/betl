@@ -86,14 +86,11 @@ def transformDMDate(betl):
     dfl = betl.DataFlow(desc='Generate the dm_date rows')
 
     dfl.createDataset(
-        dataset='trg_dm_date',
+        dataset='dm_date',
         data=df,
         desc='Loaded a pre-constructed dataframe')
 
-    dfl.write(
-        dataset='trg_dm_date',
-        targetTableName='trg_dm_date',
-        dataLayerID='STG')
+    dfl.prepForLoad(dataset='dm_date')
 
 
 def getDefaultRows():

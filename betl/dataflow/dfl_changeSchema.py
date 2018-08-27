@@ -1,9 +1,9 @@
 import pandas as pd
 
 
-def renameColumns(self, dataset, columns, desc):
+def renameColumns(self, dataset, columns, desc, silent=False):
 
-    self.stepStart(desc=desc)
+    self.stepStart(desc=desc, silent=silent)
 
     self.data[dataset].rename(index=str,
                               columns=columns,
@@ -14,7 +14,8 @@ def renameColumns(self, dataset, columns, desc):
     self.stepEnd(
         report=report,
         datasetName=dataset,
-        df=self.data[dataset])
+        df=self.data[dataset],
+        silent=silent)
 
 
 def dropColumns(self,
@@ -22,7 +23,8 @@ def dropColumns(self,
                 colsToDrop=None,
                 colsToKeep=None,
                 desc=None,
-                dropAuditCols=False):
+                dropAuditCols=False,
+                silent=False):
 
     if isinstance(colsToDrop, str):
         colsToDrop = [colsToDrop]
@@ -31,7 +33,7 @@ def dropColumns(self,
 
     if desc is None:
         desc = 'Dropping columns from ' + dataset + ': ' + str(colsToDrop)
-    self.stepStart(desc=desc)
+    self.stepStart(desc=desc, silent=silent)
 
     if colsToDrop is not None and colsToKeep is not None:
         raise ValueError("Nope!")
@@ -57,7 +59,8 @@ def dropColumns(self,
     self.stepEnd(
         report=report,
         datasetName=dataset,
-        df=self.data[dataset])
+        df=self.data[dataset],
+        silent=silent)
 
 
 def addColumns(self, dataset, columns, desc):

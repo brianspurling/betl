@@ -70,7 +70,7 @@ class Pipeline():
             self.CONF.STATE.populateFileNameMap(self.CONF.CTRL.TMP_DATA_PATH)
 
         if self.CONF.EXE.READ_SRC:
-            self.CONF.DATA.autoPopulateSrcSchemaDescriptions()
+            self.CONF.DATA.autoPopulateExtSchemaDescriptions()
 
         if len(self.CONF.EXE.RUN_REBUILDS) > 0:
 
