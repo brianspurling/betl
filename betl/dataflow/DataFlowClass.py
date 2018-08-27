@@ -31,7 +31,6 @@ class DataFlow():
 
     from .dfl_io import (read,
                          write,
-                         prepForLoad,
                          getDataFromSrc,
                          createDataset,
                          duplicateDataset,
@@ -39,6 +38,9 @@ class DataFlow():
                          getColumns,
                          getColumnList)
 
+    from .dfl_loadPrep import (prepForLoad,
+                               collapseNaturalKeyCols)
+                               
     from .dfl_mdm import (mapMasterData)
 
     from .dfl_merge import (join,

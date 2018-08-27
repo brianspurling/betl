@@ -376,21 +376,3 @@ def getColumnList(self, dataset, desc=None):
     self.stepEnd(report=report)
 
     return colList
-
-
-def prepForLoad(self,
-                dataset,
-                targetTableName=None,
-                keepDataflowOpen=False,
-                desc=None):
-
-    if targetTableName is None:
-        targetTableName = dataset
-
-    self.write(
-        dataset=dataset,
-        targetTableName=targetTableName,
-        dataLayerID='LOD',
-        keepDataflowOpen=keepDataflowOpen,
-        forceDBWrite=False,  # We never write the LOD layer to db
-        desc=desc)
