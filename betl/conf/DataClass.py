@@ -93,6 +93,10 @@ class Data():
     def getDefaultRowsDatastore(self):
         if self.DEFAULT_ROW_SRC is not None:
             return self.DEFAULT_ROW_SRC
+        elif 'default_rows' not in self.CONF.allConfig['data']:
+            # You do not have to specify a default_rows source in appConfig
+            # if you don't want to use default rows in your dimensions
+            return None
         else:
             apiKy = self.CONF.allConfig['data']['GSHEETS_API_KEY_FILE']
             fname = self.CONF.allConfig['data']['default_rows']['FILENAME']

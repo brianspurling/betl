@@ -61,9 +61,15 @@ def defaultLoad(betl):
         # Our defaultRows SS should contain a tab per dimension, each with 1+
         # default rows defined. IDs are defined too - should all be negative
         defaultRows = {}
-        worksheets = betl.CONF.DATA.getDefaultRowsDatastore().worksheets
+        worksheets = {}
+        defaultRowsDatastore = betl.CONF.DATA.getDefaultRowsDatastore()
+        if defaultRowsDatastore is not None:
+            worksheets = defaultRowsDatastore.worksheets
         for wsTitle in worksheets:
             defaultRows[wsTitle] = worksheets[wsTitle].get_all_records()
+
+        # BULK Load the data
+        
         for dimOrFactLoad in loadSequence:
             for tableName in bseTables:
                 tableType = bseTables[tableName].getTableType()
