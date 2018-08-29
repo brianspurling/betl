@@ -138,7 +138,8 @@ class Ctrl():
         except FileNotFoundError:
             pass
 
-        shutil.rmtree(self.SCHEMA_PATH + '/')
+        if os.path.exists(self.SCHEMA_PATH + '/'):
+            shutil.rmtree(self.SCHEMA_PATH + '/')
         os.makedirs(self.SCHEMA_PATH + '/')
         open(self.SCHEMA_PATH + '/lastModifiedTimes.txt', 'a').close()
 
