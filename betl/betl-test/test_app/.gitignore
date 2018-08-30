@@ -1,0 +1,22 @@
+# BETL-specific
+test_app/tmp_data/
+test_app/reports/
+test_app/logs/
+schema/
+betl_test_google_api_key.json
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Byte-compiled / optimized / DLL files
+.__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python/
+eggs/
+.eggs/
+*.egg-info/
+*.egg
