@@ -1,6 +1,7 @@
 class Schedule():
 
     def __init__(self, scheduleConfig):
+
         self.DEFAULT_EXTRACT = scheduleConfig['DEFAULT_EXTRACT']
         self.DEFAULT_LOAD = scheduleConfig['DEFAULT_LOAD']
         self.DEFAULT_SUMMARISE = scheduleConfig['DEFAULT_SUMMARISE']
@@ -14,3 +15,4 @@ class Schedule():
         self.TRANSFORM_DATAFLOWS = scheduleConfig['TRANSFORM_DATAFLOWS']
         self.LOAD_DATAFLOWS = scheduleConfig['LOAD_DATAFLOWS']
         self.SUMMARISE_DATAFLOWS = scheduleConfig['SUMMARISE_DATAFLOWS']
+        self.RUN_TESTS = scheduleConfig['RUN_TESTS']

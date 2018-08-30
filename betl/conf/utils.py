@@ -37,7 +37,9 @@ def processArgs(args):
         'RUN_FT_LOAD': True,
         'RUN_SUMMARISE': True,
 
-        'WRITE_TO_ETL_DB': False,
+        'RUN_TESTS': True,
+
+        'WRITE_TO_ETL_DB': True,
         'DELETE_TMP_DATA': False,
         'DATA_LIMIT_ROWS': None,
 
@@ -97,8 +99,10 @@ def processArgs(args):
             params['RUN_FT_LOAD'] = False
         elif arg == 'nosummarise':
             params['RUN_SUMMARISE'] = False
-        elif arg == 'dbwrite':
-            params['WRITE_TO_ETL_DB'] = True
+        elif arg == 'notests':
+            params['RUN_TESTS'] = False
+        elif arg == 'nodbwrite':
+            params['WRITE_TO_ETL_DB'] = False
         elif arg == 'cleartmpdata':
             params['DELETE_TMP_DATA'] = True
         elif arg == 'limitdata':
@@ -145,5 +149,8 @@ def processArgs(args):
                     sys.exit()
                 else:
                     print('')
+
+        if not params['WRITE_TO_ETL_DB'] and params['RUN_TESTS']:
+            raise ValueError(cliText.TURN_OFF_TESTS_IF_NOT_WRITING_TO_DB)
 
     return params

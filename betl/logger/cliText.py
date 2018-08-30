@@ -25,6 +25,10 @@ CANT_RERUN_WITH_SETUP_OR_REBUILD = (
 CANT_REBUILD_WITH_DELTA = ("You cannot rebuild the ETL database's data " +
                            "models as part of a delta load. Fool.")
 
+TURN_OFF_TESTS_IF_NOT_WRITING_TO_DB = ("BETL must write to DB to be able to " +
+                                       "run tests. Either turn off tests (" +
+                                       "notests) or turn on DB write")
+
 BULK_OR_DELTA_NOT_SET = ("Job must be either bulk or delta load")
 
 BULK_LOAD_WARNING = ("\nRunning BULK load will completely wipe your " +
@@ -73,14 +77,17 @@ HELP = ("\n" +
         "> [run]\n" +
         "  Executes the job\n" +
         "\n" +
+        "> [notests]\n" +
+        "  Do not run any tests\n" +
+        "\n" +
         "> [noextract] | [notransform] | [noload]\n" +
         "  Skip the extract / transform / load stage\n" +
         "\n" +
         "> [nodmload] | [noftload]\n" +
         "  Don't load the dimensions / fact tables\n" +
         "\n" +
-        "> [dbwrite]\n" +
-        "  Write ETL data to physical DB (as opposed to only CSV files)\n" +
+        "> [nodbwrite]\n" +
+        "  Do not write ETL data to physical DB (only write to CSV file)\n" +
         "\n" +
         "> [cleartmpdata]\n" +
         "  Clear all temp data from previous jobs before executing\n" +

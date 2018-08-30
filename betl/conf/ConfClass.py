@@ -20,6 +20,9 @@ class Conf():
         # divided up into sections corresponding to the "child" classes below
         self.allConfig = ConfigObj(appConfigFile)
 
+        # Schedule config passed in from the CLI
+        scheduleConfig['RUN_TESTS'] = runTimeParams['RUN_TESTS']
+
         # BETL's configuration is split into the following "child" classes
         self.EXE = Exe(runTimeParams)
         self.STATE = State()
