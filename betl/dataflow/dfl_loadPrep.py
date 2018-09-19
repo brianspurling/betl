@@ -1,13 +1,21 @@
+from betl.test import test
 
 
 def prepForLoad(self,
                 dataset,
+                naturalKeyCols=None,
                 targetTableName=None,
                 keepDataflowOpen=False,
                 desc=None):
 
     if targetTableName is None:
         targetTableName = dataset
+
+    if naturalKeyCols is not None:
+        self.collapseNaturalKeyCols(
+            dataset=dataset,
+            targetTableName=targetTableName,
+            naturalKeyCols=naturalKeyCols)
 
     self.write(
         dataset=dataset,
@@ -20,12 +28,12 @@ def prepForLoad(self,
 
 def collapseNaturalKeyCols(self,
                            dataset,
-                           naturalKeyCols,
-                           desc=None):
+                           targetTableName,
+                           naturalKeyCols):
 
-    if desc is None:
-        desc = 'Collapsing natural keys into a single column, ready for ' + \
-               'NK/SK lookup. Columns: ' + str(list(naturalKeyCols))
+    desc = 'Collapsing natural keys into a single column on dataset ' + \
+           targetTableName + ', ready for ' + 'NK/SK lookup. Columns: ' + \
+           str(list(naturalKeyCols))
 
     self.stepStart(desc=desc)
 
