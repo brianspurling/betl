@@ -31,6 +31,9 @@ class PostgresDatastore(Datastore):
     def commit(self):
         self.conn.commit()
 
+    def rollback(self):
+        self.conn.rollback()
+
     def cursor(self):
         return self.conn.cursor()
 

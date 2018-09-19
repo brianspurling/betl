@@ -171,6 +171,10 @@ class Scheduler():
     def handleFunctionException(self, functions, counter, errorMessage):
             tb1 = traceback.format_exc()
             try:
+
+                # Rollback first, to close down any existing (failed) trans
+                self.conf.CTRL.CTRL_DB.datastore.rollback()
+
                 self.conf.CTRL.CTRL_DB.updateFunction(
                     execId=self.conf.STATE.EXEC_ID,
                     functionName=functions[counter][2],
