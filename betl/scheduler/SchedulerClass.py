@@ -33,6 +33,14 @@ class Scheduler():
                 self.functions_dict,
                 conf.STATE.EXEC_ID)
 
+        # If we are rerunning a prev job, we need to delete the failed
+        # dataflow record from the control table (because we'll be inserting
+        # a new one when the dataflow re-runs, but we can't have dupes)
+        if self.conf.STATE.RERUN_PREV_JOB:
+            self.conf.CTRL.CTRL_DB.deleteFailedDataflow(conf.STATE.EXEC_ID)
+            alert = "JOB RESTARTED"
+            alerts.logAlert(self.conf, alert)
+
     def buildFunctionList(self):
 
         if self.conf.EXE.RUN_EXTRACT:

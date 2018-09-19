@@ -185,6 +185,23 @@ class CtrlDB():
         dataflowId = ctlDBCursor.fetchall()
         return dataflowId[0][0]
 
+    def deleteFailedDataflow(self, execId):
+
+        ctlDBCursor = self.datastore.cursor()
+
+        sql = "SELECT max(dataflow_id) FROM dataflows WHERE status <> 'SUCCESSFUL' and exec_id = " + str(execId) + ""
+        ctlDBCursor.execute(sql)
+        dataflowId = ctlDBCursor.fetchall()
+
+        if dataflowId[0][0] is not None:
+            sql = "DELETE FROM steps WHERE dataflow_id = " + str(dataflowId[0][0])
+            ctlDBCursor.execute(sql)
+            self.datastore.commit()
+
+            sql = "DELETE FROM dataflows WHERE dataflow_id = " + str(dataflowId[0][0])
+            ctlDBCursor.execute(sql)
+            self.datastore.commit()
+
     def insertStep(self, step):
 
         ctlDBCursor = self.datastore.cursor()
