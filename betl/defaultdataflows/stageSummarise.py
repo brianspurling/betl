@@ -24,7 +24,7 @@ def defaultSummarisePrep(betl):
                         counter += 1
                         dfl.customSQL(
                             sql,
-                            dataLayer='SUM',
+                            databaseID='TRG',
                             desc='Dropping indexes for ' + tableName + ' (' +
                                  str(counter) + ')')
 

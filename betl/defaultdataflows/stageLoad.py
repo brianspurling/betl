@@ -51,7 +51,7 @@ def defaultLoad(betl):
                         counter += 1
                         dfl.customSQL(
                             sql,
-                            dataLayer='BSE',
+                            databaseID='TRG',
                             desc='Dropping fact indexes for ' + tableName +
                                  ' (' + str(counter) + ')')
         dfl.close()
@@ -69,7 +69,7 @@ def defaultLoad(betl):
             defaultRows[wsTitle] = worksheets[wsTitle].get_all_records()
 
         # BULK Load the data
-        
+
         for dimOrFactLoad in loadSequence:
             for tableName in bseTables:
                 tableType = bseTables[tableName].getTableType()
@@ -141,7 +141,7 @@ def bulkLoadDimension(betl, defaultRows, table):
         counter += 1
         dfl.customSQL(
             sql,
-            dataLayer='BSE',
+            databaseID='TRG',
             desc='Creating index for ' + table.tableName +
                  ' (' + str(counter) + ')')
 
@@ -344,7 +344,7 @@ def bulkLoadFact(betl, table):
         counter += 1
         dfl.customSQL(
             sql,
-            dataLayer='BSE',
+            databaseID='TRG',
             desc='Creating index for ' + table.tableName +
                  ' (' + str(counter) + ')')
     dfl.close()
