@@ -6,16 +6,16 @@ import sqlalchemy
 
 class PostgresDatastore(Datastore):
 
-    def __init__(self, dbID, host, dbName, user, password,
+    def __init__(self, dbId, host, dbName, user, password,
                  createIfNotFound=False,
                  isSrcSys=False):
 
         Datastore.__init__(self,
-                           datastoreID=dbID,
+                           datastoreID=dbId,
                            datastoreType='POSTGRES',
                            isSrcSys=isSrcSys)
 
-        self.dbID = dbID
+        self.dbId = dbId
         self.host = host
         self.dbName = dbName
         self.user = user

@@ -1,7 +1,7 @@
 from .SetupClass import Setup
 
 
-def setup(params):
+def createNewBETLProject(params):
 
     setup = Setup()
 
@@ -192,17 +192,17 @@ def setup(params):
     return setup
 
 
-def setupWithUserInput():
+def createNewBETLProject():
 
-    print('\nBefore setting up BETL you will need a Google API Key \n' +
-          'file in your current directory. Get your file from Google ' +
-          'API Console. \nYou also need a Postgres server with the ' +
+    print('\nBefore setting up a new BETL project you will need a Google \n' +
+          'API key file in your current directory. Get your file from ' +
+          'Google API Console. \nYou also need a Postgres server with the ' +
           'u/n & p/w for the default postgres database.' +
           '\n\nTo select default values, press enter.')
 
     params = getParamsFromUserInput()
 
-    setup(params)
+    setup = reateNewBETLProject(params)
 
     print("\nWe've done as much as we can. Now you need to: \n" +
           "  - replace the example source systems in appConfig.ini with " +

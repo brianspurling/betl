@@ -65,7 +65,7 @@ def generateExeSummary(conf, execId, bulkOrDelta, limitedData):
 
     df = dbIO.customSQL(
         sql=sql,
-        datastore=conf.CTRL.CTRL_DB.datastore)
+        datastore=CONF.CTRL_DB.datastore)
 
     if len(df) > 1:
         df.step_id = df.dataflow_description + ' ~ ' + df.step_description
@@ -103,8 +103,8 @@ def generateExeSummary(conf, execId, bulkOrDelta, limitedData):
                     text=df['tooltips'],
                     hoverinfo='text')]
 
-            df.to_csv(conf.CTRL.REPORTS_PATH + '/exeSummary.csv')
+            df.to_csv(CONF.REPORTS_PATH + '/exeSummary.csv')
             url = py.plot(
                 data,
-                filename=conf.CTRL.REPORTS_PATH + '/exeSummary.html')
+                filename=CONF.REPORTS_PATH + '/exeSummary.html')
             log.logSomeVariancesReported(varianceLimit, url)

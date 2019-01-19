@@ -18,10 +18,10 @@ def conf(standardSetupParams, standardRunTimeParams, standardScheduleConfig):
         runTimeParams=processArgs(standardRunTimeParams),
         scheduleConfig=standardScheduleConfig)
     Logger.initialiseLogging(
-        execId=conf.STATE.EXEC_ID,
-        logLevel=conf.EXE.LOG_LEVEL,
-        logPath=conf.CTRL.LOG_PATH,
-        auditCols=conf.DATA.AUDIT_COLS)
+        execId=CONF.EXEC_ID,
+        logLevel=CONF.LOG_LEVEL,
+        logPath=CONF.LOG_PATH,
+        auditCols=CONF.AUDIT_COLS)
     return conf
 
 

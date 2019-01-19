@@ -1,3 +1,13 @@
+def logSummariseStart(betl):
+    betl.LOG.logSummariseStart()
+
+
+def logSummariseEnd(betl):
+    betl.LOG.logSummariseEnd()
+
+
+def logSkipSummarise(betl):
+    betl.LOG.logSkipSummarise()
 
 
 #
@@ -7,13 +17,13 @@
 #
 def defaultSummarisePrep(betl):
 
-    sumLayer = betl.CONF.DATA.getDataLayerLogicalSchema('SUM')
+    sumLayer = betl.CONF.getLogicalSchemaDataLayer('SUM')
 
     sumTables = sumLayer.datasets['SUM'].tables
     nonDefaultTrgTables = \
-        betl.CONF.SCHEDULE.BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+        betl.CONF.BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
-    if betl.CONF.EXE.BULK_OR_DELTA == 'BULK':
+    if betl.CONF.BULK_OR_DELTA == 'BULK':
         dfl = betl.DataFlow(
             desc="If it's a bulk load, drop the indexes to speed up writing.")
         for tableName in sumTables:
@@ -37,7 +47,3 @@ def defaultSummarisePrep(betl):
                              'the SK sequences)')
 
         dfl.close()
-
-
-def defaultSummariseFinish(betl):
-    pass

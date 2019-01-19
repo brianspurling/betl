@@ -56,8 +56,8 @@ def transformDMDate(betl):
 
     # TODO ideally this would be built within BETL (set a good example, and
     # all that!)
-    startDate = betl.CONF.STATE.EARLIEST_DATE_IN_DATA
-    endDate = betl.CONF.STATE.LATEST_DATE_IN_DATA
+    startDate = betl.CONF.EARLIEST_DATE_IN_DATA
+    endDate = betl.CONF.LATEST_DATE_IN_DATA
 
     dmDateList = []
     while startDate <= endDate:

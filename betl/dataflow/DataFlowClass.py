@@ -64,16 +64,16 @@ class DataFlow():
         self.targetDataset = None
 
         if self.recordInCtrlDB:
-            self.dataflowId = self.CONF.CTRL.CTRL_DB.insertDataflow(
+            self.dataflowId = self.CONF.CTRL_DB.insertDataflow(
                 dataflow={
-                    'execId': self.CONF.STATE.EXEC_ID,
-                    'functionId': self.CONF.STATE.FUNCTION_ID,
+                    'execId': self.CONF.EXEC_ID,
+                    'functionId': self.CONF.FUNCTION_ID,
                     'description': self.DESCRIPTION})
 
         self.log.logDFStart(
             desc,
             self.dflStartTime,
-            self.CONF.STATE.STAGE)
+            self.CONF.STAGE)
 
     def stepStart(self,
                   desc,
@@ -91,12 +91,12 @@ class DataFlow():
                 datasetName=datasetName,
                 df=df,
                 additionalDesc=additionalDesc,
-                monitorMemoryUsage=self.CONF.EXE.MONITOR_MEMORY_USAGE)
+                monitorMemoryUsage=self.CONF.MONITOR_MEMORY_USAGE)
 
         if self.recordInCtrlDB:
-            self.currentStepId = self.CONF.CTRL.CTRL_DB.insertStep(
+            self.currentStepId = self.CONF.CTRL_DB.insertStep(
                 step={
-                    'execId': self.CONF.STATE.EXEC_ID,
+                    'execId': self.CONF.EXEC_ID,
                     'dataflowID': self.dataflowId,
                     'description': desc})
 
@@ -117,7 +117,7 @@ class DataFlow():
                 datasetName=datasetName,
                 df=df,
                 shapeOnly=shapeOnly,
-                monitorMemoryUsage=self.CONF.EXE.MONITOR_MEMORY_USAGE)
+                monitorMemoryUsage=self.CONF.MONITOR_MEMORY_USAGE)
 
         if df is not None:
             rowCount = df.shape[0]
@@ -127,7 +127,7 @@ class DataFlow():
             colCount = None
 
         if self.recordInCtrlDB:
-            self.CONF.CTRL.CTRL_DB.updateStep(
+            self.CONF.CTRL_DB.updateStep(
                 stepId=self.currentStepId,
                 status='SUCCESSFUL',
                 rowCount=rowCount,
@@ -145,7 +145,7 @@ class DataFlow():
             colCount = None
 
         if self.recordInCtrlDB:
-            self.CONF.CTRL.CTRL_DB.updateDataflow(
+            self.CONF.CTRL_DB.updateDataflow(
                 dataflowId=self.dataflowId,
                 status='SUCCESSFUL',
                 rowCount=rowCount,

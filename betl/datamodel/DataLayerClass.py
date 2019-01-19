@@ -4,8 +4,6 @@ from .DatasetClass import Dataset
 from .TableClass import Table
 from betl.defaultdataflows import dmDate
 from betl.defaultdataflows import dmAudit
-from betl import betlConfig
-
 import ast
 import os
 
@@ -14,17 +12,19 @@ class DataLayer():
 
     SCHEMA_DESC_FILE_PREFIX = '/dbSchemaDesc_'
 
-    def __init__(self, conf, dataLayerID):
+    def __init__(self, betl, dataLayerID):
 
-        self.log = Logger()
-
-        self.conf = conf
-        self.databaseID = betlConfig.dataLayers[dataLayerID]
+        self.BETL = betl
+        self.databaseID = self.BETL.CONF.dataLayers[dataLayerID]
         self.dataLayerID = dataLayerID
-        self.datastore = conf.DATA.getDWHDatastore(self.databaseID)
         self.datasets = {}
 
-        schemaDesc = self.getSchemaDescForDataLayer()
+        # We hold a datastore object here, but datstore objects require
+        # connections to dbs and logging, which means we don't want to do it
+        # on init because airflow will pick it up when processing DAGs
+        self.datastore = None
+
+        schemaDesc = self.getDataLayerSchemaDescFromTextFile()
 
         # It's possible we have no schema description for this datalayer
         if schemaDesc is not None:
@@ -32,9 +32,8 @@ class DataLayer():
             for datasetID in schemaDesc['datasetSchemas']:
 
                 self.datasets[datasetID] = Dataset(
-                    dataConf=self.conf.DATA,
+                    betl=self.BETL,
                     datasetSchemaDesc=schemaDesc['datasetSchemas'][datasetID],
-                    datastore=self.datastore,
                     dataLayerID=self.dataLayerID)
 
             if self.dataLayerID == 'BSE':
@@ -42,26 +41,24 @@ class DataLayer():
                 # We also need to create the "default" components of the target
                 # model
 
-                if conf.SCHEDULE.DEFAULT_DM_DATE:
+                if self.BETL.CONF.DEFAULT_DM_DATE:
                     self.datasets['BSE'].tables['dm_date'] = \
-                        Table(self.conf.DATA,
+                        Table(betl,
                               dmDate.getSchemaDescription(),
-                              self.datastore,
                               dataLayerID='BSE')
 
-                if conf.SCHEDULE.DEFAULT_DM_AUDIT:
+                if self.BETL.CONF.DEFAULT_DM_AUDIT:
                     self.datasets['BSE'].tables['dm_audit'] = \
-                        Table(self.conf.DATA,
+                        Table(betl,
                               dmAudit.getSchemaDescription(),
-                              self.datastore,
                               dataLayerID='BSE')
 
-    def getSchemaDescForDataLayer(self):
+    def getDataLayerSchemaDescFromTextFile(self):
 
-        filePath = (self.conf.CTRL.SCHEMA_PATH +
+        filePath = (self.BETL.CONF.SCHEMA_PATH +
                     DataLayer.SCHEMA_DESC_FILE_PREFIX +
                     self.databaseID + '.txt')
-
+        print(filePath)
         if os.path.exists(filePath):
             dbSchemaFile = open(filePath, 'r')
             fileContent = dbSchemaFile.read()
@@ -71,11 +68,9 @@ class DataLayer():
 
         if dbSchemaDesc is None or self.dataLayerID not in dbSchemaDesc:
 
-            alert = 'Did not find a schema description for datalayer ' + \
-                    self.dataLayerID + ' in the ' + self.databaseID + \
-                    ' database schema file'
-
-            alerts.logAlert(self.conf, alert)
+            print('Did not find a schema description for datalayer ' + \
+                   self.dataLayerID + ' in the ' + self.databaseID + \
+                   ' database schema file. Use admin CLI to generate.')
 
             return None
 
@@ -85,11 +80,11 @@ class DataLayer():
             # a mapping of SRC table names to EXT table names
             if self.dataLayerID == 'EXT':
 
-                filePath = self.conf.CTRL.SCHEMA_PATH + '/tableNameMapping.txt'
+                filePath = self.BETL.CONF.SCHEMA_PATH + '/srcTableNameMapping.txt'
 
                 if not os.path.exists(filePath):
-                    self.conf.DATA.populateSrcTableMap(
-                        self.conf.DATA.readSrcSystemSchemas())
+                    self.CONF.populateSrcTableMap(
+                        self.CONF.readSrcSystemSchemas())
 
                 mapFile = open(filePath, 'r')
                 tableNameMap = ast.literal_eval(mapFile.read())
@@ -107,16 +102,22 @@ class DataLayer():
 
         createStatements = self.getSqlCreateStatements()
 
+        if self.datastore is None:
+            self.datastore = self.BETL.CONF.getDWHDatastore(self.databaseID)
+
         dbCursor = self.datastore.cursor()
         for createStatement in createStatements:
             dbCursor.execute(createStatement)
             self.datastore.commit()
 
-        self.log.logRebuildingPhysicalDataModel(self.dataLayerID)
+        self.log.logBuildingPhysicalSchema(self.dataLayerID)
 
     def dropPhysicalSchema(self):
 
         dropStatements = self.getSqlDropStatements()
+
+        if self.datastore is None:
+            self.datastore = self.BETL.CONF.getDWHDatastore(self.databaseID)
 
         dbCursor = self.datastore.cursor()
         for dropStatement in dropStatements:
@@ -125,6 +126,9 @@ class DataLayer():
 
     def getSqlCreateStatements(self):
         sqlStatements = []
+
+        if self.datastore is None:
+            self.datastore = self.BETL.CONF.getDWHDatastore(self.databaseID)
 
         for datasetID in self.datasets:
             sqlStatements.extend(

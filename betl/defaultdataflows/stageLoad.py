@@ -2,6 +2,18 @@ import pandas as pd
 import numpy as np
 
 
+def logLoadStart(betl):
+    betl.LOG.logLoadStart()
+
+
+def logLoadEnd(betl):
+    betl.LOG.logLoadEnd()
+
+
+def logSkipLoad(betl):
+    betl.LOG.logSkipLoad()
+
+    
 #
 # A default load process. Bulk is obvious and as you would expect
 # Delta deals with SCD et al
@@ -13,23 +25,23 @@ import numpy as np
 # has to rerun
 def defaultLoad(betl):
 
-    bseLayer = betl.CONF.DATA.getDataLayerLogicalSchema('BSE')
-    sumLayer = betl.CONF.DATA.getDataLayerLogicalSchema('SUM')
+    bseLayer = betl.CONF.getLogicalSchemaDataLayer('BSE')
+    sumLayer = betl.CONF.getLogicalSchemaDataLayer('SUM')
 
     bseTables = bseLayer.datasets['BSE'].tables
     sumTables = sumLayer.datasets['SUM'].tables
 
     nonDefaultBSETables = \
-        betl.CONF.SCHEDULE.BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+        betl.CONF.BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
     # We must load the dimensions before the facts!
     loadSequence = []
-    if (betl.CONF.EXE.RUN_DM_LOAD):
+    if (betl.CONF.RUN_DM_LOAD):
         loadSequence.append('DIMENSION')
-    if (betl.CONF.EXE.RUN_FT_LOAD):
+    if (betl.CONF.RUN_FT_LOAD):
         loadSequence.append('FACT')
 
-    if betl.CONF.EXE.BULK_OR_DELTA == 'BULK':
+    if betl.CONF.BULK_OR_DELTA == 'BULK':
 
         # DROP INDEXES
 
@@ -62,7 +74,7 @@ def defaultLoad(betl):
         # default rows defined. IDs are defined too - should all be negative
         defaultRows = {}
         worksheets = {}
-        defaultRowsDatastore = betl.CONF.DATA.getDefaultRowsDatastore()
+        defaultRowsDatastore = betl.CONF.getDefaultRowsDatastore()
         if defaultRowsDatastore is not None:
             worksheets = defaultRowsDatastore.worksheets
         for wsTitle in worksheets:
@@ -80,7 +92,7 @@ def defaultLoad(betl):
                                       tableType=tableType,
                                       defaultRows=defaultRows)
 
-    if betl.CONF.EXE.BULK_OR_DELTA == 'DELTA':
+    if betl.CONF.BULK_OR_DELTA == 'DELTA':
         for tableType in loadSequence:
             for tableName in bseTables:
                 tableType = bseTables[tableName].getTableType()
@@ -171,7 +183,7 @@ def bulkLoadDimension(betl, defaultRows, table):
             desc='Adding default rows to ' + table.tableName,
             keepDataflowOpen=True)
 
-    elif table.tableName == 'dm_audit' and betl.CONF.SCHEDULE.DEFAULT_DM_AUDIT:
+    elif table.tableName == 'dm_audit' and betl.CONF.DEFAULT_DM_AUDIT:
 
         dfl.createDataset(
             dataset='dm_audit_default_rows',

@@ -9,118 +9,50 @@ from betl.defaultdataflows import dmDate
 from betl.defaultdataflows import dmAudit
 
 
+    # TODO: this code is no longer being used. When I migrated to
+    # Airflow I dumped this, as I wasn't sure how it would
+    # overlap with Airflow functionality. Pipeline now creates
+    # operators directly. Some of the code below is now clearly
+    # obsolete, e.g. the actual execution of functions, but there's
+    # some logging that's been lost in the process, which I think
+    # I will eventually want back, and the control DB is no longer
+    # being used (removing audit as well as ability to re-run from
+    # failure). I've also left if response == 'SUCCESS': self.CONF.checkDBsForSuperflousTables(self.CONF) out of the
+    # execution
+
+
 class Scheduler():
 
-    def __init__(self, conf):
+    def __init__(self, betl):
 
-        self.log = Logger()
 
-        self.conf = conf
-
-        self.funcSequence = 0
-        self.functions_list = []
-        self.functions_dict = {}
-
-        # We must construct the scheduler (even if we're re-running the prev
-        # execution). buildFunctionList puts all the actual function objects
-        # into both the list and dict attributes.
-        self.buildFunctionList()
 
         # However, we only write a new set of functions to the ctrlDB if
         # this is a new (not rerun) execution
-        if not self.conf.STATE.RERUN_PREV_JOB:
-            self.conf.CTRL.CTRL_DB.insertFunctions(
+        if not self.CONF.RERUN_PREV_JOB:
+            self.CONF.CTRL_DB.insertFunctions(
                 self.functions_dict,
-                conf.STATE.EXEC_ID)
+                CONF.EXEC_ID)
 
         # If we are rerunning a prev job, we need to delete the failed
         # dataflow record from the control table (because we'll be inserting
         # a new one when the dataflow re-runs, but we can't have dupes)
-        if self.conf.STATE.RERUN_PREV_JOB:
-            self.conf.CTRL.CTRL_DB.deleteFailedDataflow(conf.STATE.EXEC_ID)
+        if self.CONF.RERUN_PREV_JOB:
+            self.CONF.CTRL_DB.deleteFailedDataflow(CONF.EXEC_ID)
             alert = "JOB RESTARTED"
             alerts.logAlert(self.conf, alert)
 
-    def buildFunctionList(self):
 
-        if self.conf.EXE.RUN_EXTRACT:
-            if self.conf.SCHEDULE.DEFAULT_EXTRACT:
-                self.addFunctionToList(
-                    function=stageExtract.defaultExtract,
-                    stage='EXTRACT')
 
-                self.srcTablesToExcludeFromExtract = \
-                    self.conf.SCHEDULE.EXT_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
 
-            for function in self.conf.SCHEDULE.EXTRACT_DATAFLOWS:
-                self.addFunctionToList(
-                    function=function,
-                    stage='EXTRACT')
-
-        if self.conf.EXE.RUN_TRANSFORM:
-
-            for function in self.conf.SCHEDULE.TRANSFORM_DATAFLOWS:
-                self.addFunctionToList(
-                    function=function,
-                    stage='TRANSFORM')
-
-            if self.conf.SCHEDULE.DEFAULT_DM_DATE:
-                self.addFunctionToList(
-                    function=dmDate.transformDMDate,
-                    stage='TRANSFORM')
-
-            if self.conf.SCHEDULE.DEFAULT_DM_AUDIT:
-                self.addFunctionToList(
-                    function=dmAudit.transformDMAudit,
-                    stage='TRANSFORM')
-
-        if self.conf.EXE.RUN_LOAD:
-
-            if self.conf.SCHEDULE.DEFAULT_LOAD:
-                self.addFunctionToList(
-                    function=stageLoad.defaultLoad,
-                    stage='LOAD')
-
-            for function in self.conf.SCHEDULE.LOAD_DATAFLOWS:
-                self.addFunctionToList(
-                    function=function,
-                    stage='LOAD')
-
-        if self.conf.EXE.RUN_SUMMARISE:
-
-            if self.conf.SCHEDULE.DEFAULT_SUMMARISE:
-                self.addFunctionToList(
-                    function=stageSummarise.defaultSummarisePrep,
-                    stage='SUMMARISE')
-
-            for function in self.conf.SCHEDULE.SUMMARISE_DATAFLOWS:
-                self.addFunctionToList(
-                    function=function,
-                    stage='SUMMARISE')
-
-            if self.conf.SCHEDULE.DEFAULT_SUMMARISE:
-                self.addFunctionToList(
-                    function=stageSummarise.defaultSummariseFinish,
-                    stage='SUMMARISE')
-
-    def addFunctionToList(self, function, stage):
-        self.funcSequence += 1
-        self.functions_list.append({
-            'function': function,
-            'stage': stage,
-            'sequence': self.funcSequence})
-        self.functions_dict[function.__name__] = {
-            'function': function,
-            'stage': stage,
-            'sequence': self.funcSequence}
 
     def execute(self, betl):
 
-        functions = self.conf.CTRL.CTRL_DB.getFunctionsForExec(
-            execId=self.conf.STATE.EXEC_ID)
+        functions = self.CONF.CTRL_DB.getFunctionsForExec(
+            execId=self.CONF.EXEC_ID)
 
-        self.conf.CTRL.CTRL_DB.updateExecution(
-            execId=self.conf.STATE.EXEC_ID,
+        self.CONF.CTRL_DB.updateExecution(
+            execId=self.CONF.EXEC_ID,
             status='RUNNING',
             statusMessage='')
 
@@ -133,8 +65,8 @@ class Scheduler():
                 # funtions that come after the point of failure
 
                 if functions[i][5] != 'SUCCESSFUL':
-                    self.conf.CTRL.CTRL_DB.updateFunction(
-                        execId=self.conf.STATE.EXEC_ID,
+                    self.CONF.CTRL_DB.updateFunction(
+                        execId=self.CONF.EXEC_ID,
                         functionName=functions[i][2],
                         status='RUNNING',
                         logStr='',
@@ -154,8 +86,8 @@ class Scheduler():
                     #########################
                     #########################
 
-                    self.conf.CTRL.CTRL_DB.updateFunction(
-                        execId=self.conf.STATE.EXEC_ID,
+                    self.CONF.CTRL_DB.updateFunction(
+                        execId=self.CONF.EXEC_ID,
                         functionName=functions[i][2],
                         status='SUCCESSFUL',
                         logStr='',
@@ -170,10 +102,10 @@ class Scheduler():
             return 'FAIL'
 
     def executeFunction(self, betl, functionName, functionId):
-        # We set the conf.STATE.STAGE object so that, during execution of the
+        # We set the CONF.STAGE object so that, during execution of the
         # function,  we know which stage we're in
-        self.conf.STATE.setStage(self.functions_dict[functionName]['stage'])
-        self.conf.STATE.setFunctionId(functionId)
+        self.CONF.setStage(self.functions_dict[functionName]['stage'])
+        self.CONF.setFunctionId(functionId)
         self.functions_dict[functionName]['function'](betl)
 
     def handleFunctionException(self, functions, counter, errorMessage):
@@ -181,17 +113,17 @@ class Scheduler():
             try:
 
                 # Rollback first, to close down any existing (failed) trans
-                self.conf.CTRL.CTRL_DB.datastore.rollback()
+                self.CONF.CTRL_DB.datastore.rollback()
 
-                self.conf.CTRL.CTRL_DB.updateFunction(
-                    execId=self.conf.STATE.EXEC_ID,
+                self.CONF.CTRL_DB.updateFunction(
+                    execId=self.CONF.EXEC_ID,
                     functionName=functions[counter][2],
                     status='FINISHED WITH ERROR',
                     logStr=tb1,
                     setStartDateTime=False,
                     setEndDateTime=True)
-                self.conf.CTRL.CTRL_DB.updateExecution(
-                    execId=self.conf.STATE.EXEC_ID,
+                self.CONF.CTRL_DB.updateExecution(
+                    execId=self.CONF.EXEC_ID,
                     status='FINISHED WITH ERROR',
                     statusMessage=tb1
                 )

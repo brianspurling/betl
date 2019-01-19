@@ -68,9 +68,6 @@ HELP = ("\n" +
         "rebuildSum]\n" +
         "  Reconstruct the physical schema - all data will be lost\n" +
         "\n" +
-        "> [refreshschema]\n" +
-        "  Refresh the schema descriptions from Google Sheets\n" +
-        "\n" +
         "> [bulk | delta]\n" +
         "  Specify whether we're running a bulk or delta\n" +
         "\n" +
@@ -80,8 +77,8 @@ HELP = ("\n" +
         "> [notests]\n" +
         "  Do not run any tests\n" +
         "\n" +
-        "> [noextract] | [notransform] | [noload]\n" +
-        "  Skip the extract / transform / load stage\n" +
+        "> [noextract] | [notransform] | [noload] | [nosummarise]\n" +
+        "  Skip the extract / transform / load / summarise stage\n" +
         "\n" +
         "> [nodmload] | [noftload]\n" +
         "  Don't load the dimensions / fact tables\n" +

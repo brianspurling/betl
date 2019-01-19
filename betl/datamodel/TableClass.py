@@ -5,14 +5,13 @@ from betl.defaultdataflows import stageLoad
 class Table():
 
     def __init__(self,
-                 dataConf,
+                 betl,
                  tableSchema,
-                 datastore,
                  dataLayerID,
                  datasetID=None,
                  srcTableName=None):
 
-        self.dataConf = dataConf
+        self.BETL = betl
         self.dataLayerID = dataLayerID
         if dataLayerID in ['LOD', 'BSE', 'SUM']:
             self.datasetID = dataLayerID
@@ -20,7 +19,6 @@ class Table():
             self.datasetID = datasetID
         self.tableName = tableSchema['tableName'].lower()
         self.srcTableName = srcTableName
-        self.datastore = datastore
 
         self.columns = []
         self.colNames = []
@@ -80,7 +78,7 @@ class Table():
         # and DM_AUDIT, we add audit columns
         tableType = self.getTableType()
         if tableType != 'FACT' and self.tableName != 'dm_audit':
-            for i, auditColRow in self.dataConf.AUDIT_COLS.iterrows():
+            for i, auditColRow in betl.CONF.AUDIT_COLS.iterrows():
                 colsCreateStatements.append(
                     auditColRow['colNames'] +
                     ' ' +

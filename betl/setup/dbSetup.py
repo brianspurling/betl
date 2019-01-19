@@ -1,10 +1,11 @@
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-
-from betl.ctrldb import CtrlDB
+from betl.io import PostgresDatastore
+from betl import ControlDB
 
 
 def createDatabases(self, response):
+
     if response.lower() in ['y', '']:
         con = psycopg2.connect(
             dbname='postgres',
@@ -18,11 +19,17 @@ def createDatabases(self, response):
         cur.execute("DROP DATABASE IF EXISTS " + self.CTL_DB_NAME + ";")
         cur.execute("CREATE DATABASE " + self.CTL_DB_NAME + ";")
 
-        ctrlDB = CtrlDB(
-            host=self.CTL_DB_HOST_NAME,
-            dbName=self.CTL_DB_NAME,
-            username=self.CTL_DB_USERNAME,
-            password=self.CTL_DB_PASSWORD)
+        ctrlDB = ControlDB()
+
+        ctrlDBDatastore = PostgresDatastore(
+                    dbId='CTL',
+                    host=self.CTRL_DB_DETAILS['host'],
+                    dbName=self.CTRL_DB_DETAILS['dbName'],
+                    user=self.CTRL_DB_DETAILS['username'],
+                    password=self.CTRL_DB_DETAILS['password'],
+                    createIfNotFound=True)
+        ctrlDB.setCtrlDBConnectionManually(ctrlDBDatastore)
+
         ctrlDB.createExecutionsTable()
         ctrlDB.createFunctionsTable()
         ctrlDB.createDataflowsTable()

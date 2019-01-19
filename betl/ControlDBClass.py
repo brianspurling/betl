@@ -1,20 +1,15 @@
-from betl.io import PostgresDatastore
+class ControlDB():
 
+    def __init__(self, betl):
+        self.datastore = betl.CONF.getCtrlDatastore()
 
-class CtrlDB():
+    # So our setup module can use this class without having to instantiate
+    # a meaningless BETL Pipeline, we provide a way of manually setting the
+    # class' CtrlDB connection
+    def setCtrlDBConnectionManually(self, ctrlDB):
+        self.datastore = ctrlDB
 
-    def __init__(self, host, dbName, username, password):
-
-        self.datastore = \
-            PostgresDatastore(
-                dbID='CTL',
-                host=host,
-                dbName=dbName,
-                user=username,
-                password=password,
-                createIfNotFound=True)
-
-    def createExecutionsTable(self, ):
+    def createExecutionsTable(self):
 
         ctlDBCursor = self.datastore.cursor()
 
@@ -31,7 +26,7 @@ class CtrlDB():
 
         self.datastore.commit()
 
-    def createFunctionsTable(self, ):
+    def createFunctionsTable(self):
 
         ctlDBCursor = self.datastore.cursor()
 
@@ -50,7 +45,7 @@ class CtrlDB():
 
         self.datastore.commit()
 
-    def createDataflowsTable(self, ):
+    def createDataflowsTable(self):
 
         ctlDBCursor = self.datastore.cursor()
 
@@ -73,7 +68,7 @@ class CtrlDB():
 
         self.datastore.commit()
 
-    def createStepsTable(self, ):
+    def createStepsTable(self):
 
         ctlDBCursor = self.datastore.cursor()
 
@@ -384,7 +379,7 @@ class CtrlDB():
             "ORDER BY sequence ASC;")
         return ctlDBCursor.fetchall()
 
-    def dropAllCtlTables(self, ):
+    def dropAllCtlTables(self):
 
         ctlDBCursor = self.datastore.cursor()
 

@@ -48,14 +48,14 @@ def writeDataToCsv(conf, df, path, filename, headers, mode):
 
     _filename = ''
 
-    if filename in conf.STATE.FILE_NAME_MAP:
-        _filename = conf.STATE.FILE_NAME_MAP[filename]
+    if filename in CONF.FILE_NAME_MAP:
+        _filename = CONF.FILE_NAME_MAP[filename]
     else:
         prefix = \
-            str(conf.STATE.nextFilePrefix).zfill(conf.STATE.filePrefixLength)
+            str(CONF.NEXT_FILE_PREFIX).zfill(CONF.FILE_PREFIX_LENGTH)
         _filename = prefix + "-" + filename
-        conf.STATE.nextFilePrefix += 1
-        conf.STATE.FILE_NAME_MAP[filename] = _filename
+        CONF.NEXT_FILE_PREFIX += 1
+        CONF.FILE_NAME_MAP[filename] = _filename
 
     _file = open(path + _filename, mode)
 
@@ -70,8 +70,8 @@ def writeDataToCsv(conf, df, path, filename, headers, mode):
 def truncateFile(conf, path, filename):
 
     _filename = ''
-    if filename in conf.STATE.FILE_NAME_MAP:
-        _filename = conf.STATE.FILE_NAME_MAP[filename]
+    if filename in CONF.FILE_NAME_MAP:
+        _filename = CONF.FILE_NAME_MAP[filename]
         if os.path.exists(path + _filename):
             _file = open(path + _filename, 'w')
             _file.close()

@@ -1,49 +1,35 @@
+def logExtractStart(betl):
+    betl.LOG.logExtractStart()
 
 
-#
-# A default extraction process. Bulk is obvious and as you would expect
-# Delta does full-table comparisons to identify deltas
-#
-def defaultExtract(betl):
-    if betl.CONF.EXE.BULK_OR_DELTA == 'BULK':
-        defaultExtract_bulk(betl)
-    elif betl.CONF.EXE.BULK_OR_DELTA == 'DELTA':
-        pass
-        # defaultExtract_delta(betl)
+def logExtractEnd(betl):
+    betl.LOG.logExtractEnd()
 
 
-def defaultExtract_bulk(betl):
+def logSkipExtract(betl):
+    betl.LOG.logSkipExtract()
 
-    srcTablesToExclude = \
-        betl.CONF.SCHEDULE.EXT_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
-    extLayer = betl.CONF.DATA.getDataLayerLogicalSchema('EXT')
+def bulkExtract(betl, tableName, dmId):
 
-    for dmID in extLayer.datasets:
-        for tableName in extLayer.datasets[dmID].tables:
+    dfl = betl.DataFlow(desc='Default extract for ' + tableName)
 
-            mappedTableName = \
-                extLayer.datasets[dmID].tables[tableName].srcTableName
-            if tableName in srcTablesToExclude:
-                continue
-            dfl = betl.DataFlow(desc='Default extract for ' + tableName)
+    dfl.getDataFromSrc(
+        tableName=tableName,
+        srcSysID=dmId,
+        desc="Extract data from source table",
+        mappedTableName=mappedTableName)
 
-            dfl.getDataFromSrc(
-                tableName=tableName,
-                srcSysID=dmID,
-                desc="Extract data from source table",
-                mappedTableName=mappedTableName)
+    dfl.setAuditCols(
+        dataset=tableName,
+        bulkOrDelta="BULK",
+        sourceSystem=dmId,
+        desc="Set the audit columns on the data extract")
 
-            dfl.setAuditCols(
-                dataset=tableName,
-                bulkOrDelta="BULK",
-                sourceSystem=dmID,
-                desc="Set the audit columns on the data extract")
-
-            dfl.write(
-                dataset=tableName,
-                targetTableName=tableName,
-                dataLayerID='EXT',
-                desc="Write the data extract to the SRC data layer")
+    dfl.write(
+        dataset=tableName,
+        targetTableName=tableName,
+        dataLayerID='EXT',
+        desc="Write the data extract to the SRC data layer")
 
 
 # def defaultExtract_delta(betl):
@@ -51,9 +37,9 @@ def defaultExtract_bulk(betl):
     # TODO not been refactored since dataframe class added to betl
 
     # srcTablesToExclude = \
-    #     scheduler.conf.SCHEDULE.EXT_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
+    #     scheduler.CONF.EXT_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
     #
-    # extLayer = scheduler.conf.DATA.getDataLayerLogicalSchema('EXT')
+    # extLayer = scheduler.CONF.getLogicalSchemaDataLayer('EXT')
     #
     # for dmID in extLayer.datasets:
     #     for tableName in extLayer.datasets[dmID].tables:
@@ -231,7 +217,7 @@ def defaultExtract_bulk(betl):
     #         etlDbCursor.execute("UPDATE src_ipa_addresses "
     #                             + nonNkSetClause + " "
     #                             + nkWhereClause)
-    #     scheduler.conf.DATA.getDWHDatastore('ETL').commit()
+    #     scheduler.CONF.getDWHDatastore('ETL').commit()
     # else:
     #     pass
 
