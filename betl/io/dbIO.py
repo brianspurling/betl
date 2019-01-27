@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from betl.logger import Logger
 import psycopg2
 from sqlalchemy.types import Text
 
@@ -55,6 +54,6 @@ def customSQL(sql, datastore):
         # TODO: can't remember putting this in, but doesn't seem right!
         # Probably because fethall won't work if you do e.g. an update
         # statement? Would be nice to pull back the table you've updated
-        # instead, but how many cases to cover here? 
+        # instead, but how many cases to cover here?
 
     return df

@@ -39,9 +39,8 @@ def read(self,
             conn=self.CONF.getDWHDatastore(dbId).conn)
 
     else:
-        fileNameMap = self.CONF.FILE_NAME_MAP
         self.data[_targetDataset] = \
-            fileIO.readDataFromCsv(fileNameMap=fileNameMap,
+            fileIO.readDataFromCsv(conf=self.CONF,
                                    path=path,
                                    filename=filename,
                                    sep=',',
@@ -100,7 +99,7 @@ def write(self,
     # or spreadsheet, and nor does it cover sqlalchemy's engine (used by
     # Pandas). Hence the check here.
 
-    if dataLayer.datastore.isSrcSys:
+    if dataLayer.getDatastore().isSrcSys:
         raise ValueError("You just attempted to write to a source system!")
 
     # If this is a table defined in our logical data model, then we
@@ -162,7 +161,7 @@ def write(self,
 
     # write to DB
     if writeToDB:
-        dbEng = dataLayer.datastore.eng
+        dbEng = dataLayer.getDatastore().eng
         dbIO.writeDataToDB(
             self.targetDataset,
             targetTableName,
@@ -227,9 +226,8 @@ def getDataFromSrc(self, tableName, srcSysID, desc, mappedTableName=None):
         quotechar = srcSysDatastore.quotechar
 
         if srcSysDatastore.fileExt == '.csv':
-            fileNameMap = self.CONF.FILE_NAME_MAP
             self.data[tableName] = \
-                fileIO.readDataFromCsv(fileNameMap=fileNameMap,
+                fileIO.readDataFromCsv(conf=self.CONF,
                                        path=path,
                                        filename=srcTableName + '.csv',
                                        sep=separator,

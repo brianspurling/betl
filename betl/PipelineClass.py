@@ -1,9 +1,6 @@
-from .dataflow import DataFlow
-from .conf import Conf
-from .reporting import reporting
+import os
 from .defaultdataflows import stageSetup
 from configobj import ConfigObj
-from betl.datamodel import DataLayer
 from airflow.operators.python_operator import PythonOperator
 from betl.defaultdataflows import stageExtract
 from betl.defaultdataflows import stageTransform
@@ -11,104 +8,83 @@ from betl.defaultdataflows import stageLoad
 from betl.defaultdataflows import stageSummarise
 from betl.defaultdataflows import dmDate
 from betl.defaultdataflows import dmAudit
-from airflow.operators.python_operator import PythonOperator
+from .conf import Conf
+from betl.logger import Logger
+
 
 class Pipeline():
 
-    def __init__(self, appConfigFile, scheduleConfig, dag):
+    def __init__(self, appDirectory, appConfigFile, scheduleConfig, dag=None):
 
         self.DAG = dag
+        if self.DAG:
+            isAirflow = True
+        else:
+            isAirflow = False
+
+        appDirectory = os.path.expanduser(appDirectory)
 
         #################################
         # PROCESS CONFIGURATION OPTIONS #
         #################################
 
+        conf = {
+            'appDirectory': appDirectory,
+            'scheduleConfig': scheduleConfig,
+            'isAdmin': False,
+            'isAirflow': isAirflow}
+
         if appConfigFile is None:
-            appConfig = Conf.defaultAppConfig
+            conf['appConfig'] = Conf.defaultAppConfig
         else:
-            appConfig = ConfigObj(appConfigFile)
+            conf['appConfig'] = ConfigObj(appDirectory + appConfigFile)
 
         if scheduleConfig is None:
-            scheduleConfig = Conf.defaultScheduleConfig
-
+            conf['scheduleConfig'] = Conf.defaultScheduleConfig
 
         ####################
         # INIT CONF OBJECT #
         ####################
 
-        self.CONF = Conf(
-            betl=self,
-            appConfig=appConfig,
-            scheduleConfig=scheduleConfig)
+        # TODO: Even though I tested it once and it seemed to work, I'm seeing
+        # issues with CONF.LOG (and it makes more sense generally) that the
+        # CONF object passed from this class to every operator is not the same
+        # object, therefore changing it in one op does not change it in aother
+        # Therefore loggging needs moving.
+        # Further to this, though... there are bits within conf.init which
+        # _are_ working, becuase they are run by pipeline before passing to
+        # each op indivually, but are probably undue overheads and should be
+        # move to xcoms - e.g. the logical data model
+        self.CONF = Conf(conf)
 
-        #######################
-        # LOGICAL DWH SCHEMAS #
-        #######################
+        ######################
+        # CONSTRUCT PIPELINE #
+        ######################
 
-        for dlId in self.CONF.dataLayers:
-            self.CONF.DWH_LOGICAL_SCHEMAS[dlId] = \
-                DataLayer(
-                    betl=self,
-                    dataLayerID=dlId)
+        # If the DAG param has been passed in, the pipeline - a series of
+        # operators (createOp()) - will constructed as an Airflow DAG -- i.e.
+        # it will not be executed until the DAG is triggered by Airflow. If no
+        # DAG param has been passed, these operators will be executed
+        # immediately
 
-        ##############################
-        # ADD SETUP OPERATORS TO DAG #
-        ##############################
-
-        ## INIT BETL
-
-        # Creates betl.LOG & betl.CONTROL_DB, runs full reset if requested
-        initBETL = self.createOp(
-            taskId='initBETL',
-            func=stageSetup.initBETL)
-
-        ## VALIDATE SCHEDULE
-        validateSchedule = self.createOp(
-            taskId='validateSchedule',
-            func=stageSetup.validateSchedule,
-            upstream=initBETL)
-
-        ## SETUP BETL
-
-        logSetupStart = self.createOp(
-            taskId='logSetupStart',
-            func=stageSetup.logSetupStart,
-            upstream=validateSchedule)
-
-        logSetupEnd = self.createOp(
-            taskId='logSetupEnd',
-            func=stageSetup.logSetupEnd)
-
-        # TEMP DATA FILE MAPPING
-
-        populateTempDataFileNameMap = self.createOp(
-            taskId='populateTempDataFileNameMap',
-            func=stageSetup.populateTempDataFileNameMap,
-            upstream=logSetupStart,
-            downstream=logSetupEnd)
-
-        #################################
-        # ADD DATAFLOW OPERATORS TO DAG #
-        #################################
+        logBETLStart = self.createOp(
+            taskId='logBETLStart',
+            func=stageSetup.logBETLStart,
+            test='hello world')
 
         if self.CONF.RUN_DATAFLOWS:
 
-            logExecutionStart = self.createOp(
-                taskId='logExecutionStart',
-                func=self.logExecutionStart,
-                upstream=logSetupEnd)
-
-            # Bespoke extract DFs are run in parallel with the default extract DF
             if self.CONF.RUN_EXTRACT:
+
+                # Bespoke extract DFs are run in parallel
+                # with the default extract DF
 
                 logExtractStart = self.createOp(
                     taskId='logExtractStart',
                     func=stageExtract.logExtractStart,
-                    upstream=logExecutionStart)
+                    upstream=logBETLStart)
 
-                logExtractEnd = self.createOp(
-                    taskId='logExtractEnd',
-                    func=stageExtract.logExtractEnd)
+                extractOps = []
 
                 if self.CONF.DEFAULT_EXTRACT:
 
@@ -116,35 +92,41 @@ class Pipeline():
 
                         # for convenience
                         extLayer = self.CONF.getLogicalSchemaDataLayer('EXT')
+                        skip = self.CONF.EXT_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT
+                        for dmId in extLayer.datasets:
+                            for tableName in extLayer.datasets[dmId].tables:
 
-                        for dmID in extLayer.datasets:
-                            for tableName in extLayer.datasets[dmID].tables:
-
-                                mappedTableName = extLayer.datasets[dmID].tables[tableName].srcTableName
-                                if tableName in self.CONF.EXT_TABLES_TO_EXCLUDE_FROM_DEFAULT_EXT:
+                                if tableName in skip:
                                     continue
 
-                                bulkExtract = self.createOp(
+                                extractOp = self.createOp(
                                     taskId='bulkExtract_' + tableName,
                                     func=stageExtract.bulkExtract,
                                     upstream=logExtractStart,
-                                    downstream=logExtractEnd,
-                                    args=[tableName, dmID])
+                                    tableName=tableName,
+                                    dmId=dmId)
+                                extractOps.append(extractOp)
 
                     elif self.CONF.BULK_OR_DELTA == 'DELTA':
                         pass  # TODO! Some code already written
 
-                self.createAndScheduleDFOperators(
+                leafOps = self.createAndScheduleDFOperators(
                     dfs=self.CONF.EXTRACT_DATAFLOWS,
-                    startOperator=logExtractStart,
-                    endOperator=logExtractEnd)
+                    upstream=logExtractStart)
+
+                extractOps.append(leafOps)
+
+                logExtractEnd = self.createOp(
+                    taskId='logExtractEnd',
+                    func=stageExtract.logExtractEnd,
+                    upstream=extractOps)
 
             else:
 
                 logExtractEnd = self.createOp(
                     taskId='logSkipExtract',
                     func=stageExtract.logSkipExtract,
-                    upstream=logExecutionStart)
+                    upstream=logBETLStart)
 
             # Bespoke transform DFs are run in parallel with the default DFs
             if self.CONF.RUN_TRANSFORM:
@@ -154,28 +136,30 @@ class Pipeline():
                     func=stageTransform.logTransformStart,
                     upstream=logExtractEnd)
 
-                logTransformEnd = self.createOp(
-                    taskId='logTransformEnd',
-                    func=stageTransform.logTransformEnd)
+                leafOps = []
 
                 if self.CONF.DEFAULT_DM_DATE:
                     transformDMDate = self.createOp(
                         taskId='transformDMDate',
                         func=dmDate.transformDMDate,
-                        upstream=logTransformStart,
-                        downstream=logTransformEnd)
+                        upstream=logTransformStart)
+                    leafOps.append(transformDMDate)
 
                 if self.CONF.DEFAULT_DM_AUDIT:
                     transformDMAudit = self.createOp(
                         taskId='transformDMAudit',
                         func=dmAudit.transformDMAudit,
-                        upstream=logTransformStart,
-                        downstream=logTransformEnd)
+                        upstream=logTransformStart)
+                    leafOps.append(transformDMAudit)
 
-                self.createAndScheduleDFOperators(
+                leafOps = leafOps + self.createAndScheduleDFOperators(
                     dfs=self.CONF.TRANSFORM_DATAFLOWS,
-                    startOperator=logTransformStart,
-                    endOperator=logTransformEnd)
+                    upstream=logTransformStart)
+
+                logTransformEnd = self.createOp(
+                    taskId='logTransformEnd',
+                    func=stageTransform.logTransformEnd,
+                    upstream=leafOps)
 
             else:
 
@@ -187,27 +171,196 @@ class Pipeline():
             # Bespoke transform DFs are run after the default load DFs
             if self.CONF.RUN_LOAD:
 
-                logLoadStart = self.createOp(
+                # TODO: need error catching, if admin hasn't been run there
+                # won't be any datamodels to parse
+                bseLayer = self.CONF.getLogicalSchemaDataLayer('BSE')
+                bseTables = bseLayer.datasets['BSE'].tables
+                skip = self.CONF.BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+
+                loadStartOp = self.createOp(
                     taskId='logLoadStart',
                     func=stageLoad.logLoadStart,
                     upstream=logTransformEnd)
-                loadStart = logLoadStart
+
+                if self.CONF.BULK_OR_DELTA == 'BULK':
+
+                    logBulkLoadSetupStart = self.createOp(
+                        taskId='logBulkLoadSetupStart',
+                        func=stageLoad.logBulkLoadSetupStart,
+                        upstream=loadStartOp)
+
+                    refreshDefaultRowsTxtFileFromGSheet = self.createOp(
+                        taskId='refreshDefaultRowsTxtFileFromGSheet',
+                        func=stageLoad.refreshDefaultRowsTxtFileFromGSheet,
+                        upstream=logBulkLoadSetupStart)
+
+                    dropFactFKConstraints = self.createOp(
+                        taskId='dropFactFKConstraints',
+                        func=stageLoad.dropFactFKConstraints,
+                        upstream=refreshDefaultRowsTxtFileFromGSheet)
+
+                    logBulkLoadSetupEnd = self.createOp(
+                        taskId='logBulkLoadSetupEnd',
+                        func=stageLoad.logBulkLoadSetupEnd,
+                        upstream=dropFactFKConstraints)
+
+                    loadStartOp = logBulkLoadSetupEnd
+                # We must load the dimensions before the facts, so loop
+                # through tables twice - once for dims, once for facts
+                # This could be more concise (single loop with more conditions)
+                # but we need to call the createOps in the correct order for
+                # non Airflow execution
+
+                # DIMENSIONS
+
+                logDimLoadStart = self.createOp(
+                    taskId='logDimLoadStart',
+                    func=stageLoad.logDimLoadStart,
+                    upstream=loadStartOp)
+
+                logDefaultDimLoadStart = self.createOp(
+                    taskId='logDefaultDimLoadStart',
+                    func=stageLoad.logDefaultDimLoadStart,
+                    upstream=logDimLoadStart)
+
+                dimOps = []
+                for tableName in bseTables:
+
+                    if tableName in skip:
+                        continue
+                    if bseTables[tableName].getTableType() != 'DIMENSION':
+                        continue
+
+                    if self.CONF.BULK_OR_DELTA == 'BULK':
+
+                        op = self.createOp(
+                            taskId='bulkLoad_' + tableName,
+                            func=stageLoad.bulkLoad,
+                            upstream=logDefaultDimLoadStart,
+                            args=[
+                                tableName,
+                                bseTables[tableName],
+                                'DIMENSION'])
+                        dimOps.append(op)
+
+                    elif self.CONF.BULK_OR_DELTA == 'DELTA':
+
+                        self.createOp(
+                            taskId='deltaLoad_' + tableName,
+                            func=stageLoad.deltaLoad,
+                            upstream=logDefaultDimLoadStart,
+                            args=[
+                                tableName,
+                                bseTables[tableName],
+                                'DIMENSION'])
+                        dimOps.append(op)
+
+                prevOp = logDefaultDimLoadStart
+                if len(dimOps) > 0:
+                    prevOp = dimOps
+
+                logDefaultDimLoadEnd = self.createOp(
+                    taskId='logDefaultDimLoadEnd',
+                    func=stageLoad.logDefaultDimLoadEnd,
+                    upstream=prevOp)
+
+                logBespokeDimLoadStart = self.createOp(
+                    taskId='logBespokeDimLoadStart',
+                    func=stageLoad.logBespokeDimLoadStart,
+                    upstream=logDefaultDimLoadEnd)
+
+                leafOps = self.createAndScheduleDFOperators(
+                    dfs=self.CONF.LOAD_DIM_DATAFLOWS,  # Bespoke dim load DFs
+                    upstream=logBespokeDimLoadStart)
+
+                prevOp = logBespokeDimLoadStart
+                if len(leafOps) > 0:
+                    prevOp = leafOps
+
+                logBespokeDimLoadEnd = self.createOp(
+                    taskId='logBespokeDimLoadEnd',
+                    func=stageLoad.logBespokeDimLoadEnd,
+                    upstream=prevOp)
+
+                logDimLoadEnd = self.createOp(
+                    taskId='logDimLoadEnd',
+                    func=stageLoad.logDimLoadEnd,
+                    upstream=logBespokeDimLoadEnd)
+
+                # FACTS
+
+                logFactLoadStart = self.createOp(
+                    taskId='logFactLoadStart',
+                    func=stageLoad.logFactLoadStart,
+                    upstream=logDimLoadEnd)
+
+                logDefaultFactLoadStart = self.createOp(
+                    taskId='logDefaultFactLoadStart',
+                    func=stageLoad.logDefaultFactLoadStart,
+                    upstream=logFactLoadStart)
+
+                factOps = []
+                for tableName in bseTables:
+
+                    if tableName in skip:
+                        continue
+                    if bseTables[tableName].getTableType() != 'FACT':
+                        continue
+
+                    if self.CONF.BULK_OR_DELTA == 'BULK':
+
+                        op = self.createOp(
+                            taskId='bulkLoad_' + tableName,
+                            func=stageLoad.bulkLoad,
+                            upstream=logDefaultFactLoadStart,
+                            args=[tableName, bseTables[tableName], 'FACT'])
+                        factOps.append(op)
+
+                    elif self.CONF.BULK_OR_DELTA == 'DELTA':
+
+                        self.createOp(
+                            taskId='deltaLoad_' + tableName,
+                            func=stageLoad.deltaLoad,
+                            upstream=logDefaultFactLoadStart,
+                            args=[tableName, bseTables[tableName], 'FACT'])
+                        factOps.append(op)
+
+                prevOp = logDefaultFactLoadStart
+                if len(factOps) > 0:
+                    prevOp = factOps
+
+                logDefaultFactLoadEnd = self.createOp(
+                    taskId='logDefaultFactLoadEnd',
+                    func=stageLoad.logDefaultFactLoadEnd,
+                    upstream=prevOp)
+
+                logBespokeFactLoadStart = self.createOp(
+                    taskId='logBespokeFactLoadStart',
+                    func=stageLoad.logBespokeFactLoadStart,
+                    upstream=logDefaultFactLoadEnd)
+
+                leafOps = self.createAndScheduleDFOperators(
+                    dfs=self.CONF.LOAD_FACT_DATAFLOWS,  # Bespoke fact load DFs
+                    upstream=logBespokeFactLoadStart)
+
+                prevOp = logBespokeFactLoadStart
+                if len(leafOps) > 0:
+                    prevOp = leafOps
+
+                logBespokeFactLoadEnd = self.createOp(
+                    taskId='logBespokeFactLoadEnd',
+                    func=stageLoad.logBespokeFactLoadEnd,
+                    upstream=prevOp)
+
+                logFactLoadEnd = self.createOp(
+                    taskId='logFactLoadEnd',
+                    func=stageLoad.logFactLoadEnd,
+                    upstream=logBespokeFactLoadEnd)
 
                 logLoadEnd = self.createOp(
                     taskId='logLoadEnd',
-                    func=stageLoad.logLoadEnd)
-
-                if self.CONF.DEFAULT_LOAD:
-                    defaultLoad = self.createOp(
-                        taskId='defaultLoad',
-                        func=stageLoad.defaultLoad,
-                        upstream=logLoadStart)
-                    loadStart = defaultLoad
-
-                self.createAndScheduleDFOperators(
-                    dfs=self.CONF.LOAD_DATAFLOWS,
-                    startOperator=loadStart,
-                    endOperator=logLoadEnd)
+                    func=stageLoad.logLoadEnd,
+                    upstream=logFactLoadEnd)
 
             else:
 
@@ -216,112 +369,161 @@ class Pipeline():
                     func=stageSetup.logSkipLoad,
                     upstream=logTransformEnd)
 
-            # Bespoke summarise DFs are run in between the default prep/finish DFs
+            # Bespoke summarise DFs are run in between the default
+            # prep/finish DFs
             if self.CONF.RUN_SUMMARISE:
 
-                logSummariseStart = self.createOp(
+                summariseStart = self.createOp(
                     taskId='logSummariseStart',
                     func=stageSummarise.logSummariseStart,
                     upstream=logLoadEnd)
-                summariseStart = logSummariseStart
-
-                logSummariseEnd = self.createOp(
-                    taskId='logSummariseEnd',
-                    func=stageSummarise.logSummariseEnd)
 
                 if self.CONF.DEFAULT_SUMMARISE:
                     defaultSummarisePrep = self.createOp(
                         taskId='defaultSummarisePrep',
                         func=stageSummarise.defaultSummarisePrep,
-                        upstream=logSummariseStart)
-                    summariseStart = defaultSummarisePrep
+                        upstream=summariseStart)
 
-                self.createAndScheduleDFOperators(
+                logBespokeSummariseStart = self.createOp(
+                    taskId='logBespokeSummariseStart',
+                    func=stageSummarise.logBespokeSummariseStart,
+                    upstream=defaultSummarisePrep)
+
+                leafOps = self.createAndScheduleDFOperators(
                     dfs=self.CONF.SUMMARISE_DATAFLOWS,
-                    startOperator=summariseStart,
-                    endOperator=logSummariseEnd)
+                    upstream=logBespokeSummariseStart)
+
+                logBespokeSummariseEnd = self.createOp(
+                    taskId='logBespokeSummariseEnd',
+                    func=stageSummarise.logBespokeSummariseEnd,
+                    upstream=leafOps)
+
+                logSummariseEnd = self.createOp(
+                    taskId='logSummariseEnd',
+                    func=stageSummarise.logSummariseEnd,
+                    upstream=logBespokeSummariseEnd)
 
             else:
 
                 logSummariseEnd = self.createOp(
                     taskId='logSkipSummarise',
-                    func=stageSetup.logSkipSummarise,
+                    func=stageSummarise.logSkipSummarise,
                     upstream=logLoadEnd)
 
-            ## END
+            # END
 
-            logExecutionEnd = self.createOp(
+            logExecutionEnd_op = self.createOp(
                 taskId='logExecutionEnd',
-                func=self.logExecutionEnd,
+                func=logExecutionEnd,
                 upstream=logSummariseEnd)
 
-        logBETLEnd = self.createOp(
+        self.createOp(
             taskId='logBETLEnd',
-            func=self.logBETLEnd,
-            upstream=logExecutionEnd)
-
+            func=logBETLEnd,
+            upstream=logExecutionEnd_op)
 
     def createAndScheduleDFOperators(self,
-                                   dfs,
-                                   startOperator,
-                                   endOperator):
+                                     dfs,
+                                     upstream):
+
+        ops = []
 
         for funcID in dfs:
 
             op = self.createOp(
                 taskId=funcID,
-                func=dfs[funcID]['func'])
+                func=dfs[funcID]['func'],
+                isBETLFunc=False)
 
             # Store operator in dict so we can reference for depednencies
+            # and a list so we can return all ops
             dfs[funcID]['op'] = op
+            ops.append(op)
 
-            if 'upstream' in dfs[funcID] and len(dfs[funcID]['upstream']) > 0:
-                for upstreamFuncID in dfs[funcID]['upstream']:
-                    op.set_upstream(dfs[upstreamFuncID]['op'])
+            # If this is an Airflow execution, set the upstream ops
+            if self.DAG is not None:
+                if ('upstream' in dfs[funcID] and
+                        len(dfs[funcID]['upstream']) > 0):
+                    for upstreamFuncID in dfs[funcID]['upstream']:
+                        op.set_upstream(dfs[upstreamFuncID]['op'])
+                else:
+                    op.set_upstream(upstream)
+
+        leafOps = []
+        if self.DAG is not None:
+            for op in ops:
+                if len(op.downstream_list) == 0:
+                    leafOps.append(op)
+        return leafOps
+
+    def createOp(self, taskId, func, isBETLFunc=True, upstream=[], **kwargs):
+
+        if self.DAG is not None:
+            if not isinstance(upstream, list):
+                upstream = [upstream]
+
+            # Add the func to the dict of args so we can pass the whole
+            # thing through to the PythonOperator
+            op_kwargs = {
+                **kwargs,
+                'func': func,
+                'conf': self.CONF,
+                'isBETLFunc': isBETLFunc}
+
+            op = PythonOperator(
+                task_id=taskId,
+                python_callable=wrapperFunc,
+                dag=self.DAG,
+                provide_context=True,
+                op_kwargs=op_kwargs)  # provide_context=True)
+
+            for upstreamOps in upstream:
+                op.set_upstream(upstreamOps)
+
+            return op
+        else:
+            # We call the conf arg "betl" for the app-facing interface
+            if isBETLFunc:
+                func(**{**kwargs, 'conf': self.CONF})
             else:
-                op.set_upstream(startOperator)
+                func(**{**kwargs, 'betl': self.CONF})
 
-        # Now we have set all _upstream_ dependencies, loop back through
-        # all our operators and set any without a downstream dependency to
-        # feed into the endOperator
-        for funcID in dfs:
-            if len(dfs[funcID]['op'].downstream_list) == 0:
-                dfs[funcID]['op'].set_downstream(endOperator)
+    def log(self, logMethod, **kwargs):
+        getattr(self.LOG, logMethod)(**kwargs)
 
-    def createOp(self, taskId, func, upstream=[], downstream=[], args=[]):
 
-        if not isinstance(upstream, list):
-            upstream = [upstream]
-        if not isinstance(downstream, list):
-            downstream = [downstream]
-        if not isinstance(args, list):
-            args = [args]
+# When executed by airflow, this code runs before every task
+def wrapperFunc(**kwargs):
 
-        if len(args) > 0:
-            args = [self] + args
+    # Get the airflow run ID. The BETL logger uses this to name the log file
+    if 'run_id' in kwargs:
+        run_id = kwargs['run_id']
+    if run_id is not None:
+        kwargs['conf'].EXEC_ID = run_id
+    else:
+        kwargs['conf'].EXEC_ID = 'test'
 
-        op = PythonOperator(
-            task_id=taskId,
-            python_callable=func,
-            dag=self.DAG,
-            op_args=args)
+    # set up logger
+    kwargs['conf'].LOG = Logger(kwargs['conf'])
 
-        for func in upstream:
-            op.set_upstream(func)
+    # App functions (i.e. bespoke functions) cannot define their own params,
+    # they all just get passed the conf objects
+    # BETL funcs, on the other hand, e.g. default data flows, can have
+    # additional params. Note that the entire Airflow context is passed through
+    # in kwargs as well
+    if kwargs['isBETLFunc']:
+        kwargs['func'](**kwargs)
+    else:
+        kwargs['func'](kwargs['conf'])
 
-        for func in downstream:
-            op.set_downstream(func)
 
-        return op
+def logExecutionStart(conf):
+    conf.log('logExecutionStart')
 
-    def logExecutionStart(betl):
-        self.LOG.logExecutionStart()
 
-    def logExecutionEnd(betl):
-        self.LOG.logExecutionEnd()
+def logExecutionEnd(conf):
+    conf.log('logExecutionEnd')
 
-    def logBETLEnd(betl):
-        self.LOG.logBETLEnd()
 
-    def DataFlow(self, desc):
-        return DataFlow(desc=desc, conf=self.CONF)
+def logBETLEnd(conf):
+    conf.log('logBETLEnd')

@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 
-def readDataFromCsv(fileNameMap,
+def readDataFromCsv(conf,
                     path,
                     filename,
                     sep=',',
@@ -14,7 +14,14 @@ def readDataFromCsv(fileNameMap,
 
     _filename = filename
     if isTmpData:
-        _filename = fileNameMap[filename]
+        if filename not in conf.FILE_NAME_MAP:
+            conf.populateTempDataFileNameMap()
+        if filename not in conf.FILE_NAME_MAP:
+            raise ValueError('Data needed for this operation (' +
+                             filename + ') cannot be found in the temp ' +
+                             'data directory')
+        else:
+            _filename = conf.FILE_NAME_MAP[filename]
 
     # We need to force it to read everything as text. Only way I can
     # see to do this is to read the headers and create a dtype for each
@@ -48,14 +55,14 @@ def writeDataToCsv(conf, df, path, filename, headers, mode):
 
     _filename = ''
 
-    if filename in CONF.FILE_NAME_MAP:
-        _filename = CONF.FILE_NAME_MAP[filename]
+    if filename in conf.FILE_NAME_MAP:
+        _filename = conf.FILE_NAME_MAP[filename]
     else:
         prefix = \
-            str(CONF.NEXT_FILE_PREFIX).zfill(CONF.FILE_PREFIX_LENGTH)
+            str(conf.NEXT_FILE_PREFIX).zfill(conf.FILE_PREFIX_LENGTH)
         _filename = prefix + "-" + filename
-        CONF.NEXT_FILE_PREFIX += 1
-        CONF.FILE_NAME_MAP[filename] = _filename
+        conf.NEXT_FILE_PREFIX += 1
+        conf.FILE_NAME_MAP[filename] = _filename
 
     _file = open(path + _filename, mode)
 
@@ -70,8 +77,8 @@ def writeDataToCsv(conf, df, path, filename, headers, mode):
 def truncateFile(conf, path, filename):
 
     _filename = ''
-    if filename in CONF.FILE_NAME_MAP:
-        _filename = CONF.FILE_NAME_MAP[filename]
+    if filename in conf.FILE_NAME_MAP:
+        _filename = conf.FILE_NAME_MAP[filename]
         if os.path.exists(path + _filename):
             _file = open(path + _filename, 'w')
             _file.close()

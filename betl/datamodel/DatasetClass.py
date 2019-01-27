@@ -13,11 +13,11 @@ from .TableClass import Table
 class Dataset():
 
     def __init__(self,
-                 betl,
+                 conf,
                  datasetSchemaDesc,
                  dataLayerID):
 
-        self.BETL = betl
+        self.CONF = conf
 
         self.dataLayerID = dataLayerID
 
@@ -35,11 +35,12 @@ class Dataset():
         for tableName in datasetSchemaDesc['tableSchemas']:
 
             srcTableName = None
-            if 'srcTableName' in datasetSchemaDesc['tableSchemas'][tableName]:
-                srcTableName = datasetSchemaDesc['tableSchemas'][tableName]['srcTableName']
+            t = datasetSchemaDesc['tableSchemas'][tableName]
+            if 'srcTableName' in t:
+                srcTableName = t['srcTableName']
 
             self.tables[tableName] = Table(
-                betl=self.BETL,
+                conf=self.CONF,
                 tableSchema=datasetSchemaDesc['tableSchemas'][tableName],
                 dataLayerID=self.dataLayerID,
                 datasetID=self.datasetID,

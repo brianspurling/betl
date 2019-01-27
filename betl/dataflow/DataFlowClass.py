@@ -1,4 +1,3 @@
-from betl.logger import Logger
 from datetime import datetime
 
 
@@ -40,21 +39,18 @@ class DataFlow():
 
     from .dfl_loadPrep import (prepForLoad,
                                collapseNaturalKeyCols)
-                               
+
     from .dfl_mdm import (mapMasterData)
 
     from .dfl_merge import (join,
                             union)
 
-    def __init__(self, desc, conf, recordInCtrlDB=True):
-
-        self.log = Logger()
+    def __init__(self, desc, conf):
 
         self.dflStartTime = datetime.now()
 
         self.DESCRIPTION = desc
         self.CONF = conf
-        self.recordInCtrlDB = recordInCtrlDB
 
         self.currentStepStartTime = None
         self.currentStepId = None
@@ -63,17 +59,11 @@ class DataFlow():
         self.data = {}
         self.targetDataset = None
 
-        if self.recordInCtrlDB:
-            self.dataflowId = self.CONF.CTRL_DB.insertDataflow(
-                dataflow={
-                    'execId': self.CONF.EXEC_ID,
-                    'functionId': self.CONF.FUNCTION_ID,
-                    'description': self.DESCRIPTION})
-
-        self.log.logDFStart(
-            desc,
-            self.dflStartTime,
-            self.CONF.STAGE)
+        self.CONF.log(
+            'logDFStart',
+            desc=desc,
+            startTime=self.dflStartTime,
+            stage=conf.STAGE)
 
     def stepStart(self,
                   desc,
@@ -85,20 +75,13 @@ class DataFlow():
         self.currentStepStartTime = datetime.now()
 
         if not silent:
-            self.log.logStepStart(
+            self.CONF.log(
+                'logStepStart',
                 startTime=self.currentStepStartTime,
                 desc=desc,
                 datasetName=datasetName,
                 df=df,
-                additionalDesc=additionalDesc,
-                monitorMemoryUsage=self.CONF.MONITOR_MEMORY_USAGE)
-
-        if self.recordInCtrlDB:
-            self.currentStepId = self.CONF.CTRL_DB.insertStep(
-                step={
-                    'execId': self.CONF.EXEC_ID,
-                    'dataflowID': self.dataflowId,
-                    'description': desc})
+                additionalDesc=additionalDesc)
 
     def stepEnd(self,
                 report,
@@ -111,45 +94,20 @@ class DataFlow():
             (datetime.now() - self.currentStepStartTime).total_seconds()
 
         if not silent:
-            self.log.logStepEnd(
+            self.CONF.log(
+                'logStepEnd',
                 report=report,
                 duration=elapsedSeconds,
                 datasetName=datasetName,
                 df=df,
-                shapeOnly=shapeOnly,
-                monitorMemoryUsage=self.CONF.MONITOR_MEMORY_USAGE)
-
-        if df is not None:
-            rowCount = df.shape[0]
-            colCount = df.shape[1]
-        else:
-            rowCount = None
-            colCount = None
-
-        if self.recordInCtrlDB:
-            self.CONF.CTRL_DB.updateStep(
-                stepId=self.currentStepId,
-                status='SUCCESSFUL',
-                rowCount=rowCount,
-                colCount=colCount)
+                shapeOnly=shapeOnly)
 
     def close(self):
         elapsedSeconds = (datetime.now() - self.dflStartTime).total_seconds()
-        self.log.logDFEnd(elapsedSeconds, self.targetDataset)
-
-        if self.targetDataset is not None:
-            rowCount = self.targetDataset.shape[0]
-            colCount = self.targetDataset.shape[1]
-        else:
-            rowCount = None
-            colCount = None
-
-        if self.recordInCtrlDB:
-            self.CONF.CTRL_DB.updateDataflow(
-                dataflowId=self.dataflowId,
-                status='SUCCESSFUL',
-                rowCount=rowCount,
-                colCount=colCount)
+        self.CONF.log(
+            'logDFEnd',
+            durationSeconds=elapsedSeconds,
+            df=self.targetDataset)
 
         # By removing all keys, we remove all pointers to the dataframes,
         # hence making them available to Python's garbage collection

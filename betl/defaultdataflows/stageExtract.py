@@ -1,17 +1,21 @@
-def logExtractStart(betl):
-    betl.LOG.logExtractStart()
+def logExtractStart(**kwargs):
+    kwargs['conf'].log('logExtractStart')
 
 
-def logExtractEnd(betl):
-    betl.LOG.logExtractEnd()
+def logExtractEnd(conf):
+    conf.log('logExtractEnd')
 
 
-def logSkipExtract(betl):
-    betl.LOG.logSkipExtract()
+def logSkipExtract(conf):
+    conf.log('logSkipExtract')
 
-def bulkExtract(betl, tableName, dmId):
 
-    dfl = betl.DataFlow(desc='Default extract for ' + tableName)
+def bulkExtract(conf, tableName, dmId):
+
+    dfl = conf.DataFlow(desc='Default extract for ' + tableName)
+
+    extLayer = conf.getLogicalSchemaDataLayer('EXT')
+    mappedTableName = extLayer.datasets[dmId].tables[tableName].srcTableName
 
     dfl.getDataFromSrc(
         tableName=tableName,
@@ -31,8 +35,7 @@ def bulkExtract(betl, tableName, dmId):
         dataLayerID='EXT',
         desc="Write the data extract to the SRC data layer")
 
-
-# def defaultExtract_delta(betl):
+# def defaultExtract_delta(conf):
 
     # TODO not been refactored since dataframe class added to betl
 
@@ -41,16 +44,16 @@ def bulkExtract(betl, tableName, dmId):
     #
     # extLayer = scheduler.CONF.getLogicalSchemaDataLayer('EXT')
     #
-    # for dmID in extLayer.datasets:
-    #     for tableName in extLayer.datasets[dmID].tables:
+    # for dmId in extLayer.datasets:
+    #     for tableName in extLayer.datasets[dmId].tables:
     #         if tableName in srcTablesToExclude:
     #             continue
     # colNameList = \
-    #     extLayer.datasets[dmID].tables[tableName].colNames
+    #     extLayer.datasets[dmId].tables[tableName].colNames
     # nkList = \
-    #     extLayer.datasets[dmID].tables[tableName].colNames_NKs
+    #     extLayer.datasets[dmId].tables[tableName].colNames_NKs
     # nonNkList = \
-    #     extLayer.datasets[dmID].tables[tableName].colNames_withoutNKs
+    #     extLayer.datasets[dmId].tables[tableName].colNames_withoutNKs
     #
     # if len(nkList) == 0:
     #     raise ValueError(tableName + ' does not have a natural ' +
@@ -70,7 +73,7 @@ def bulkExtract(betl, tableName, dmId):
     # updatecolNameList = []
     # deletecolNameList = []
     #
-    # columns = extLayer.datasets[dmID]     \
+    # columns = extLayer.datasets[dmId]     \
     #     .tables[tableName].columns
     #
     # for column in columns:
@@ -86,7 +89,7 @@ def bulkExtract(betl, tableName, dmId):
     #         updatecolNameList.append(column.columnName)
     #         deletecolNameList.append(column.columnName + '_stg')
     #
-    # stgDF = betl.readData(tableName, 'EXT')
+    # stgDF = conf.readData(tableName, 'EXT')
     #
     # deltaDF = pd.merge(left=srcDF, right=stgDF, how='outer',
     #                    suffixes=('_src', '_stg'), on=nkList,
@@ -105,10 +108,10 @@ def bulkExtract(betl, tableName, dmId):
     # if not insertsDF.empty:
     #     insertsDF =                                               \
     #         scheduler.dataIO.setAuditCols(df=insertsDF,
-    #                                       sourceSystemId=dmID,
+    #                                       sourceSystemId=dmId,
     #                                       action='INSERT')
     #     # NOTE: Check this logic
-    #     betl.writeData(insertsDF, tableName, 'EXT', 'append')
+    #     conf.writeData(insertsDF, tableName, 'EXT', 'append')
     #     stgDF = stgDF.append(insertsDF, ignore_index=True,
     #                          verify_integrity=True)
     # else:
@@ -128,7 +131,7 @@ def bulkExtract(betl, tableName, dmId):
     # if not deletesDF.empty:
     #     deletesDF = scheduler.dataIO.setAuditCols(
     #         df=deletesDF,
-    #         sourceSystemId=dmID,
+    #         sourceSystemId=dmId,
     #         action='DELETE')
     #     etlDbCursor = scheduler.dataIO.ETL_DB_CONN.cursor()
     #     for index, row in deletesDF.iterrows():
@@ -180,8 +183,8 @@ def bulkExtract(betl, tableName, dmId):
     #
     # # Apply updates, to DB and DF
     # if not updatesDF.empty:
-    #     updatesDF = betl.setAuditCols(df=updatesDF,
-    #                                   sourceSystemId=dmID,
+    #     updatesDF = conf.setAuditCols(df=updatesDF,
+    #                                   sourceSystemId=dmId,
     #                                   action='UPDATE')
     #     etlDbCursor = scheduler.conf.ETL_DB_CONN.cursor()
     #     for index, row in updatesDF.iterrows():

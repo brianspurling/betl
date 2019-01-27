@@ -1,189 +1,237 @@
 import pandas as pd
 import numpy as np
+import json
+import os
+import ast
 
 
-def logLoadStart(betl):
-    betl.LOG.logLoadStart()
+def logLoadStart(conf):
+    conf.log('logLoadStart')
 
 
-def logLoadEnd(betl):
-    betl.LOG.logLoadEnd()
+def logBulkLoadSetupStart(conf):
+    conf.log('logBulkLoadSetupStart')
 
 
-def logSkipLoad(betl):
-    betl.LOG.logSkipLoad()
+def logBulkLoadSetupEnd(conf):
+    conf.log('logBulkLoadSetupEnd')
 
-    
-#
-# A default load process. Bulk is obvious and as you would expect
-# Delta deals with SCD et al
-# This function assumes that dm_a_dimension is loaded from a csv file
-# called dm_a_dimension.csv. If that isn't the case, pass in to
-# nonDefaultStagingTables a key,value pair of <dimension name>,<staging csv>
-#
-# TODO: need separate functions for dims and facts, otherwise the whole thing
-# has to rerun
-def defaultLoad(betl):
 
-    bseLayer = betl.CONF.getLogicalSchemaDataLayer('BSE')
-    sumLayer = betl.CONF.getLogicalSchemaDataLayer('SUM')
+def logDimLoadStart(conf):
+    conf.log('logDimLoadStart')
+
+
+def logDefaultDimLoadStart(conf):
+    conf.log('logDefaultDimLoadStart')
+
+
+def logDefaultDimLoadEnd(conf):
+    conf.log('logDefaultDimLoadEnd')
+
+
+def logBespokeDimLoadStart(conf):
+    conf.log('logBespokeDimLoadStart')
+
+
+def logBespokeDimLoadEnd(conf):
+    conf.log('logBespokeDimLoadEnd')
+
+
+def logDimLoadEnd(conf):
+    conf.log('logDimLoadEnd')
+
+
+def logFactLoadStart(conf):
+    conf.log('logFactLoadStart')
+
+
+def logDefaultFactLoadStart(conf):
+    conf.log('logDefaultFactLoadStart')
+
+
+def logDefaultFactLoadEnd(conf):
+    conf.log('logDefaultFactLoadEnd')
+
+
+def logBespokeFactLoadStart(conf):
+    conf.log('logBespokeFactLoadStart')
+
+
+def logBespokeFactLoadEnd(conf):
+    conf.log('logBespokeFactLoadEnd')
+
+
+def logFactLoadEnd(conf):
+    conf.log('logFactLoadEnd')
+
+
+def logLoadEnd(conf):
+    conf.log('logLoadEnd')
+
+
+def logSkipLoad(conf):
+    conf.log('logSkipLoad')
+
+
+def refreshDefaultRowsTxtFileFromGSheet(conf):
+
+    conf.log('logRefreshDefaultRowsTxtFileFromGSheetStart')
+
+    # Our defaultRows SS should contain a tab per dimension, each with 1+
+    # default rows defined. IDs are defined too - should all be negative
+    defaultRowsDatastore = conf.getDefaultRowsDatastore()
+    worksheets = {}
+    if defaultRowsDatastore is not None:
+        worksheets = defaultRowsDatastore.worksheets
+    for wsTitle in worksheets:
+        # wsTitle is the table name
+        filename = conf.TMP_DATA_PATH + '/defaultRows_' + wsTitle + '.txt'
+        with open(filename, 'w') as file:
+            file.write(json.dumps(worksheets[wsTitle].get_all_records()))
+    conf.log('logRefreshDefaultRowsTxtFileFromGSheetEnd')
+
+
+def dropFactFKConstraints(conf):
+
+    bseLayer = conf.getLogicalSchemaDataLayer('BSE')
+    sumLayer = conf.getLogicalSchemaDataLayer('SUM')
 
     bseTables = bseLayer.datasets['BSE'].tables
     sumTables = sumLayer.datasets['SUM'].tables
 
-    nonDefaultBSETables = \
-        betl.CONF.BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+    bseAndSumTbls = {**bseTables, **sumTables}
 
-    # We must load the dimensions before the facts!
-    loadSequence = []
-    if (betl.CONF.RUN_DM_LOAD):
-        loadSequence.append('DIMENSION')
-    if (betl.CONF.RUN_FT_LOAD):
-        loadSequence.append('FACT')
+    dfl = conf.DataFlow(
+        desc="If it's a bulk load, drop the indexes to speed up " +
+             "writing. We do this here, because we need to drop " +
+             "fact indexes first (or, to be precise, the facts' " +
+             "foreign key constraints, because the dim ID indexes " +
+             " cant be dropped until the FKs that point to them are gone)")
 
-    if betl.CONF.BULK_OR_DELTA == 'BULK':
+    for tableName in bseAndSumTbls:
+        if bseAndSumTbls[tableName].getTableType() in ('FACT', 'SUMMARY'):
+            skip = conf.BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+            if tableName not in skip:
+                counter = 0
+                for sql in bseAndSumTbls[tableName].getSqlDropIndexes():
+                    # Multiple indexes per table, but desc, below, needs
+                    # to be unique
+                    counter += 1
+                    dfl.customSQL(
+                        sql,
+                        databaseID='TRG',
+                        desc='Dropping fact indexes for ' + tableName +
+                             ' (' + str(counter) + ')')
+    dfl.close()
 
-        # DROP INDEXES
 
-        bseAndSumTbls = {**bseTables, **sumTables}
+def bulkLoad(conf, tableName, tableSchema, tableType):
 
-        dfl = betl.DataFlow(
-            desc="If it's a bulk load, drop the indexes to speed up " +
-                 "writing. We do this here, because we need to drop " +
-                 "fact indexes first (or, to be precise, the facts' " +
-                 "foreign key constraints, because the dim ID indexes " +
-                 " cant be dropped until the FKs that point to them are gone)")
-        for tableName in bseAndSumTbls:
-            if bseAndSumTbls[tableName].getTableType() in ('FACT', 'SUMMARY'):
-                if tableName not in nonDefaultBSETables:
-                    counter = 0
-                    for sql in bseAndSumTbls[tableName].getSqlDropIndexes():
-                        # Multiple indexes per table, but desc, below, needs
-                        # to be unique
-                        counter += 1
-                        dfl.customSQL(
-                            sql,
-                            databaseID='TRG',
-                            desc='Dropping fact indexes for ' + tableName +
-                                 ' (' + str(counter) + ')')
-        dfl.close()
+    if tableType == 'DIMENSION':
 
-        # GET ALL DEFAULT ROWS
+        # Dimension load includes any manually-created default_rows
 
-        # Our defaultRows SS should contain a tab per dimension, each with 1+
-        # default rows defined. IDs are defined too - should all be negative
+        filePath = conf.TMP_DATA_PATH + '/defaultRows_' + tableName + '.txt'
+
         defaultRows = {}
-        worksheets = {}
-        defaultRowsDatastore = betl.CONF.getDefaultRowsDatastore()
-        if defaultRowsDatastore is not None:
-            worksheets = defaultRowsDatastore.worksheets
-        for wsTitle in worksheets:
-            defaultRows[wsTitle] = worksheets[wsTitle].get_all_records()
+        if os.path.exists(filePath):
+            defaultRowsFile = open(filePath, 'r')
+            fileContent = defaultRowsFile.read()
+            defaultRows = ast.literal_eval(fileContent)
 
-        # BULK Load the data
+        bulkLoadDimension(conf=conf,
+                          tableSchema=tableSchema,
+                          defaultRows=defaultRows)
 
-        for dimOrFactLoad in loadSequence:
-            for tableName in bseTables:
-                tableType = bseTables[tableName].getTableType()
-                if (tableType == dimOrFactLoad):
-                    if tableName not in nonDefaultBSETables:
-                        bulkLoadTable(betl=betl,
-                                      table=bseTables[tableName],
-                                      tableType=tableType,
-                                      defaultRows=defaultRows)
-
-    if betl.CONF.BULK_OR_DELTA == 'DELTA':
-        for tableType in loadSequence:
-            for tableName in bseTables:
-                tableType = bseTables[tableName].getTableType()
-                if (tableType == tableType):
-                    if tableName not in nonDefaultBSETables:
-                        deltaLoadTable(betl=betl,
-                                       table=bseTables[tableName],
-                                       tableType=tableType)
-
-
-def bulkLoadTable(betl, table, tableType, defaultRows):
-    if tableType == 'DIMENSION':
-        bulkLoadDimension(betl=betl, defaultRows=defaultRows, table=table)
     elif tableType == 'FACT':
-        bulkLoadFact(betl=betl, table=table)
+
+        bulkLoadFact(
+            conf=conf,
+            tableSchema=tableSchema)
 
 
-def deltaLoadTable(betl, table, tableType):
+def deltaLoad(conf, tableName, tableSchema, tableType):
+
     if tableType == 'DIMENSION':
-        deltaLoadDimension(betl=betl, table=table)
+
+        deltaLoadDimension(conf=conf,
+                           tableSchema=tableSchema)
+
     elif tableType == 'FACT':
-        deltaLoadFact(betl=betl, table=table)
+
+        deltaLoadFact(
+            conf=conf,
+            tableSchema=tableSchema)
 
 
-def bulkLoadDimension(betl, defaultRows, table):
-    dfl = betl.DataFlow(desc='Loading dimension: ' + table.tableName)
+def bulkLoadDimension(conf, tableSchema, defaultRows):
+
+    dfl = conf.DataFlow(desc='Loading dimension: ' + tableSchema.tableName)
 
     # DATA
 
     dfl.truncate(
-        dataset=table.tableName,
+        dataset=tableSchema.tableName,
         dataLayerID='BSE',
         forceDBWrite=True,
         desc='Because it is a bulk load, clear out the dim data (which also ' +
              'restarts the SK sequences)')
 
-    dataset = table.tableName
     dfl.read(
-        tableName=dataset,
+        tableName=tableSchema.tableName,
         dataLayer='LOD',
         desc='Read the data we are going to load to BSE (from file ' +
-             table.tableName + ')')
+             tableSchema.tableName + ')')
 
     dfl.write(
-        dataset=dataset,
-        targetTableName=table.tableName,
+        dataset=tableSchema.tableName,
+        targetTableName=tableSchema.tableName,
         dataLayerID='BSE',
         forceDBWrite=True,
         append_or_replace='append',  # stops it altering table & removing SK!
         writingDefaultRows=True,
-        desc='Load data into the target model for ' + table.tableName,
+        desc='Load data into the target model for ' + tableSchema.tableName,
         keepDataflowOpen=True)
 
     # INDEXES
 
     counter = 0
-    for sql in table.getSqlCreateIndexes():
+    for sql in tableSchema.getSqlCreateIndexes():
         counter += 1
         dfl.customSQL(
             sql,
             databaseID='TRG',
-            desc='Creating index for ' + table.tableName +
+            desc='Creating index for ' + tableSchema.tableName +
                  ' (' + str(counter) + ')')
 
     # DEFAULT ROWS
 
-    if table.tableName in defaultRows:  # Default rows are not compulsory
+    # Default rows are not compulsory, so defaultRows may be empty dict
+    if defaultRows:
 
         # Blank values in the spreadsheet come through as empty strings, but
         # should be NULL in the DB
         # TODO: this should be a dataflow op, part of effort to tidy up the
         # apply functions
-        df = pd.DataFrame.from_dict(defaultRows[table.tableName])
+        df = pd.DataFrame.from_dict(defaultRows)
         df.replace(r'^\s*$', np.nan, regex=True, inplace=True)
 
         dfl.createDataset(
-            dataset=table.tableName + '_defaultRows',
+            dataset=tableSchema.tableName + '_defaultRows',
             data=df,
             desc='Loading the default rows into the dataflow')
 
         dfl.write(
-            dataset=table.tableName + '_defaultRows',
-            targetTableName=table.tableName,
+            dataset=tableSchema.tableName + '_defaultRows',
+            targetTableName=tableSchema.tableName,
             dataLayerID='BSE',
             forceDBWrite=True,
             append_or_replace='append',
             writingDefaultRows=True,
-            desc='Adding default rows to ' + table.tableName,
+            desc='Adding default rows to ' + tableSchema.tableName,
             keepDataflowOpen=True)
 
-    elif table.tableName == 'dm_audit' and betl.CONF.DEFAULT_DM_AUDIT:
+    elif tableSchema.tableName == 'dm_audit' and conf.DEFAULT_DM_AUDIT:
 
         dfl.createDataset(
             dataset='dm_audit_default_rows',
@@ -204,10 +252,10 @@ def bulkLoadDimension(betl, defaultRows, table):
 
     # RETRIEVE SK/NK MAPPING (FOR LATER)
 
-    skDatasetName = 'sk_' + table.tableName
+    skDatasetName = 'sk_' + tableSchema.tableName
 
     dfl.read(
-        tableName=table.tableName,
+        tableName=tableSchema.tableName,
         targetDataset=skDatasetName,
         dataLayer='BSE',
         forceDBRead=True,
@@ -223,15 +271,16 @@ def bulkLoadDimension(betl, defaultRows, table):
         regex=True,
         desc='Make all None values come through as empty strings')
 
+    colsToKeep = [tableSchema.surrogateKeyColName] + tableSchema.colNames_NKs
     dfl.dropColumns(
         dataset=skDatasetName,
-        colsToKeep=[table.surrogateKeyColName] + table.colNames_NKs,
+        colsToKeep=colsToKeep,
         desc='Drop all cols except SK & NKs (including audit cols)',
         dropAuditCols=True)
 
     dfl.renameColumns(
         dataset=skDatasetName,
-        columns={table.surrogateKeyColName: 'sk'},
+        columns={tableSchema.surrogateKeyColName: 'sk'},
         desc='Rename the SK column to "sk"')
 
     dfl.addColumns(
@@ -262,37 +311,37 @@ def concatenateNKs(row):
     return '_'.join(nks)
 
 
-def bulkLoadFact(betl, table):
+def bulkLoadFact(conf, tableSchema):
 
-    dfl = betl.DataFlow(desc='Loading fact: ' + table.tableName)
+    dfl = conf.DataFlow(desc='Loading fact: ' + tableSchema.tableName)
 
     # READ DATA
 
     dfl.truncate(
-        dataset=table.tableName,
+        dataset=tableSchema.tableName,
         dataLayerID='BSE',
         forceDBWrite=True,
         desc='Because it is a bulk load, clear out the ft data (which also ' +
              'restarts the SK sequences)')
 
     dfl.read(
-        tableName=table.tableName,
+        tableName=tableSchema.tableName,
         dataLayer='LOD',
-        targetDataset=table.tableName,
+        targetDataset=tableSchema.tableName,
         desc='Read the data we are going to load to BSE (from file ' +
-             table.tableName + ')')
+             tableSchema.tableName + ')')
 
     # SK/NK MAPPINGS
 
     # collapose the dm_audit nk first
 
     dfl.createAuditNKs(
-        dataset=table.tableName,
+        dataset=tableSchema.tableName,
         desc='Collapse the audit columns into their NK')
 
     # now join all nks to their respective dims sk/nk mappings, & load the fact
 
-    for column in table.columns:
+    for column in tableSchema.columns:
         if column.isFK:
             keyMapTableName = 'sk_' + column.fkDimension
             dfl.read(
@@ -318,9 +367,9 @@ def bulkLoadFact(betl, table):
 
             dfl.join(
                 datasets=[
-                    table.tableName,
+                    tableSchema.tableName,
                     keyMapTableName + '.' + column.columnName],
-                targetDataset=table.tableName,
+                targetDataset=tableSchema.tableName,
                 joinCol=nkColName,
                 how='left',
                 desc="Merging dim's SK with fact for column " +
@@ -328,14 +377,14 @@ def bulkLoadFact(betl, table):
                 silent=True)
 
             dfl.setNulls(
-                dataset=table.tableName,
+                dataset=tableSchema.tableName,
                 columns={column.columnName: -1},
                 desc='Assigning all missing rows to default -1 row (' +
                      column.columnName + ')',
                 silent=True)
 
             dfl.dropColumns(
-                dataset=table.tableName,
+                dataset=tableSchema.tableName,
                 colsToDrop=[nkColName],
                 desc='Dropping the natural key column: ' + nkColName,
                 silent=True)
@@ -343,8 +392,8 @@ def bulkLoadFact(betl, table):
     # WRITE DATA
 
     dfl.write(
-        dataset=table.tableName,
-        targetTableName=table.tableName,
+        dataset=tableSchema.tableName,
+        targetTableName=tableSchema.tableName,
         dataLayerID='BSE',
         append_or_replace='append',  # stops it altering table & removing SK!
         keepDataflowOpen=True)
@@ -352,19 +401,19 @@ def bulkLoadFact(betl, table):
     # INDEXES
 
     counter = 0
-    for sql in table.getSqlCreateIndexes():
+    for sql in tableSchema.getSqlCreateIndexes():
         counter += 1
         dfl.customSQL(
             sql,
             databaseID='TRG',
-            desc='Creating index for ' + table.tableName +
+            desc='Creating index for ' + tableSchema.tableName +
                  ' (' + str(counter) + ')')
     dfl.close()
 
 
-def deltaLoadDimension(betl, table):
+def deltaLoadDimension(conf, tableSchema):
     raise ValueError("Code not yet written for delta dimension loads")
 
 
-def deltaLoadFact(betl, table):
+def deltaLoadFact(conf, tableSchema):
     raise ValueError("Code not yet written for delta fact loads")

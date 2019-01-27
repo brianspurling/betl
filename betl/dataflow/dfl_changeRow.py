@@ -13,7 +13,7 @@ def truncate(self, dataset, dataLayerID, desc, forceDBWrite=False):
 
     if forceDBWrite:
         dataLayer = self.CONF.getLogicalSchemaDataLayer(dataLayerID)
-        dbIO.truncateTable(dataset, dataLayer.datastore)
+        dbIO.truncateTable(dataset, dataLayer.getDatastore())
 
     report = ''
 

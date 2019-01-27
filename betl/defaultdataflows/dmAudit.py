@@ -34,9 +34,9 @@ def getSchemaDescription():
     return tableSchema
 
 
-def transformDMAudit(betl):
+def transformDMAudit(conf):
 
-    dfl = betl.DataFlow(desc='Generate the dm_audit rows')
+    dfl = conf.DataFlow(desc='Generate the dm_audit rows')
 
     dfl.createDataset(
         dataset='ops',
@@ -51,7 +51,7 @@ def transformDMAudit(betl):
               'temp_key': 1},
         desc='A row for each DQ score')
 
-    # TODO switch this to use the .join's cartesianJoin feature
+    # TODO: switch this to use the .join's cartesianJoin feature
     dfl.join(
         datasets=['ops', 'dq_scores'],
         targetDataset='dm_audit',

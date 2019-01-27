@@ -18,7 +18,6 @@ def conf(standardSetupParams, standardRunTimeParams, standardScheduleConfig):
         runTimeParams=processArgs(standardRunTimeParams),
         scheduleConfig=standardScheduleConfig)
     Logger.initialiseLogging(
-        execId=CONF.EXEC_ID,
         logLevel=CONF.LOG_LEVEL,
         logPath=CONF.LOG_PATH,
         auditCols=CONF.AUDIT_COLS)
@@ -92,7 +91,8 @@ def standardScheduleConfig():
         'BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD': [],
         'EXTRACT_DATAFLOWS': [],
         'TRANSFORM_DATAFLOWS': [],
-        'LOAD_DATAFLOWS': [],
+        'LOAD_DIM_DATAFLOWS': [],
+        'LOAD_FACT_DATAFLOWS': [],
         'SUMMARISE_DATAFLOWS': []
     }
 

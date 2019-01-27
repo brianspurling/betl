@@ -5,13 +5,13 @@ from betl.defaultdataflows import stageLoad
 class Table():
 
     def __init__(self,
-                 betl,
+                 conf,
                  tableSchema,
                  dataLayerID,
                  datasetID=None,
                  srcTableName=None):
 
-        self.BETL = betl
+        self.CONF = conf
         self.dataLayerID = dataLayerID
         if dataLayerID in ['LOD', 'BSE', 'SUM']:
             self.datasetID = dataLayerID
@@ -78,7 +78,7 @@ class Table():
         # and DM_AUDIT, we add audit columns
         tableType = self.getTableType()
         if tableType != 'FACT' and self.tableName != 'dm_audit':
-            for i, auditColRow in betl.CONF.AUDIT_COLS.iterrows():
+            for i, auditColRow in self.CONF.AUDIT_COLS.iterrows():
                 colsCreateStatements.append(
                     auditColRow['colNames'] +
                     ' ' +
@@ -101,7 +101,8 @@ class Table():
         tableType = 'UNKNOWN'
 
         if self.dataLayerID not in ('BSE', 'SUM'):
-            tableType = 'Table ' + self.tableName + ' is not in the BSE or SUM dataLayers'
+            tableType = ('Table ' + self.tableName +
+                         ' is not in the BSE or SUM dataLayers')
         elif self.tableName[:3] == 'dm_':
             tableType = 'DIMENSION'
         elif self.tableName[:3] == 'ft_':
@@ -144,7 +145,6 @@ class Table():
     def loadTableToTrgModel(self):
 
         stageLoad.loadTable(self)
-
 
     def __str__(self):
 

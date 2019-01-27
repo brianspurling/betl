@@ -1,10 +1,10 @@
-def logTransformStart(betl):
-    betl.LOG.logTransformStart()
+def logTransformStart(conf):
+    conf.log('logTransformStart')
 
 
-def logTransformEnd(betl):
-    betl.LOG.logTransformEnd()
+def logTransformEnd(conf):
+    conf.log('logTransformEnd')
 
 
-def logSkipTransform(betl):
-    betl.LOG.logSkipTransform()
+def logSkipTransform(conf):
+    conf.log('logSkipTransform')

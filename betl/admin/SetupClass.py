@@ -6,17 +6,17 @@ class Setup():
     # functions  where info is input into the class, plus the control functions
     # that run through the steps
 
-    from .fileSetup import (createDirectories,
-                            createGitignoreFile,
-                            createAppConfigFile,
-                            createMainScript,
-                            createExampleDataflow)
+    from fileSetup import (createDirectories,
+                           createGitignoreFile,
+                           createAppConfigFile,
+                           createMainScript,
+                           createExampleDataflow)
 
-    from .dbSetup import (createDatabases)
+    from dbSetup import (createDatabases)
 
-    from .gsheetSetup import (createSchemaDescGSheets,
-                              createMDMGsheet,
-                              createDefaultRowsGsheet)
+    from gsheetSetup import (createSchemaDescGSheets,
+                             createMDMGsheet,
+                             createDefaultRowsGsheet)
 
     def __init__(self):
 
@@ -39,11 +39,6 @@ class Setup():
         self.REPORTS_PATH = self.APP_ROOT_PATH + '/' + 'reports'
         self.LOG_PATH = self.APP_ROOT_PATH + '/' + 'logs'
         self.SCHEMA_PATH = self.APP_ROOT_PATH + '/' + 'schema'
-
-        self.CTL_DB_HOST_NAME = 'localhost'
-        self.CTL_DB_NAME = self.DWH_ID.lower() + '_ctl'
-        self.CTL_DB_USERNAME = self.ADMIN_POSTGRES_USERNAME
-        self.CTL_DB_PASSWORD = self.ADMIN_POSTGRES_PASSWORD
 
         self.SCHEMA_DESC_ETL_GSHEET_TITLE = self.DWH_ID + ' - ETL DB SCHEMA'
         self.SCHEMA_DESC_TRG_GSHEET_TITLE = self.DWH_ID + ' - TRG DB SCHEMA'
@@ -111,33 +106,6 @@ class Setup():
     def setSchemaPath(self, schemaPath):
         if schemaPath is not None and schemaPath != '':
             self.SCHEMA_PATH = self.APP_ROOT_PATH + '/' + schemaPath
-
-    def setCtlDBHostName(self, ctlDBHostName):
-        if ctlDBHostName is not None and ctlDBHostName != '':
-            self.CTL_DB_HOST_NAME = ctlDBHostName
-
-    def setCtlDBName(self, ctlDBName):
-        if ctlDBName is None or ctlDBName == '':
-            self.CTL_DB_NAME = self.DWH_ID.lower() + '_ctl'
-        else:
-            self.CTL_DB_NAME = ctlDBName
-
-    def setCtlDBUsername(self, ctlDBUsername):
-        if ctlDBUsername is None or ctlDBUsername == '':
-            if self.ADMIN_POSTGRES_USERNAME is None:
-                raise ValueError('Cannot assign a default value for the ' +
-                                 'CTL DB username. Either specify one, or ' +
-                                 'set the admin postgres username first')
-            else:
-                self.CTL_DB_USERNAME = self.ADMIN_POSTGRES_USERNAME
-        else:
-            self.CTL_DB_USERNAME = ctlDBUsername
-
-    def setCtlDBPassword(self, ctlDBPassword):
-        if ctlDBPassword is None or ctlDBPassword == '':
-            self.CTL_DB_PASSWORD = self.ADMIN_POSTGRES_PASSWORD
-        else:
-            self.CTL_DB_PASSWORD = ctlDBPassword
 
     def setSchemaDescETLGsheetTitle(self, etlGSheetTitle):
         if etlGSheetTitle is None or etlGSheetTitle == '':

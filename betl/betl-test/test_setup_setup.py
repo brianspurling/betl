@@ -34,11 +34,6 @@ def test_setup(standardSetup, standardSetupParams):
     assert ss.LOG_PATH == p['appRootPath'] + '/' + p['logsPath']
     assert ss.SCHEMA_PATH == p['appRootPath'] + '/' + p['schemaPath']
 
-    assert ss.CTL_DB_HOST_NAME == p['ctlDBHostName']
-    assert ss.CTL_DB_NAME == p['ctlDBName']
-    assert ss.CTL_DB_USERNAME == p['ctlDBUsername']
-    assert ss.CTL_DB_PASSWORD == p['ctlDBPassword']
-
     assert ss.SCHEMA_DESC_ETL_GSHEET_TITLE == p['etlGSheetTitle']
     assert ss.SCHEMA_DESC_TRG_GSHEET_TITLE == p['trgGSheetTitle']
 
