@@ -19,7 +19,7 @@ def mapMasterData(self,
     # Connect to MDM Worksheet #
     ############################
 
-    ws = self.CONF.DATA.getMDMDatastore().conn.worksheet(mdmWS)
+    ws = self.CONF.getMDMDatastore().conn.worksheet(mdmWS)
 
     #################################
     # Extract the current MDM table #

@@ -26,22 +26,21 @@ def read(self,
         raise ValueError('There is already a dataset named ' +
                          _targetDataset + ' in this dataflow')
 
-    path = (self.CONF.CTRL.TMP_DATA_PATH + '/' + dataLayer + '/')
+    path = (self.CONF.TMP_DATA_PATH + '/' + dataLayer + '/')
     filename = tableName + '.csv'
 
     self.data[_targetDataset] = pd.DataFrame()
 
     if forceDBRead:
-        dbID = \
-            self.CONF.DATA.getDataLayerLogicalSchema(dataLayer).databaseID
+        dbId = \
+            self.CONF.getLogicalSchemaDataLayer(dataLayer).databaseID
         self.data[_targetDataset] = dbIO.readDataFromDB(
             tableName=tableName,
-            conn=self.CONF.DATA.getDWHDatastore(dbID).conn)
+            conn=self.CONF.getDWHDatastore(dbId).conn)
 
     else:
-        fileNameMap = self.CONF.STATE.FILE_NAME_MAP
         self.data[_targetDataset] = \
-            fileIO.readDataFromCsv(fileNameMap=fileNameMap,
+            fileIO.readDataFromCsv(conf=self.CONF,
                                    path=path,
                                    filename=filename,
                                    sep=',',
@@ -87,9 +86,9 @@ def write(self,
     elif forceDBWrite:
         writeToDB = True
     else:
-        writeToDB = self.CONF.EXE.WRITE_TO_ETL_DB
+        writeToDB = self.CONF.WRITE_TO_ETL_DB
 
-    dataLayer = self.CONF.DATA.getDataLayerLogicalSchema(dataLayerID)
+    dataLayer = self.CONF.getLogicalSchemaDataLayer(dataLayerID)
     if (targetTableName not in dataLayer.getListOfTables()
        and not forceDBWrite):
         writeToDB = False
@@ -100,7 +99,7 @@ def write(self,
     # or spreadsheet, and nor does it cover sqlalchemy's engine (used by
     # Pandas). Hence the check here.
 
-    if dataLayer.datastore.isSrcSys:
+    if dataLayer.getDatastore().isSrcSys:
         raise ValueError("You just attempted to write to a source system!")
 
     # If this is a table defined in our logical data model, then we
@@ -123,13 +122,13 @@ def write(self,
                 logDataModelColNames_sks.append(col.columnName)
         logDataModelColNames_all_plus_audit = \
             logDataModelColNames_all + \
-            self.CONF.DATA.AUDIT_COLS['colNames'].tolist()
+            self.CONF.AUDIT_COLS['colNames'].tolist()
         colsIncludeSKs = False
         colsIncludeAudit = False
         for colName in list(self.targetDataset):
             if colName in logDataModelColNames_sks:
                 colsIncludeSKs = True
-            if colName in self.CONF.DATA.AUDIT_COLS['colNames'].tolist():
+            if colName in self.CONF.AUDIT_COLS['colNames'].tolist():
                 colsIncludeAudit = True
 
             if colName not in logDataModelColNames_all_plus_audit:
@@ -147,7 +146,7 @@ def write(self,
                 colsToSortBy = logDataModelColNames_all
             if not colsIncludeSKs and colsIncludeAudit:
                 colsToSortBy = logDataModelColNames_noSKs + \
-                    self.CONF.DATA.AUDIT_COLS['colNames'].tolist()
+                    self.CONF.AUDIT_COLS['colNames'].tolist()
             if not colsIncludeSKs and not colsIncludeAudit:
                 colsToSortBy = logDataModelColNames_noSKs
             self.targetDataset = self.targetDataset[colsToSortBy]
@@ -162,7 +161,7 @@ def write(self,
 
     # write to DB
     if writeToDB:
-        dbEng = dataLayer.datastore.eng
+        dbEng = dataLayer.getDatastore().eng
         dbIO.writeDataToDB(
             self.targetDataset,
             targetTableName,
@@ -180,7 +179,7 @@ def write(self,
             axis=1,
             inplace=True)
 
-    path = (self.CONF.CTRL.TMP_DATA_PATH + '/' + dataLayerID + '/')
+    path = (self.CONF.TMP_DATA_PATH + '/' + dataLayerID + '/')
     if not os.path.exists(path):
         os.makedirs(path)
 
@@ -206,9 +205,9 @@ def getDataFromSrc(self, tableName, srcSysID, desc, mappedTableName=None):
 
     self.stepStart(desc=desc)
 
-    srcSysDatastore = self.CONF.DATA.getSrcSysDatastore(srcSysID)
+    srcSysDatastore = self.CONF.getSrcSysDatastore(srcSysID)
 
-    limitdata = self.CONF.EXE.DATA_LIMIT_ROWS
+    limitdata = self.CONF.DATA_LIMIT_ROWS
 
     self.data[tableName] = pd.DataFrame()
 
@@ -227,9 +226,8 @@ def getDataFromSrc(self, tableName, srcSysID, desc, mappedTableName=None):
         quotechar = srcSysDatastore.quotechar
 
         if srcSysDatastore.fileExt == '.csv':
-            fileNameMap = self.CONF.STATE.FILE_NAME_MAP
             self.data[tableName] = \
-                fileIO.readDataFromCsv(fileNameMap=fileNameMap,
+                fileIO.readDataFromCsv(conf=self.CONF,
                                        path=path,
                                        filename=srcTableName + '.csv',
                                        sep=separator,

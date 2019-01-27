@@ -6,14 +6,14 @@ import numpy as np
 def truncate(self, dataset, dataLayerID, desc, forceDBWrite=False):
     self.stepStart(desc=desc)
 
-    path = (self.CONF.CTRL.TMP_DATA_PATH + '/' + dataLayerID + '/')
+    path = (self.CONF.TMP_DATA_PATH + '/' + dataLayerID + '/')
     filename = dataset + '.csv'
 
     fileIO.truncateFile(self.CONF, path, filename)
 
     if forceDBWrite:
-        dataLayer = self.CONF.DATA.getDataLayerLogicalSchema(dataLayerID)
-        dbIO.truncateTable(dataset, dataLayer.datastore)
+        dataLayer = self.CONF.getLogicalSchemaDataLayer(dataLayerID)
+        dbIO.truncateTable(dataset, dataLayer.getDatastore())
 
     report = ''
 

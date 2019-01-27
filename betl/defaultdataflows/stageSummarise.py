@@ -1,3 +1,21 @@
+def logSummariseStart(conf):
+    conf.log('logSummariseStart')
+
+
+def logBespokeSummariseStart(conf):
+    conf.log('logSummariseStart')
+
+
+def logBespokeSummariseEnd(conf):
+    conf.log('logSummariseStart')
+
+
+def logSummariseEnd(conf):
+    conf.log('logSummariseEnd')
+
+
+def logSkipSummarise(conf):
+    conf.log('logSkipSummarise')
 
 
 #
@@ -5,16 +23,16 @@
 # have to be custom-built by the app. All this does is truncate all the
 # tables when running a bulk load
 #
-def defaultSummarisePrep(betl):
+def defaultSummarisePrep(conf):
 
-    sumLayer = betl.CONF.DATA.getDataLayerLogicalSchema('SUM')
+    sumLayer = conf.getLogicalSchemaDataLayer('SUM')
 
     sumTables = sumLayer.datasets['SUM'].tables
     nonDefaultTrgTables = \
-        betl.CONF.SCHEDULE.BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
+        conf.BSE_TABLES_TO_EXCLUDE_FROM_DEFAULT_LOAD
 
-    if betl.CONF.EXE.BULK_OR_DELTA == 'BULK':
-        dfl = betl.DataFlow(
+    if conf.BULK_OR_DELTA == 'BULK':
+        dfl = conf.DataFlow(
             desc="If it's a bulk load, drop the indexes to speed up writing.")
         for tableName in sumTables:
             if (sumTables[tableName].getTableType() == 'SUMMARY'):
@@ -37,7 +55,3 @@ def defaultSummarisePrep(betl):
                              'the SK sequences)')
 
         dfl.close()
-
-
-def defaultSummariseFinish(betl):
-    pass

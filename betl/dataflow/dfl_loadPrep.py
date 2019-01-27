@@ -1,4 +1,3 @@
-from betl.test import test
 
 
 def prepForLoad(self,

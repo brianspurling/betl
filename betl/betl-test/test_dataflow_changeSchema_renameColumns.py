@@ -15,8 +15,7 @@ def test_renameColumns(conf, dataset):
 
     dfl = DataFlow(
         desc='test dataflow',
-        conf=conf,
-        recordInCtrlDB=False)
+        conf=conf)
 
     dfl.createDataset(
         dataset='testDataset',

@@ -21,7 +21,8 @@ scheduleConfig = {
         dfl_example.exampleDataflow]
     'TRANSFORM_DATAFLOWS': [
     ],
-    'LOAD_DATAFLOWS': [],
+    'LOAD_DIM_DATAFLOWS': [],
+    'LOAD_FACT_DATAFLOWS': [],
     'SUMMARISE_DATAFLOWS': []
 }
 

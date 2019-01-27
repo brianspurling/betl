@@ -38,7 +38,7 @@ def dropColumns(self,
     if colsToDrop is not None and colsToKeep is not None:
         raise ValueError("Nope!")
 
-    auditCols = self.CONF.DATA.AUDIT_COLS['colNames'].tolist()
+    auditCols = self.CONF.AUDIT_COLS['colNames'].tolist()
     if colsToKeep is not None:
         colsToKeep = colsToKeep + auditCols
         colsToDrop = [col for col in list(self.data[dataset])
@@ -97,15 +97,19 @@ def pivotColsToRows(self,
 
     """
     Args:
-        colsNotToPivot (list): Columns that should remain as columns (id_vars in Pandas terminology)
-        colsToPivot (list): Columns to be pivoted to rows (value_vars in Pandas terminology)
-        varName (string): The name of the column the pivoted column headings should go into
-        valueName (string): The name of column the pivoted column values should go into
+        colsNotToPivot (list): Columns that should remain as columns (id_vars
+                               in Pandas terminology)
+        colsToPivot (list): Columns to be pivoted to rows (value_vars in
+                            Pandas terminology)
+        varName (string): The name of the column the pivoted column headings
+                          should go into
+        valueName (string): The name of column the pivoted column values should
+                            go into
     """
 
     self.stepStart(desc=desc)
 
-    auditCols = self.CONF.DATA.AUDIT_COLS['colNames'].tolist()
+    auditCols = self.CONF.AUDIT_COLS['colNames'].tolist()
 
     self.data[dataset] = pd.melt(
         self.data[dataset],

@@ -27,8 +27,7 @@ def test_dropColumns_dropSingle(conf,
 
     dfl = DataFlow(
         desc='test dataflow',
-        conf=conf,
-        recordInCtrlDB=False)
+        conf=conf)
 
     dfl.createDataset(
         dataset='testDataset',
@@ -68,8 +67,7 @@ def test_dropColumns_dropMultiple(conf,
 
     dfl = DataFlow(
         desc='test dataflow',
-        conf=conf,
-        recordInCtrlDB=False)
+        conf=conf)
 
     dfl.createDataset(
         dataset='testDataset',
@@ -109,8 +107,7 @@ def test_dropColumns_keepSingle(conf,
 
     dfl = DataFlow(
         desc='test dataflow',
-        conf=conf,
-        recordInCtrlDB=False)
+        conf=conf)
 
     dfl.createDataset(
         dataset='testDataset',
@@ -151,8 +148,7 @@ def test_dropColumns_keepMultiple(conf,
 
     dfl = DataFlow(
         desc='test dataflow',
-        conf=conf,
-        recordInCtrlDB=False)
+        conf=conf)
 
     dfl.createDataset(
         dataset='testDataset',

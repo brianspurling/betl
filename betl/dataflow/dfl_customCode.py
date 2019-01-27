@@ -5,7 +5,7 @@ def customSQL(self, sql, desc, databaseID, dataset=None):
 
     self.stepStart(desc=desc, additionalDesc=sql)
 
-    datastore = self.CONF.DATA.getDWHDatastore(databaseID)
+    datastore = self.CONF.getDWHDatastore(databaseID)
 
     if dataset is not None:
         self.data[dataset] = dbIO.customSQL(sql, datastore)

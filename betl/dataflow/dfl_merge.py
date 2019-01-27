@@ -70,7 +70,7 @@ def union(self, datasets, targetDataset, desc):
                 self.data[dataset].columns)))
             error += '\n'
             error += '\n'
-        self.log.logStepError(error)
+        # self.log.logStepError(error)
         raise
 
     report = 'Concatenated ' + str(len(datasets)) + \

@@ -3,8 +3,8 @@ import pytest
 
 @pytest.mark.parametrize("dataLayer", [
     ('EXT'), ('TRN'), ('LOD'), ('BSE'), ('SUM')])
-def test_getDataLayerLogicalSchema(conf, dataLayer):
+def test_getLogicalSchemaDataLayer(conf, dataLayer):
 
-    dl = conf.DATA.getDataLayerLogicalSchema(dataLayer)
+    dl = CONF.getLogicalSchemaDataLayer(dataLayer)
 
     assert dl is not None

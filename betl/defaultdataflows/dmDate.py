@@ -52,12 +52,12 @@ def getSchemaDescription():
     return tableSchema
 
 
-def transformDMDate(betl):
+def transformDMDate(conf):
 
     # TODO ideally this would be built within BETL (set a good example, and
     # all that!)
-    startDate = betl.CONF.STATE.EARLIEST_DATE_IN_DATA
-    endDate = betl.CONF.STATE.LATEST_DATE_IN_DATA
+    startDate = conf.EARLIEST_DATE_IN_DATA
+    endDate = conf.LATEST_DATE_IN_DATA
 
     dmDateList = []
     while startDate <= endDate:
@@ -83,7 +83,7 @@ def transformDMDate(betl):
 
     df = pd.DataFrame(dmDateList)
 
-    dfl = betl.DataFlow(desc='Generate the dm_date rows')
+    dfl = conf.DataFlow(desc='Generate the dm_date rows')
 
     dfl.createDataset(
         dataset='dm_date',

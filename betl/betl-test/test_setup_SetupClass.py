@@ -35,11 +35,6 @@ def test_init():
     assert setup.LOG_PATH == './logs'
     assert setup.SCHEMA_PATH == './schema'
 
-    assert setup.CTL_DB_HOST_NAME == 'localhost'
-    assert setup.CTL_DB_NAME == 'dwh_ctl'
-    assert setup.CTL_DB_USERNAME is None
-    assert setup.CTL_DB_PASSWORD == ''
-
     assert setup.SCHEMA_DESC_ETL_GSHEET_TITLE == 'DWH - ETL DB SCHEMA'
     assert setup.SCHEMA_DESC_TRG_GSHEET_TITLE == 'DWH - TRG DB SCHEMA'
 
@@ -71,10 +66,6 @@ def test_init():
         'REPORTS_PATH',
         'LOG_PATH',
         'SCHEMA_PATH',
-        'CTL_DB_HOST_NAME',
-        'CTL_DB_NAME',
-        'CTL_DB_USERNAME',
-        'CTL_DB_PASSWORD',
         'SCHEMA_DESC_ETL_GSHEET_TITLE',
         'SCHEMA_DESC_TRG_GSHEET_TITLE',
         'ETL_DB_HOST_NAME',
@@ -221,63 +212,6 @@ def test_setSchemaPath(schemaPath, expected):
     setup = Setup()
     setup.setSchemaPath(schemaPath)
     assert setup.SCHEMA_PATH == expected
-
-
-@pytest.mark.parametrize("ctlDBHostName, expected", [
-    ('test_value_08', 'test_value_08'),
-    ('', 'localhost'),
-    (None, 'localhost')])
-def test_setCtlDBHostName(ctlDBHostName, expected):
-    setup = Setup()
-    setup.setCtlDBHostName(ctlDBHostName)
-    assert setup.CTL_DB_HOST_NAME == expected
-
-
-@pytest.mark.parametrize("ctlDBName, expected", [
-    ('test_value_09', 'test_value_09'),
-    ('', 'dwh_ctl'),
-    (None, 'dwh_ctl')])
-def test_setCtlDBName(ctlDBName, expected):
-    setup = Setup()
-    setup.setCtlDBName(ctlDBName)
-    assert setup.CTL_DB_NAME == expected
-
-
-@pytest.mark.parametrize(
-    'ctlDBUsername,' +
-    'expected,' +
-    'runAdminUNFuncFirst,' +
-    'adminPostgresUsername,' +
-    'expectRaise',
-    [('test_value_10', 'test_value_10', False, None, False),
-     ('', '', False, None, True),
-     (None, '', False, None, True),
-     ('', 'test_value_10', True, 'test_value_10', False),
-     (None, 'test_value_10', True, 'test_value_10', False)])
-def test_setCtlDBUsername(ctlDBUsername,
-                          expected,
-                          runAdminUNFuncFirst,
-                          adminPostgresUsername,
-                          expectRaise):
-    setup = Setup()
-    if runAdminUNFuncFirst:
-        setup.setAdminPostgresUsername(adminPostgresUsername)
-    if expectRaise:
-        with pytest.raises(ValueError):
-            setup.setCtlDBUsername(ctlDBUsername)
-    else:
-        setup.setCtlDBUsername(ctlDBUsername)
-        assert setup.CTL_DB_USERNAME == expected
-
-
-@pytest.mark.parametrize("ctlDBPassword, expected", [
-    ('test_value_11', 'test_value_11'),
-    ('', ''),
-    (None, '')])
-def test_setCtlDBPassword(ctlDBPassword, expected):
-    setup = Setup()
-    setup.setCtlDBPassword(ctlDBPassword)
-    assert setup.CTL_DB_PASSWORD == expected
 
 
 @pytest.mark.parametrize("etlGSheetTitle, expected", [

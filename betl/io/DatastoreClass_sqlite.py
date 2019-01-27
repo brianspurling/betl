@@ -4,14 +4,14 @@ from .DatastoreClass import Datastore
 
 class SqliteDatastore(Datastore):
 
-    def __init__(self, dbID, path, filename, isSrcSys=False):
+    def __init__(self, dbId, path, filename, isSrcSys=False):
 
         Datastore.__init__(self,
-                           datastoreID=dbID,
+                           datastoreID=dbId,
                            datastoreType='SQLITE',
                            isSrcSys=isSrcSys)
 
-        self.dbID = dbID
+        self.dbId = dbId
         self.path = path
         self.filename = filename
         # NOTE: you're supposed to be able to connect in read-only mode using:

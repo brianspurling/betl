@@ -30,8 +30,7 @@ def test_addColumns(conf,
 
     dfl = DataFlow(
         desc='test dataflow',
-        conf=conf,
-        recordInCtrlDB=False)
+        conf=conf)
 
     dfl.createDataset(
         dataset='testDataset',
