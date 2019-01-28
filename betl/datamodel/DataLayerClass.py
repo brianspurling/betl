@@ -70,12 +70,15 @@ class DataLayer():
             dbSchemaDesc = None
 
         if dbSchemaDesc is None or self.dataLayerID not in dbSchemaDesc:
-
-            print('Did not find a schema description for datalayer ' +
-                  self.dataLayerID + ' in the ' + self.databaseID +
-                  ' database schema file. Use admin CLI to generate.')
-
-            return None
+            # We never have schema desc for LOD data layer - it's just the
+            # default staging area before the BSE data layer
+            if self.dataLayerID == 'LOD':
+                return None
+            else:
+                print('Did not find a schema description for datalayer ' +
+                      self.dataLayerID + ' in the ' + self.databaseID +
+                      ' database schema file. Use admin CLI to generate.')
+                return None
 
         return dbSchemaDesc[self.dataLayerID]
 
