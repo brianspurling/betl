@@ -2,15 +2,19 @@ def logExtractStart(**kwargs):
     kwargs['conf'].log('logExtractStart')
 
 
-def logExtractEnd(conf):
-    conf.log('logExtractEnd')
+def logExtractEnd(**kwargs):
+    kwargs['conf'].log('logExtractEnd')
 
 
-def logSkipExtract(conf):
-    conf.log('logSkipExtract')
+def logSkipExtract(**kwargs):
+    kwargs['conf'].log('logSkipExtract')
 
 
-def bulkExtract(conf, tableName, dmId):
+def bulkExtract(**kwargs):
+
+    conf = kwargs['conf']
+    tableName = kwargs['tableName']
+    dmId = kwargs['dmId']
 
     dfl = conf.DataFlow(desc='Default extract for ' + tableName)
 
@@ -35,7 +39,7 @@ def bulkExtract(conf, tableName, dmId):
         dataLayerID='EXT',
         desc="Write the data extract to the SRC data layer")
 
-# def defaultExtract_delta(conf):
+# def defaultExtract_delta(**kwargs):
 
     # TODO not been refactored since dataframe class added to betl
 

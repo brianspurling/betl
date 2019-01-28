@@ -5,75 +5,77 @@ import os
 import ast
 
 
-def logLoadStart(conf):
-    conf.log('logLoadStart')
+def logLoadStart(**kwargs):
+    kwargs['conf'].log('logLoadStart')
 
 
-def logBulkLoadSetupStart(conf):
-    conf.log('logBulkLoadSetupStart')
+def logBulkLoadSetupStart(**kwargs):
+    kwargs['conf'].log('logBulkLoadSetupStart')
 
 
-def logBulkLoadSetupEnd(conf):
-    conf.log('logBulkLoadSetupEnd')
+def logBulkLoadSetupEnd(**kwargs):
+    kwargs['conf'].log('logBulkLoadSetupEnd')
 
 
-def logDimLoadStart(conf):
-    conf.log('logDimLoadStart')
+def logDimLoadStart(**kwargs):
+    kwargs['conf'].log('logDimLoadStart')
 
 
-def logDefaultDimLoadStart(conf):
-    conf.log('logDefaultDimLoadStart')
+def logDefaultDimLoadStart(**kwargs):
+    kwargs['conf'].log('logDefaultDimLoadStart')
 
 
-def logDefaultDimLoadEnd(conf):
-    conf.log('logDefaultDimLoadEnd')
+def logDefaultDimLoadEnd(**kwargs):
+    kwargs['conf'].log('logDefaultDimLoadEnd')
 
 
-def logBespokeDimLoadStart(conf):
-    conf.log('logBespokeDimLoadStart')
+def logBespokeDimLoadStart(**kwargs):
+    kwargs['conf'].log('logBespokeDimLoadStart')
 
 
-def logBespokeDimLoadEnd(conf):
-    conf.log('logBespokeDimLoadEnd')
+def logBespokeDimLoadEnd(**kwargs):
+    kwargs['conf'].log('logBespokeDimLoadEnd')
 
 
-def logDimLoadEnd(conf):
-    conf.log('logDimLoadEnd')
+def logDimLoadEnd(**kwargs):
+    kwargs['conf'].log('logDimLoadEnd')
 
 
-def logFactLoadStart(conf):
-    conf.log('logFactLoadStart')
+def logFactLoadStart(**kwargs):
+    kwargs['conf'].log('logFactLoadStart')
 
 
-def logDefaultFactLoadStart(conf):
-    conf.log('logDefaultFactLoadStart')
+def logDefaultFactLoadStart(**kwargs):
+    kwargs['conf'].log('logDefaultFactLoadStart')
 
 
-def logDefaultFactLoadEnd(conf):
-    conf.log('logDefaultFactLoadEnd')
+def logDefaultFactLoadEnd(**kwargs):
+    kwargs['conf'].log('logDefaultFactLoadEnd')
 
 
-def logBespokeFactLoadStart(conf):
-    conf.log('logBespokeFactLoadStart')
+def logBespokeFactLoadStart(**kwargs):
+    kwargs['conf'].log('logBespokeFactLoadStart')
 
 
-def logBespokeFactLoadEnd(conf):
-    conf.log('logBespokeFactLoadEnd')
+def logBespokeFactLoadEnd(**kwargs):
+    kwargs['conf'].log('logBespokeFactLoadEnd')
 
 
-def logFactLoadEnd(conf):
-    conf.log('logFactLoadEnd')
+def logFactLoadEnd(**kwargs):
+    kwargs['conf'].log('logFactLoadEnd')
 
 
-def logLoadEnd(conf):
-    conf.log('logLoadEnd')
+def logLoadEnd(**kwargs):
+    kwargs['conf'].log('logLoadEnd')
 
 
-def logSkipLoad(conf):
-    conf.log('logSkipLoad')
+def logSkipLoad(**kwargs):
+    kwargs['conf'].log('logSkipLoad')
 
 
-def refreshDefaultRowsTxtFileFromGSheet(conf):
+def refreshDefaultRowsTxtFileFromGSheet(**kwargs):
+
+    conf = kwargs['conf']
 
     conf.log('logRefreshDefaultRowsTxtFileFromGSheetStart')
 
@@ -91,7 +93,9 @@ def refreshDefaultRowsTxtFileFromGSheet(conf):
     conf.log('logRefreshDefaultRowsTxtFileFromGSheetEnd')
 
 
-def dropFactFKConstraints(conf):
+def dropFactFKConstraints(**kwargs):
+
+    conf = kwargs['conf']
 
     bseLayer = conf.getLogicalSchemaDataLayer('BSE')
     sumLayer = conf.getLogicalSchemaDataLayer('SUM')
@@ -125,7 +129,11 @@ def dropFactFKConstraints(conf):
     dfl.close()
 
 
-def bulkLoad(conf, tableName, tableSchema, tableType):
+def bulkLoad(**kwargs):
+    conf = kwargs['conf']
+    tableName = kwargs['tableName']
+    tableSchema = kwargs['tableSchema']
+    tableType = kwargs['tableType']
 
     if tableType == 'DIMENSION':
 
@@ -150,7 +158,10 @@ def bulkLoad(conf, tableName, tableSchema, tableType):
             tableSchema=tableSchema)
 
 
-def deltaLoad(conf, tableName, tableSchema, tableType):
+def deltaLoad(**kwargs):
+    conf = kwargs['conf']
+    tableSchema = kwargs['tableSchema']
+    tableType = kwargs['tableType']
 
     if tableType == 'DIMENSION':
 
@@ -163,6 +174,10 @@ def deltaLoad(conf, tableName, tableSchema, tableType):
             conf=conf,
             tableSchema=tableSchema)
 
+
+#
+# Remaining functions are not accessed directly by Airflow
+#
 
 def bulkLoadDimension(conf, tableSchema, defaultRows):
 

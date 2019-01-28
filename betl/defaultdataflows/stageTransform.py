@@ -1,10 +1,10 @@
-def logTransformStart(conf):
-    conf.log('logTransformStart')
+def logTransformStart(**kwargs):
+    kwargs['conf'].log('logTransformStart')
 
 
-def logTransformEnd(conf):
-    conf.log('logTransformEnd')
+def logTransformEnd(**kwargs):
+    kwargs['conf'].log('logTransformEnd')
 
 
-def logSkipTransform(conf):
-    conf.log('logSkipTransform')
+def logSkipTransform(**kwargs):
+    kwargs['conf'].log('logSkipTransform')

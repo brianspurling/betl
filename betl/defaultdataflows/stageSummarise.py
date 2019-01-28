@@ -1,21 +1,21 @@
-def logSummariseStart(conf):
-    conf.log('logSummariseStart')
+def logSummariseStart(**kwargs):
+    kwargs['conf'].log('logSummariseStart')
 
 
-def logBespokeSummariseStart(conf):
-    conf.log('logSummariseStart')
+def logBespokeSummariseStart(**kwargs):
+    kwargs['conf'].log('logSummariseStart')
 
 
-def logBespokeSummariseEnd(conf):
-    conf.log('logSummariseStart')
+def logBespokeSummariseEnd(**kwargs):
+    kwargs['conf'].log('logSummariseStart')
 
 
-def logSummariseEnd(conf):
-    conf.log('logSummariseEnd')
+def logSummariseEnd(**kwargs):
+    kwargs['conf'].log('logSummariseEnd')
 
 
-def logSkipSummarise(conf):
-    conf.log('logSkipSummarise')
+def logSkipSummarise(**kwargs):
+    kwargs['conf'].log('logSkipSummarise')
 
 
 #
@@ -23,7 +23,9 @@ def logSkipSummarise(conf):
 # have to be custom-built by the app. All this does is truncate all the
 # tables when running a bulk load
 #
-def defaultSummarisePrep(conf):
+def defaultSummarisePrep(**kwargs):
+
+    conf = kwargs['conf'] 
 
     sumLayer = conf.getLogicalSchemaDataLayer('SUM')
 
