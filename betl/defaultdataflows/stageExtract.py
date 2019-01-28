@@ -19,13 +19,12 @@ def bulkExtract(**kwargs):
     dfl = conf.DataFlow(desc='Default extract for ' + tableName)
 
     extLayer = conf.getLogicalSchemaDataLayer('EXT')
-    mappedTableName = extLayer.datasets[dmId].tables[tableName].srcTableName
 
     dfl.getDataFromSrc(
         tableName=tableName,
         srcSysID=dmId,
         desc="Extract data from source table",
-        mappedTableName=mappedTableName)
+        srcTableName=extLayer.datasets[dmId].tables[tableName].srcTableName)
 
     dfl.setAuditCols(
         dataset=tableName,

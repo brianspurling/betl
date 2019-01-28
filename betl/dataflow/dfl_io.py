@@ -201,7 +201,7 @@ def write(self,
         self.close()
 
 
-def getDataFromSrc(self, tableName, srcSysID, desc, mappedTableName=None):
+def getDataFromSrc(self, tableName, srcSysID, desc, srcTableName=None):
 
     self.stepStart(desc=desc)
 
@@ -211,12 +211,14 @@ def getDataFromSrc(self, tableName, srcSysID, desc, mappedTableName=None):
 
     self.data[tableName] = pd.DataFrame()
 
-    if mappedTableName is not None:
-        srcTableName = mappedTableName
+    # Calls to this func from BETL's default dataflows pass
+    # a srcTableName (i.e. not the postgres-friendly cleaned version),
+    # prefixed with the datasetId.
+    # Calls to this func from app code, just pass the tableName, which we
+    # assume will match the source system exaclty
+    if srcTableName is None:
+        srcTableName = tableName
     else:
-        # Cut off the src_<datasetID>_ prefix, by doing
-        # two "left trims" on the "_" char
-        srcTableName = tableName[tableName.find("_")+1:]
         srcTableName = srcTableName[srcTableName.find("_")+1:]
 
     if srcSysDatastore.datastoreType == 'FILESYSTEM':
