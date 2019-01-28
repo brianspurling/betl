@@ -13,7 +13,7 @@ from betl.logger import Logger
 
 from betl.dataflow import DataFlow
 
-airflowArgs = {
+AIRFLOW_DEFAULT_ARGS = {
     'owner': 'airflow',
     'start_date': airflow.utils.dates.days_ago(2)  # TODO: what should this be?
 }
