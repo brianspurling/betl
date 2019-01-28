@@ -160,7 +160,7 @@ class Table():
 
         string = '\n' + '    ' + self.tableName
         if self.dataLayerID == 'EXT':
-            string += ' (source table name: ' + self.srcTableName
+            string += ' (src_table_name: ' + self.srcTableName + ')'
         string += '\n'
         string += ''.join(map(str, self.columns))
         return string
