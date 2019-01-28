@@ -1,6 +1,5 @@
 import datetime
 import pandas as pd
-import airflow
 import os
 
 from betl.io import PostgresDatastore
@@ -14,8 +13,7 @@ from betl.logger import Logger
 from betl.dataflow import DataFlow
 
 AIRFLOW_DEFAULT_ARGS = {
-    'owner': 'airflow',
-    'start_date': airflow.utils.dates.days_ago(2)  # TODO: what should this be?
+    'owner': 'airflow'
 }
 
 
