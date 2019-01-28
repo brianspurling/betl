@@ -34,7 +34,9 @@ def getSchemaDescription():
     return tableSchema
 
 
-def transformDMAudit(conf):
+def transformDMAudit(**kwargs):
+
+    conf = kwargs['conf']
 
     dfl = conf.DataFlow(desc='Generate the dm_audit rows')
 

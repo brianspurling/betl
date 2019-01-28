@@ -52,7 +52,9 @@ def getSchemaDescription():
     return tableSchema
 
 
-def transformDMDate(conf):
+def transformDMDate(**kwargs):
+
+    conf = kwargs['conf']
 
     # TODO ideally this would be built within BETL (set a good example, and
     # all that!)
