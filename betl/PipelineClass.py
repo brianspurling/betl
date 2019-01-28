@@ -459,7 +459,7 @@ class Pipeline():
                 python_callable=wrapperFunc,
                 dag=self.DAG,
                 provide_context=True,
-                op_kwargs=op_kwargs)  # provide_context=True)
+                op_kwargs=op_kwargs)
 
             for upstreamOps in upstream:
                 op.set_upstream(upstreamOps)
