@@ -228,10 +228,9 @@ class Pipeline():
                             taskId='bulkLoad_' + tableName,
                             func=stageLoad.bulkLoad,
                             upstream=logDefaultDimLoadStart,
-                            args=[
-                                tableName,
-                                bseTables[tableName],
-                                'DIMENSION'])
+                            tableName=tableName,
+                            tableSchema=bseTables[tableName],
+                            tableType='DIMENSION')
                         dimOps.append(op)
 
                     elif self.CONF.BULK_OR_DELTA == 'DELTA':
@@ -240,10 +239,9 @@ class Pipeline():
                             taskId='deltaLoad_' + tableName,
                             func=stageLoad.deltaLoad,
                             upstream=logDefaultDimLoadStart,
-                            args=[
-                                tableName,
-                                bseTables[tableName],
-                                'DIMENSION'])
+                            tableName=tableName,
+                            tableSchema=bseTables[tableName],
+                            tableType='DIMENSION')
                         dimOps.append(op)
 
                 prevOp = logDefaultDimLoadStart
@@ -304,7 +302,9 @@ class Pipeline():
                             taskId='bulkLoad_' + tableName,
                             func=stageLoad.bulkLoad,
                             upstream=logDefaultFactLoadStart,
-                            args=[tableName, bseTables[tableName], 'FACT'])
+                            tableName=tableName,
+                            tableSchema=bseTables[tableName],
+                            tableType='FACT')
                         factOps.append(op)
 
                     elif self.CONF.BULK_OR_DELTA == 'DELTA':
@@ -313,7 +313,9 @@ class Pipeline():
                             taskId='deltaLoad_' + tableName,
                             func=stageLoad.deltaLoad,
                             upstream=logDefaultFactLoadStart,
-                            args=[tableName, bseTables[tableName], 'FACT'])
+                            tableName=tableName,
+                            tableSchema=bseTables[tableName],
+                            tableType='FACT')
                         factOps.append(op)
 
                 prevOp = logDefaultFactLoadStart
