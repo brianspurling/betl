@@ -6,17 +6,17 @@ class Setup():
     # functions  where info is input into the class, plus the control functions
     # that run through the steps
 
-    from fileSetup import (createDirectories,
-                           createGitignoreFile,
-                           createAppConfigFile,
-                           createMainScript,
-                           createExampleDataflow)
+    from .fileSetup import (createDirectories,
+                            createGitignoreFile,
+                            createAppConfigFile,
+                            createMainScript,
+                            createExampleDataflow)
 
-    from dbSetup import (createDatabases)
+    from .dbSetup import (createDatabases)
 
-    from gsheetSetup import (createSchemaDescGSheets,
-                             createMDMGsheet,
-                             createDefaultRowsGsheet)
+    from .gsheetSetup import (createSchemaDescGSheets,
+                              createMDMGsheet,
+                              createDefaultRowsGsheet)
 
     def __init__(self):
 
@@ -109,13 +109,15 @@ class Setup():
 
     def setSchemaDescETLGsheetTitle(self, etlGSheetTitle):
         if etlGSheetTitle is None or etlGSheetTitle == '':
-            self.SCHEMA_DESC_ETL_GSHEET_TITLE = self.DWH_ID + ' - ETL DB SCHEMA'
+            self.SCHEMA_DESC_ETL_GSHEET_TITLE = self.DWH_ID + \
+                ' - ETL DB SCHEMA'
         else:
             self.SCHEMA_DESC_ETL_GSHEET_TITLE = etlGSheetTitle
 
     def setSchemaDescTRGGsheetTitle(self, trgGSheetTitle):
         if trgGSheetTitle is None or trgGSheetTitle == '':
-            self.SCHEMA_DESC_TRG_GSHEET_TITLE = self.DWH_ID + ' - TRG DB SCHEMA'
+            self.SCHEMA_DESC_TRG_GSHEET_TITLE = self.DWH_ID + \
+                ' - TRG DB SCHEMA'
         else:
             self.SCHEMA_DESC_TRG_GSHEET_TITLE = trgGSheetTitle
 

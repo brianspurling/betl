@@ -21,30 +21,17 @@ class Dataset():
 
         self.dataLayerID = dataLayerID
 
-        # # if we have no TRG schemadesc, we create a "standard" BSE dataset
-        # if datasetSchemaDesc is None:
-        #     self.datasetID = 'BSE'
-        #     datasetSchemaDesc = {
-        #         'tableSchemas': {}
-        #     }
-        # else:
         self.datasetID = datasetSchemaDesc['datasetID']
 
         self.tables = {}
 
         for tableName in datasetSchemaDesc['tableSchemas']:
 
-            srcTableName = None
-            t = datasetSchemaDesc['tableSchemas'][tableName]
-            if 'srcTableName' in t:
-                srcTableName = t['srcTableName']
-
             self.tables[tableName] = Table(
                 conf=self.CONF,
                 tableSchema=datasetSchemaDesc['tableSchemas'][tableName],
                 dataLayerID=self.dataLayerID,
-                datasetID=self.datasetID,
-                srcTableName=srcTableName)
+                datasetID=self.datasetID)
 
     def getSqlCreateStatements(self):
 

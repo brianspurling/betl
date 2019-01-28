@@ -1,5 +1,4 @@
 import os
-from .defaultdataflows import stageSetup
 from configobj import ConfigObj
 from airflow.operators.python_operator import PythonOperator
 from betl.defaultdataflows import stageExtract
@@ -8,7 +7,7 @@ from betl.defaultdataflows import stageLoad
 from betl.defaultdataflows import stageSummarise
 from betl.defaultdataflows import dmDate
 from betl.defaultdataflows import dmAudit
-from .conf import Conf
+from .ConfClass import Conf
 from betl.logger import Logger
 
 
@@ -46,16 +45,8 @@ class Pipeline():
         # INIT CONF OBJECT #
         ####################
 
-        # TODO: Even though I tested it once and it seemed to work, I'm seeing
-        # issues with CONF.LOG (and it makes more sense generally) that the
-        # CONF object passed from this class to every operator is not the same
-        # object, therefore changing it in one op does not change it in aother
-        # Therefore loggging needs moving.
-        # Further to this, though... there are bits within conf.init which
-        # _are_ working, becuase they are run by pipeline before passing to
-        # each op indivually, but are probably undue overheads and should be
-        # move to xcoms - e.g. the logical data model
         self.CONF = Conf(conf)
+        self.CONF.constructLogicalDWHSchemas()
 
         ######################
         # CONSTRUCT PIPELINE #
@@ -67,9 +58,9 @@ class Pipeline():
         # DAG param has been passed, these operators will be executed
         # immediately
 
-        logBETLStart = self.createOp(
+        logExecutionEnd_op = self.createOp(
             taskId='logBETLStart',
-            func=stageSetup.logBETLStart,
+            func=logBETLStart,
             test='hello world')
 
         if self.CONF.RUN_DATAFLOWS:
@@ -82,7 +73,7 @@ class Pipeline():
                 logExtractStart = self.createOp(
                     taskId='logExtractStart',
                     func=stageExtract.logExtractStart,
-                    upstream=logBETLStart)
+                    upstream=logExecutionEnd_op)
 
                 extractOps = []
 
@@ -126,7 +117,7 @@ class Pipeline():
                 logExtractEnd = self.createOp(
                     taskId='logSkipExtract',
                     func=stageExtract.logSkipExtract,
-                    upstream=logBETLStart)
+                    upstream=logExecutionEnd_op)
 
             # Bespoke transform DFs are run in parallel with the default DFs
             if self.CONF.RUN_TRANSFORM:
@@ -165,7 +156,7 @@ class Pipeline():
 
                 logTransformEnd = self.createOp(
                     taskId='logSkipTransform',
-                    func=stageSetup.logSkipTransform,
+                    func=stageTransform.logSkipTransform,
                     upstream=logExtractEnd)
 
             # Bespoke transform DFs are run after the default load DFs
@@ -366,7 +357,7 @@ class Pipeline():
 
                 logLoadEnd = self.createOp(
                     taskId='logSkipLoad',
-                    func=stageSetup.logSkipLoad,
+                    func=stageLoad.logSkipLoad,
                     upstream=logTransformEnd)
 
             # Bespoke summarise DFs are run in between the default
@@ -410,17 +401,10 @@ class Pipeline():
                     func=stageSummarise.logSkipSummarise,
                     upstream=logLoadEnd)
 
-            # END
-
-            logExecutionEnd_op = self.createOp(
-                taskId='logExecutionEnd',
-                func=logExecutionEnd,
-                upstream=logSummariseEnd)
-
         self.createOp(
             taskId='logBETLEnd',
             func=logBETLEnd,
-            upstream=logExecutionEnd_op)
+            upstream=logSummariseEnd)
 
     def createAndScheduleDFOperators(self,
                                      dfs,
@@ -517,13 +501,9 @@ def wrapperFunc(**kwargs):
         kwargs['func'](kwargs['conf'])
 
 
-def logExecutionStart(conf):
-    conf.log('logExecutionStart')
+def logBETLStart(**kwargs):
+    kwargs['conf'].log('logBETLStart', test=kwargs['test'])
 
 
-def logExecutionEnd(conf):
-    conf.log('logExecutionEnd')
-
-
-def logBETLEnd(conf):
-    conf.log('logBETLEnd')
+def logBETLEnd(**kwargs):
+    kwargs['conf'].log('logBETLEnd')

@@ -176,11 +176,6 @@ class Logger():
         op += '                 --------------------------------------' + '\n'
         self.JOB_LOG.info(op)
 
-    def logCheckLastModTimeOfSchemaDescGSheet(self):
-        op = ''
-        op += '  - Checking last modified date of the schema desc Gsheets'
-        self.JOB_LOG.info(op)
-
     def logLoadingDBSchemaDescsFromGsheets(self, dbId):
         op = ''
         op += '    - Extracting schema descriptions for the ' + dbId

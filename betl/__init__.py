@@ -1,3 +1,3 @@
-from .conf import ConfClass as Conf
+from .ConfClass import Conf
 from .PipelineClass import Pipeline
 from .admin import admin

@@ -237,17 +237,6 @@ class Conf():
         self.NEXT_FILE_PREFIX = 1
         self.FILE_PREFIX_LENGTH = 4
 
-        #################################
-        # CONSTRUCT LOGICAL DWH SCHEMAS #
-        #################################
-
-        # An object oriented representation of our BETL databases (ETL, TRG)
-        self.DWH_LOGICAL_SCHEMAS = {}
-        for dlId in self.dataLayers:
-            self.DWH_LOGICAL_SCHEMAS[dlId] = DataLayer(
-                conf=self,
-                dataLayerID=dlId)
-
         ##########
         # LOGGER #
         ##########
@@ -258,6 +247,21 @@ class Conf():
         self.LOG = None
         if not self.IS_AIRFLOW:
             self.LOG = Logger(self)
+
+    #######################
+    # LOGICAL DWH SCHEMAS #
+    #######################
+
+    # We build the logical DWH schemas outside of init, so that conf
+    # can be loaded by the admin module before reading/refreshing the
+    # schema descs from file
+    def constructLogicalDWHSchemas(self):
+        # An object oriented representation of our BETL databases (ETL, TRG)
+        self.DWH_LOGICAL_SCHEMAS = {}
+        for dlId in self.dataLayers:
+            self.DWH_LOGICAL_SCHEMAS[dlId] = DataLayer(
+                conf=self,
+                dataLayerID=dlId)
 
     def log(self, logMethod, **kwargs):
         getattr(self.LOG, logMethod)(**kwargs)

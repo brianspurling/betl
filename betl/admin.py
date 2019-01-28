@@ -1,21 +1,12 @@
 import os
-import shutil
-import tempfile
 import json
-import ast
-import datetime
-import time
 
 from configobj import ConfigObj
 
+from betl.ConfClass import Conf
 from betl.io import fileIO
-from betl.conf import Conf
-from betl.defaultdataflows import stageSetup
-
-
-# A nested dictionary representation of our source systems datastores,
-# used by autoPopulateExtSchemaDescGsheets() and sub functions
-SRC_SYSTEM_DATA_MODELS = {}
+from betl.setup import SetupClass
+from betl.setup import fileSetup
 
 
 def admin(appDirectory,
@@ -33,26 +24,28 @@ def admin(appDirectory,
             'appDirectory': appDirectory,
             'appConfig': ConfigObj(appDirectory + appConfigFileName),
             'scheduleConfig': None,
-            'isAdmin': True}
+            'isAdmin': True,
+            'isAirflow': False}
 
         conf = Conf(config)
 
         if createNewProject:
+
             createNewBETLProject()
 
         if reset:
 
             conf.log('logResetStart')
 
-            archiveLogFiles(conf)
-            createReportsDir(conf)
-            createSchemaDir(conf)
+            fileSetup.archiveLogFiles(conf)
+            fileSetup.createReportsDir(conf)
+            fileSetup.createSchemaDir(conf)
 
             conf.log('logResetEnd')
 
         if deleteTempData:
 
-            deleteTemporaryData(conf)
+            fileSetup.deleteTemporaryData(conf)
 
         # TODO: I think this is set up to work if you want to populate the EXT
         # spreadsheet automatically based on the src system schemas, but not
@@ -62,104 +55,35 @@ def admin(appDirectory,
         # refreshSchemaDescsFromGsheets
         if readSrc:
 
-            autoPopulateExtSchemaDescGsheets(conf)
+            srcSystemDataModels = readSrcSystemSchemas(conf)
 
-            # Creates file in schema dir, srcTableNameMapping.txt
-            populateSrcTableMap(conf)
+            autoPopulateExtSchemaDescGsheets(conf, srcSystemDataModels)
 
-        if refreshSchemaDescTextFiles:
-            # TODO: check dependencies on this, too.
-            # Does it need read_src to finish?
             refreshSchemaDescsTxtFilesFromGsheets(conf)
 
+            conf.constructLogicalDWHSchemas()
+
+            for x in conf.DWH_LOGICAL_SCHEMAS:
+                print(conf.DWH_LOGICAL_SCHEMAS[x])
+
+        if refreshSchemaDescTextFiles:
+
+            refreshSchemaDescsTxtFilesFromGsheets(conf)
+
+            conf.constructLogicalDWHSchemas()
+
         if runRebuilds:
+
             buildPhysicalDWHSchemas(conf),
-
-
-def archiveLogFiles(conf):
-    # Archive Log Files
-
-    timestamp = datetime.datetime.fromtimestamp(
-        time.time()
-    ).strftime('%Y%m%d%H%M%S')
-
-    source = conf.LOG_PATH
-    dest = conf.LOG_PATH + '/archive_' + timestamp + '/'
-
-    if not os.path.exists(dest):
-        os.makedirs(dest)
-
-    files = os.listdir(source)
-    for file in files:
-        if file.find('jobLog') > -1:
-            shutil.move(source + '/' + file, dest)
-        if file.find('alerts') > -1:
-            shutil.move(source + '/' + file, dest)
-
-
-def createReportsDir(conf):
-    if (os.path.exists(conf.REPORTS_PATH)):
-        tmp = tempfile.mktemp(dir=os.path.dirname(conf.REPORTS_PATH))
-        shutil.move(conf.REPORTS_PATH, tmp)  # rename
-        shutil.rmtree(tmp)  # delete
-    os.makedirs(conf.REPORTS_PATH)  # create the new folder
-
-
-def createSchemaDir(conf):
-    # The srcTableName mapping file is created on auto-pop, i.e. once,
-    # so we need to preserve it
-    srcTableNameMappingFile = conf.SCHEMA_PATH + '/srcTableNameMapping.txt'
-    tableNameMap = None
-    try:
-        mapFile = open(srcTableNameMappingFile, 'r')
-        tableNameMap = ast.literal_eval(mapFile.read())
-    except FileNotFoundError:
-        pass
-
-    if os.path.exists(conf.SCHEMA_PATH + '/'):
-        shutil.rmtree(conf.SCHEMA_PATH + '/')
-    os.makedirs(conf.SCHEMA_PATH + '/')
-    open(conf.SCHEMA_PATH + '/lastModifiedTimes.txt', 'a').close()
-
-    if tableNameMap is not None:
-        with open(srcTableNameMappingFile, 'w+') as file:
-            file.write(json.dumps(tableNameMap))
-
-
-#########################
-# DELETE TEMPORARY DATA #
-#########################
-
-def deleteTemporaryData(conf):
-
-    path = conf.TMP_DATA_PATH.replace('/', '')
-
-    if (os.path.exists(path)):
-        # `tempfile.mktemp` Returns an absolute pathname of a file that
-        # did not exist at the time the call is made. We pass
-        # dir=os.path.dirname(dir_name) here to ensure we will move
-        # to the same filesystem. Otherwise, shutil.copy2 will be used
-        # internally and the problem remains: we're still deleting the
-        # folder when we come to recreate it
-        tmp = tempfile.mktemp(dir=os.path.dirname(path))
-        shutil.move(path, tmp)  # rename
-        shutil.rmtree(tmp)  # delete
-    os.makedirs(path)  # create the new folder
-
-    conf.log('logDeleteTemporaryDataEnd')
 
 
 ######################
 # EXTRACT/SRC SCHEMA #
 ######################
 
-def autoPopulateExtSchemaDescGsheets(conf):
+def autoPopulateExtSchemaDescGsheets(conf, srcSystemDataModels):
 
     conf.log('logAutoPopExtSchemaDescGSheetsStart')
-
-    # First, read the schemas of all the source system datastores
-    # and build up the logical data model
-    readSrcSystemSchemas(conf=conf)  # Stores datamodel in Conf object
 
     # Loop through the ETL DB schema desc spreadsheet and delete
     # any worksheets prefixed ETL.EXT.
@@ -179,11 +103,11 @@ def autoPopulateExtSchemaDescGsheets(conf):
 
         conf.log('logAddSrcSchemaDescToSS', ssID=srcSysID)
 
-        tableSchemas = SRC_SYSTEM_DATA_MODELS[srcSysID]['tableSchemas']
+        tableSchemas = srcSystemDataModels[srcSysID]['tableSchemas']
 
         for srcTableName in tableSchemas:
 
-            extTableName = stageSetup.cleanTableName(srcTableName)
+            extTableName = cleanTableName(srcTableName)
 
             colSchemas = tableSchemas[srcTableName]['columnSchemas']
 
@@ -216,9 +140,12 @@ def autoPopulateExtSchemaDescGsheets(conf):
     conf.log('logAutoPopExtSchemaDescsEnd')
 
 
-# TODO: this is a HORRIBLE mess of code and needs heavy refactoring!
-# (although it's a bit less bad than it was, having split it out a little)
+# Connect to each source system, read the schema, return as dictionary:
+#   dataModes < src systems < datasets (same as src system ID) < tables < cols
 def readSrcSystemSchemas(conf):
+
+    # The object we're going to build up before writing to the GSheet
+    srcSystemDataModels = {}
 
     for srcSysID in conf.SRC_SYSTEM_DETAILS:
 
@@ -227,16 +154,15 @@ def readSrcSystemSchemas(conf):
             datastoreID=srcSysID,
             datastoreType=conf.SRC_SYSTEM_DETAILS[srcSysID]['type'])
 
-        srcSysDS = conf.getSrcSysDatastore(srcSysID)
-
-        # The object we're going to build up before writing to the GSheet
-        SRC_SYSTEM_DATA_MODELS[srcSysID] = {
+        srcSystemDataModels[srcSysID] = {
             'datasetID': srcSysID,
             'tableSchemas': {}
         }
 
+        srcSysDS = conf.getSrcSysDatastore(srcSysID)
+
         # for convenience
-        tblSchemas = SRC_SYSTEM_DATA_MODELS[srcSysID]['tableSchemas']
+        tblSchemas = srcSystemDataModels[srcSysID]['tableSchemas']
 
         conf.log('logReadingSrcSysSchema', ssID=srcSysID)
 
@@ -272,6 +198,7 @@ def readSrcSystemSchemas(conf):
 
                     tableSchema = {
                         'tableName': previousTableName,
+                        'cleanedTableName': cleanTableName(previousTableName),
                         'columnSchemas': colSchemas
                     }
                     tableName = previousTableName
@@ -302,6 +229,7 @@ def readSrcSystemSchemas(conf):
 
                 tableSchema = {
                     'tableName': table[1],
+                    'cleanedTableName': cleanTableName(table[1]),
                     'columnSchemas': colSchemas
                 }
 
@@ -346,6 +274,7 @@ def readSrcSystemSchemas(conf):
 
                     tableSchema = {
                         'tableName': cleanFName,
+                        'cleanedTableName': cleanTableName(cleanFName),
                         'columnSchemas': colSchemas
                     }
 
@@ -371,6 +300,7 @@ def readSrcSystemSchemas(conf):
 
                 tableSchema = {
                     'tableName': wsName,
+                    'cleanedTableName': cleanTableName(wsName),
                     'columnSchemas': colSchemas
                 }
                 tblSchemas[wsName] = tableSchema
@@ -398,6 +328,7 @@ def readSrcSystemSchemas(conf):
 
                 tableSchema = {
                     'tableName': wsName,
+                    'cleanedTableName': cleanTableName(wsName),
                     'columnSchemas': colSchemas
                 }
                 tblSchemas[wsName] = tableSchema
@@ -414,43 +345,14 @@ def readSrcSystemSchemas(conf):
 
     # Check we managed to find some kind of schema from the source
     # system
-    if (len(SRC_SYSTEM_DATA_MODELS[srcSysID]['tableSchemas']) == 0):
+    if (len(srcSystemDataModels[srcSysID]['tableSchemas']) == 0):
         raise ValueError(
             "Failed to auto-populate EXT Layer schema desc:" +
             " we could not find any meta data in the src " +
             "system with which to construct a schema " +
             "description")
 
-
-def populateSrcTableMap(conf):
-
-    # Some data sources can provide us with table names
-    # incompatible with Postgres (e.g. worksheet names in
-    # Excel/GSheets). So we will create a mapping of actual names
-    # to postgres names (which will be used for our EXT layer).
-    # The mapping will be needed whenever we pull data
-    # out of source. For simplicity, we'll do this for
-    # all sources, even though some will always be the same.
-
-    srcTableMap = {}
-
-    for srcSysID in conf.SRC_SYSTEM_DETAILS:
-
-        srcTableMap[srcSysID] = {}
-
-        tableSchemas = SRC_SYSTEM_DATA_MODELS[srcSysID]['tableSchemas']
-
-        for srcTableName in tableSchemas:
-
-            extTableName = (srcSysID.lower() + '_' +
-                            stageSetup.cleanTableName(srcTableName))
-            srcTableMap[srcSysID][extTableName] = srcTableName
-
-    filePath = conf.SCHEMA_PATH + '/srcTableNameMapping.txt'
-    with open(filePath, 'w+') as file:
-        file.write(json.dumps(srcTableMap))
-
-    conf.log('logPopulateSrcTableMapEnd')
+    return srcSystemDataModels
 
 
 #################################
@@ -459,128 +361,111 @@ def populateSrcTableMap(conf):
 
 def refreshSchemaDescsTxtFilesFromGsheets(conf):
     # Get the schema descriptions from the schema dir, or from Google Sheets,
-    # if the sheets have been edited since they were last saved to csv, or if
-    # the CSVs don't exist
 
     conf.log('logRefreshingSchemaDescsTxtFilesFromGsheetsStart')
 
-    conf.log('logCheckLastModTimeOfSchemaDescGSheet')
-
-    dbsToRefresh = {}
-    lastModifiedTimes = {}
-
-    lastModFilePath = conf.SCHEMA_PATH + '/lastModifiedTimes.txt'
-
-    if os.path.exists(lastModFilePath):
-        modTimesFile = open(lastModFilePath, 'r+')
-        fileContent = modTimesFile.read()
-        if fileContent != '':
-            lastModifiedTimes = ast.literal_eval(fileContent)
-
-    # Check the last modified time of the Google Sheets, and whether
-    # the schemaDesc files even exist
     for dbId in conf.DWH_DATABASES_DETAILS:
         gSheet = conf.getSchemaDescDatastore(dbId)
-        if (gSheet.filename not in lastModifiedTimes
-                or not os.path.exists(conf.SCHEMA_PATH + '/dbSchemaDesc_' + dbId + '.txt')
-                or gSheet.getLastModifiedTime() != lastModifiedTimes[gSheet.filename]):
-            dbsToRefresh[dbId] = True
 
-    if len(dbsToRefresh) > 0:
-        for dbId in dbsToRefresh:
-            gSheet = conf.getSchemaDescDatastore(dbId)
+        # -----
+        # Start by builing an array of all the releavnt worksheets from the
+        # DB's schema desc gsheet.
+        worksheets = []
+        # It's important to call getWorksheets() again, rather than the
+        # worksheets attribute, because we might have just replaced the SRC
+        # worksheets (if we ran READ_SRC)
+        for gWorksheetTitle in gSheet.getWorksheets():
+            # skip README sheets, and any sheets prefixed with "IGN."
+            if (gWorksheetTitle[0:4] != 'IGN.' and
+                    gWorksheetTitle.lower() != 'readme'):
+                worksheets.append(gSheet.worksheets[gWorksheetTitle])
 
-            # -----
-            # Start by builing an array of all the releavnt worksheets from the
-            # DB's schema desc gsheet.
-            worksheets = []
-            # It's important to call getWorksheets() again, rather than the
-            # worksheets attribute, because we might have just replaced the SRC
-            # worksheets (if we ran READ_SRC)
-            # TODO: in fact, I'm increasingly writing my conf class methods to
-            # check whether the id in question exists and handle accordingly,
-            # I should probably work through all calls to conf and make them
-            # consistently use these methods
-            for gWorksheetTitle in gSheet.getWorksheets():
-                # skip README sheets, and any sheets prefixed with "IGN."
-                if (gWorksheetTitle[0:4] != 'IGN.' and
-                        gWorksheetTitle.lower() != 'readme'):
-                    worksheets.append(gSheet.worksheets[gWorksheetTitle])
+        dbSchemaDesc = {}
 
-            dbSchemaDesc = {}
+        conf.log('logLoadingDBSchemaDescsFromGsheets', dbId=dbId)
 
-            conf.log('logLoadingDBSchemaDescsFromGsheets', dbId=dbId)
+        for ws in worksheets:
+            # Get the dataLayer, dataset and table name from the worksheet
+            # title. The TRG schmea desc spreadsheet only needs to code
+            # worksheets with the datalayer (beacuse there's only one
+            # dataset per datalayer: <dataLayerID>.<tableName>). We default
+            # the datasetID to the dataLayerID
+            # The ETL worksheet names are:
+            # <dataLayerID>.<datasetID>.<tableName>
+            if dbId == 'TRG':
+                dataLayerID = ws.title[0:ws.title.find('.')]
+                dsID = dataLayerID
+                tableName = ws.title[ws.title.rfind('.')+1:]
+            elif dbId == 'ETL':
+                dataLayerID = ws.title[0:ws.title.find('.')]
+                dsID = ws.title[ws.title.find('.')+1:ws.title.rfind('.')]
+                tableName = ws.title[ws.title.rfind('.')+1:]
 
-            for ws in worksheets:
-                # Get the dataLayer, dataset and table name from the worksheet
-                # title. The TRG schmea desc spreadsheet only needs to code
-                # worksheets with the datalayer (beacuse there's only one
-                # dataset per datalayer: <dataLayerID>.<tableName>). We default
-                # the datasetID to the dataLayerID
-                # The ETL worksheet names are:
-                # <dataLayerID>.<datasetID>.<tableName>
-                if dbId == 'TRG':
-                    dataLayerID = ws.title[0:ws.title.find('.')]
-                    dsID = dataLayerID
-                    tableName = ws.title[ws.title.rfind('.')+1:]
-                elif dbId == 'ETL':
-                    dataLayerID = ws.title[0:ws.title.find('.')]
-                    dsID = ws.title[ws.title.find('.')+1:ws.title.rfind('.')]
-                    tableName = ws.title[ws.title.rfind('.')+1:]
+            # If needed, create a new item in our db schema desc for
+            # this data layer, and a new item in our dl schema desc for
+            # this data model.
+            # (there is a worksheet per table, many tables per data model,
+            # and many data models per database)
+            if dataLayerID not in dbSchemaDesc:
+                dbSchemaDesc[dataLayerID] = {
+                    'dataLayerID': dataLayerID,
+                    'datasetSchemas': {}
+                }
+            dlSchemaDesc = dbSchemaDesc[dataLayerID]
+            if dsID not in dlSchemaDesc['datasetSchemas']:
+                dlSchemaDesc['datasetSchemas'][dsID] = {
+                    'datasetID': dsID,
+                    'tableSchemas': {}
+                }
+            datasetSchemaDesc = dlSchemaDesc['datasetSchemas'][dsID]
 
-                # If needed, create a new item in our db schema desc for
-                # this data layer, and a new item in our dl schema desc for
-                # this data model.
-                # (there is a worksheet per table, many tables per data model,
-                # and many data models per database)
-                if dataLayerID not in dbSchemaDesc:
-                    dbSchemaDesc[dataLayerID] = {
-                        'dataLayerID': dataLayerID,
-                        'datasetSchemas': {}
-                    }
-                dlSchemaDesc = dbSchemaDesc[dataLayerID]
-                if dsID not in dlSchemaDesc['datasetSchemas']:
-                    dlSchemaDesc['datasetSchemas'][dsID] = {
-                        'datasetID': dsID,
-                        'tableSchemas': {}
-                    }
-                datasetSchemaDesc = dlSchemaDesc['datasetSchemas'][dsID]
+            # Create a new table schema description
 
-                # Create a new table schema description
-                tableSchema = {
-                    'tableName': tableName,
-                    'columnSchemas': {}
+            # For the EXT layer, some data sources can provide us with table
+            # name incompatible with Postgres (e.g. worksheet names in Excel/
+            # GSheets). The table names in EXT schema description GSheet needs
+            # to match source exactly, otherwise the default extract won't run
+            # (and, of course, if autoPopulateExtSchemaDescGsheets() has been
+            # used, then then the table names will match by default). This
+            # leaves us with a problem, because we can't then use these table
+            # names in our Postgres EXT layer. So use a cleanTableName function
+            # and store along with the src table name
+
+            if dataLayerID == 'EXT':
+                cleanedTableName = cleanTableName(tableName)
+            else:
+                cleanedTableName = ''
+
+            tableSchema = {
+                'tableName': tableName,
+                'cleanTableName': cleanedTableName,
+                'columnSchemas': {}
+            }
+
+            # Pull out the column schema descriptions from the Google
+            # worksheeet and restructure a little
+            colSchemaDescsFromWS = ws.get_all_records()
+            for colSchemaDescFromWS in colSchemaDescsFromWS:
+                colName = colSchemaDescFromWS['Column Name']
+                fkDimension = 'None'
+                if 'FK Dimension' in colSchemaDescFromWS:
+                    fkDimension = colSchemaDescFromWS['FK Dimension']
+
+                # append this column schema desc to our tableSchema object
+                tableSchema['columnSchemas'][colName] = {
+                    'tableName':   tableName,
+                    'columnName':  colName,
+                    'dataType':    colSchemaDescFromWS['Data Type'],
+                    'columnType':  colSchemaDescFromWS['Column Type'],
+                    'fkDimension': fkDimension
                 }
 
-                # Pull out the column schema descriptions from the Google
-                # worksheeet and restructure a little
-                colSchemaDescsFromWS = ws.get_all_records()
-                for colSchemaDescFromWS in colSchemaDescsFromWS:
-                    colName = colSchemaDescFromWS['Column Name']
-                    fkDimension = 'None'
-                    if 'FK Dimension' in colSchemaDescFromWS:
-                        fkDimension = colSchemaDescFromWS['FK Dimension']
+            # Finally, add the tableSchema to our data dataset schema desc
+            datasetSchemaDesc['tableSchemas'][tableName] = tableSchema
 
-                    # append this column schema desc to our tableSchema object
-                    tableSchema['columnSchemas'][colName] = {
-                        'tableName':   tableName,
-                        'columnName':  colName,
-                        'dataType':    colSchemaDescFromWS['Data Type'],
-                        'columnType':  colSchemaDescFromWS['Column Type'],
-                        'fkDimension': fkDimension
-                    }
-
-                # Finally, add the tableSchema to our data dataset schema desc
-                datasetSchemaDesc['tableSchemas'][tableName] = tableSchema
-
-            filename = conf.SCHEMA_PATH + '/dbSchemaDesc_' + dbId + '.txt'
-            with open(filename, 'w') as file:
-                file.write(json.dumps(dbSchemaDesc))
-
-            lastModifiedTimes[gSheet.filename] = gSheet.getLastModifiedTime()
-
-        modTimesFile = open(conf.SCHEMA_PATH + '/lastModifiedTimes.txt', 'w')
-        modTimesFile.write(json.dumps(lastModifiedTimes))
+        filename = conf.SCHEMA_PATH + '/dbSchemaDesc_' + dbId + '.txt'
+        with open(filename, 'w') as file:
+            file.write(json.dumps(dbSchemaDesc))
 
         conf.log('logRefreshingSchemaDescsTxtFilesFromGsheetsEnd')
 
@@ -716,7 +601,7 @@ def getParamsFromUserInput():
 
 def createProject(params):
 
-    setup = Setup()
+    setup = SetupClass.Setup()
 
     # Set the class attributes
 
@@ -905,11 +790,21 @@ def createProject(params):
     return setup
 
 
-# admin(appDirectory="~/git/pngi/pngi/",
-#       appConfigFileName="appConfig.ini",
-#       createNewProject=False,
-#       reset=False,
-#       deleteTempData=False,
-#       readSrc=False,
-#       refreshSchemaDescTextFiles=True,
-#       runRebuilds=False)
+def cleanTableName(tableName_src):
+    tableName = tableName_src
+    tableName = tableName.replace(' ', '_')
+    tableName = tableName.replace('(', '')
+    tableName = tableName.replace(')', '')
+    tableName = tableName.replace('-', '')
+    tableName = tableName.lower()
+    return tableName
+
+
+admin(appDirectory="~/git/pngi/pngi/",
+      appConfigFileName="appConfig.ini",
+      createNewProject=False,
+      reset=False,
+      deleteTempData=False,
+      readSrc=False,
+      refreshSchemaDescTextFiles=True,
+      runRebuilds=False)

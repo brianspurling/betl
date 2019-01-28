@@ -1,4 +1,78 @@
 import os
+import shutil
+import tempfile
+import datetime
+import time
+import json
+import ast
+
+
+def archiveLogFiles(conf):
+
+    timestamp = datetime.datetime.fromtimestamp(
+        time.time()
+    ).strftime('%Y%m%d%H%M%S')
+
+    source = conf.LOG_PATH
+    dest = conf.LOG_PATH + '/archive_' + timestamp + '/'
+
+    if not os.path.exists(dest):
+        os.makedirs(dest)
+
+    files = os.listdir(source)
+    for file in files:
+        if file.find('jobLog') > -1:
+            shutil.move(source + '/' + file, dest)
+        if file.find('alerts') > -1:
+            shutil.move(source + '/' + file, dest)
+
+
+def createReportsDir(conf):
+    if (os.path.exists(conf.REPORTS_PATH)):
+        tmp = tempfile.mktemp(dir=os.path.dirname(conf.REPORTS_PATH))
+        shutil.move(conf.REPORTS_PATH, tmp)  # rename
+        shutil.rmtree(tmp)  # delete
+    os.makedirs(conf.REPORTS_PATH)  # create the new folder
+
+
+def createSchemaDir(conf):
+    # The srcTableName mapping file is created on auto-pop, i.e. once,
+    # so we need to preserve it
+    srcTableNameMappingFile = conf.SCHEMA_PATH + '/srcTableNameMapping.txt'
+    tableNameMap = None
+    try:
+        mapFile = open(srcTableNameMappingFile, 'r')
+        tableNameMap = ast.literal_eval(mapFile.read())
+    except FileNotFoundError:
+        pass
+
+    if os.path.exists(conf.SCHEMA_PATH + '/'):
+        shutil.rmtree(conf.SCHEMA_PATH + '/')
+    os.makedirs(conf.SCHEMA_PATH + '/')
+    open(conf.SCHEMA_PATH + '/lastModifiedTimes.txt', 'a').close()
+
+    if tableNameMap is not None:
+        with open(srcTableNameMappingFile, 'w+') as file:
+            file.write(json.dumps(tableNameMap))
+
+
+def deleteTemporaryData(conf):
+
+    path = conf.TMP_DATA_PATH.replace('/', '')
+
+    if (os.path.exists(path)):
+        # `tempfile.mktemp` Returns an absolute pathname of a file that
+        # did not exist at the time the call is made. We pass
+        # dir=os.path.dirname(dir_name) here to ensure we will move
+        # to the same filesystem. Otherwise, shutil.copy2 will be used
+        # internally and the problem remains: we're still deleting the
+        # folder when we come to recreate it
+        tmp = tempfile.mktemp(dir=os.path.dirname(path))
+        shutil.move(path, tmp)  # rename
+        shutil.rmtree(tmp)  # delete
+    os.makedirs(path)  # create the new folder
+
+    conf.log('logDeleteTemporaryDataEnd')
 
 
 def createDirectories(self, response):

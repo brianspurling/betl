@@ -77,24 +77,6 @@ class DataLayer():
 
             return None
 
-        else:
-
-            # For our EXT layer we have the usual schemaDesc, PLUS we will have
-            # a mapping of SRC table names to EXT table names
-            if self.dataLayerID == 'EXT':
-
-                filePath = self.CONF.SCHEMA_PATH + '/srcTableNameMapping.txt'
-
-                mapFile = open(filePath, 'r')
-                tableNameMap = ast.literal_eval(mapFile.read())
-
-                dl = dbSchemaDesc[self.dataLayerID]
-                for datasetID in dl['datasetSchemas']:
-                    ds = dl['datasetSchemas'][datasetID]
-                    for tableName in ds['tableSchemas']:
-                        ds['tableSchemas'][tableName]['srcTableName'] = \
-                            tableNameMap[datasetID][tableName]
-
         return dbSchemaDesc[self.dataLayerID]
 
     def buildPhysicalSchema(self):

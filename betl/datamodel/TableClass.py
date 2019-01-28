@@ -8,8 +8,7 @@ class Table():
                  conf,
                  tableSchema,
                  dataLayerID,
-                 datasetID=None,
-                 srcTableName=None):
+                 datasetID=None):
 
         self.CONF = conf
         self.dataLayerID = dataLayerID
@@ -17,7 +16,18 @@ class Table():
             self.datasetID = dataLayerID
         else:
             self.datasetID = datasetID
-        self.tableName = tableSchema['tableName'].lower()
+
+        # This is where we flip from having the "tableName" match the
+        # source (and holding cleanTableName separately) to having
+        # "tableName" match EXT (and holding sourceTableName sepsarately)
+        if dataLayerID == 'EXT':
+            tableName = tableSchema['cleanTableName'].lower()
+            srcTableName = tableSchema['tableName'].lower()
+        else:
+            tableName = tableSchema['tableName'].lower()
+            srcTableName = None
+
+        self.tableName = tableName
         self.srcTableName = srcTableName
 
         self.columns = []
@@ -148,6 +158,9 @@ class Table():
 
     def __str__(self):
 
-        string = '\n' + '    ' + self.tableName + '\n'
+        string = '\n' + '    ' + self.tableName
+        if self.dataLayerID == 'EXT':
+            string += ' (source table name: ' + self.srcTableName
+        string += '\n'
         string += ''.join(map(str, self.columns))
         return string
