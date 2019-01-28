@@ -13,7 +13,8 @@ from betl.logger import Logger
 from betl.dataflow import DataFlow
 
 AIRFLOW_DEFAULT_ARGS = {
-    'owner': 'airflow'
+    'owner': 'airflow',
+    'start_date': datetime.datetime.today() - datetime.timedelta(1)
 }
 
 
