@@ -800,11 +800,11 @@ def cleanTableName(tableName_src):
     return tableName
 
 
-admin(appDirectory="~/git/pngi/pngi/",
-      appConfigFileName="appConfig.ini",
-      createNewProject=False,
-      reset=False,
-      deleteTempData=False,
-      readSrc=False,
-      refreshSchemaDescTextFiles=True,
-      runRebuilds=False)
+# admin(appDirectory="~/git/pngi/pngi/",
+#       appConfigFileName="appConfig.ini",
+#       createNewProject=False,
+#       reset=False,
+#       deleteTempData=False,
+#       readSrc=False,
+#       refreshSchemaDescTextFiles=True,
+#       runRebuilds=False)
