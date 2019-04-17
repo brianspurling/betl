@@ -368,7 +368,7 @@ class Conf():
             return self.SRC_SYSTEMS[ssID]
         else:
             srcSysType = self.SRC_SYSTEM_DETAILS[ssID]['type']
-            if srcSysType in ['POSTGRES', 'SQLITE', 'FILESYSTEM', 'EXEL']:
+            if srcSysType in ['SQLITE', 'FILESYSTEM', 'EXEL']:
                 srcSysPath = (self.APP_DIRECTORY +
                               self.SRC_SYSTEM_DETAILS[ssID]['path'])
             if srcSysType == 'POSTGRES':
