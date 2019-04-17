@@ -101,7 +101,9 @@ def dropFactFKConstraints(**kwargs):
     sumLayer = conf.getLogicalSchemaDataLayer('SUM')
 
     bseTables = bseLayer.datasets['BSE'].tables
-    sumTables = sumLayer.datasets['SUM'].tables
+    sumTables = {}
+    if 'SUM' in sumLayer.datasets:
+        sumTables = sumLayer.datasets['SUM'].tables
 
     bseAndSumTbls = {**bseTables, **sumTables}
 
