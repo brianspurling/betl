@@ -439,6 +439,7 @@ def refreshSchemaDescsTxtFilesFromGsheets(conf):
             tableSchema = {
                 'tableName': tableName,
                 'cleanTableName': cleanedTableName,
+                'schema': conf.DWH_DATABASES_DETAILS[dbId]['schema'],
                 'columnSchemas': {}
             }
 
@@ -453,6 +454,7 @@ def refreshSchemaDescsTxtFilesFromGsheets(conf):
 
                 # append this column schema desc to our tableSchema object
                 tableSchema['columnSchemas'][colName] = {
+                    'schema':  conf.DWH_DATABASES_DETAILS[dbId]['schema'],
                     'tableName':   tableName,
                     'columnName':  colName,
                     'dataType':    colSchemaDescFromWS['Data Type'],
