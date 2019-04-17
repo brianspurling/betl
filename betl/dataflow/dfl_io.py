@@ -201,7 +201,7 @@ def write(self,
         self.close()
 
 
-def getDataFromSrc(self, tableName, srcSysID, desc, srcTableName=None):
+def getDataFromSrc(self, tableName, srcSysID, desc, srcTableName=None, doNotChangeSrcTableName=False):
 
     self.stepStart(desc=desc)
 
@@ -216,9 +216,10 @@ def getDataFromSrc(self, tableName, srcSysID, desc, srcTableName=None):
     # prefixed with the datasetId.
     # Calls to this func from app code, just pass the tableName, which we
     # assume will match the source system exaclty
+    # Added doNotChangeSrcTableName as a temp fix when building CoGo pipeline
     if srcTableName is None:
         srcTableName = tableName
-    else:
+    elif not doNotChangeSrcTableName:
         srcTableName = srcTableName[srcTableName.find("_")+1:]
 
     if srcSysDatastore.datastoreType == 'FILESYSTEM':
