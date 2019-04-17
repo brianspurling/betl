@@ -522,6 +522,7 @@ class Logger():
     def logStepStart(self, startTime, desc, datasetName, df, additionalDesc):
 
         op = ''
+        op = '\n'
         op += '   -------------------------------------------------------\n'
         op += '   | Operation: ' + str(inspect.stack()[3][3]) + '\n'
         if desc is not None:
