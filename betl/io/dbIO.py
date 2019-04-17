@@ -4,13 +4,20 @@ import psycopg2
 from sqlalchemy.types import Text
 
 
-def readDataFromDB(tableName, conn, cols='*', limitdata=None):
+def readDataFromDB(tableName, dataStore, cols='*', limitdata=None):
 
     if limitdata is not None:
         limitText = ' LIMIT ' + str(limitdata)
     else:
         limitText = ''
-    return pd.read_sql('SELECT ' + cols + ' FROM ' +
+
+    conn = dataStore.conn
+
+    schema = ''
+    if dataStore.schema is not None:
+        schema = dataStore.schema + '.'
+
+    return pd.read_sql('SELECT ' + cols + ' FROM ' + schema +
                        tableName + limitText, con=conn)
 
 
@@ -31,8 +38,10 @@ def writeDataToDB(df, tableName, eng, if_exists,
     # doing that... :s
 
 
-def truncateTable(tableName, datastore):
-    truncateStatement = 'TRUNCATE ' + tableName + ' RESTART IDENTITY'
+def truncateTable(tableName, datastore, schema):
+    if schema is not None:
+        schema = schema + '.'
+    truncateStatement = 'TRUNCATE ' + schema + tableName + ' RESTART IDENTITY'
     trgDbCursor = datastore.cursor()
     trgDbCursor.execute(truncateStatement)
     datastore.commit()

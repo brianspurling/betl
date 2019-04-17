@@ -1,6 +1,12 @@
 class Column():
 
     def __init__(self, columnSchema):
+
+        if 'schema' in columnSchema:
+            self.schema = columnSchema['schema']
+        else:
+            self.schema = None
+
         self.tableName = columnSchema['tableName']
         self.columnName = columnSchema['columnName']
         self.dataType = columnSchema['dataType']
@@ -29,32 +35,47 @@ class Column():
         return columnCreateStatement
 
     def getSqlResetPrimaryKeySequence(self, tableName):
+        schema = ''
+        if self.schema is not None:
+            schema = self.schema + '.'
+
         columnResetStatement = None
         if self.isSK:
-            seqName = tableName + '_' + str(self.columnName) + '_' + 'key'
+            seqName = schema + tableName + '_' + str(self.columnName) + '_' + 'key'
             columnResetStatement = 'ALTER SEQUENCE ' + seqName + \
                 'RESTART WITH 1'
 
         return columnResetStatement
 
     def getSqlDropIndexStatement(self):
-        return ('DROP INDEX IF EXISTS ' +
+        schema = ''
+        if self.schema is not None:
+            schema = self.schema + '.'
+
+        return ('DROP INDEX IF EXISTS ' + schema +
                 self.tableName + '_' + str(self.columnName) + '_key')
 
     def getSqlDropForeignKeyStatement(self):
-        return ('ALTER TABLE ' + self.tableName + ' ' +
+        schema = ''
+        if self.schema is not None:
+            schema = self.schema + '.'
+        return ('ALTER TABLE ' + schema + self.tableName + ' ' +
                 'DROP CONSTRAINT IF EXISTS ' +
                 self.tableName + '_' + str(self.columnName) + '_key')
 
     def getSqlCreateIndexStatements(self):
         sqlStatements = []
+        schema = ''
+        if self.schema is not None:
+            schema = self.schema + '.'
 
         if self.isSK or self.isFK:
             unique = ''
             if self.isSK:
                 unique = 'UNIQUE'
+
             sqlStatements.append(
-                'CREATE ' + unique + ' INDEX IF NOT EXISTS ' +
+                'CREATE ' + unique + ' INDEX IF NOT EXISTS ' + schema +
                 self.tableName + '_' + str(self.columnName) + '_key' +
                 ' ON ' + self.tableName + ' (' + str(self.columnName) + ')')
 
@@ -62,7 +83,7 @@ class Column():
             fkDimCol = self.fkDimension[3:] + '_id'
             sqlStatements.append(
                 'ALTER TABLE ' + self.tableName + ' ' +
-                'ADD CONSTRAINT ' +
+                'ADD CONSTRAINT ' + schema +
                 self.tableName + '_' + str(self.columnName) + '_key ' +
                 'FOREIGN KEY (' + str(self.columnName) + ')' +
                 'REFERENCES ' + self.fkDimension + '(' + fkDimCol + ')')

@@ -6,7 +6,7 @@ import sqlalchemy
 
 class PostgresDatastore(Datastore):
 
-    def __init__(self, dbId, host, dbName, user, password,
+    def __init__(self, dbId, host, dbName, user, password, schema=None,
                  createIfNotFound=False,
                  isSrcSys=False):
 
@@ -20,13 +20,22 @@ class PostgresDatastore(Datastore):
         self.dbName = dbName
         self.user = user
         self.password = password
+        self.schema = schema
         self.conn = self.getDBConnection(createIfNotFound, isSrcSys)
-        self.eng = sqlalchemy.create_engine(r'postgresql://'
-                                            + self.user
-                                            + ':@'
-                                            + self.host
-                                            + '/'
-                                            + self.dbName)
+
+        schemaDict = None
+        if schema is not None:
+            schemaDict = {'options': '-csearch_path={}'.format(self.schema)}
+
+        self.eng = sqlalchemy.create_engine(
+            r'postgresql://'
+            + self.user
+            + ':' + self.password
+            + '@'
+            + self.host
+            + '/'
+            + self.dbName,
+            connect_args=schemaDict)
 
     def commit(self):
         self.conn.commit()
@@ -41,12 +50,10 @@ class PostgresDatastore(Datastore):
         # We will temporarily connect to the postgres database, to check
         # whether configDetails['DBNAME'] exists yet
 
-        tempConnectionString = "host='" + self.host + "' "\
-                               "dbname='postgres' " + \
-                               "user='" + self.user + "' " + \
-                               'password="' + self.password + '"'
-
-        tempConn = psycopg2.connect(tempConnectionString)
+        tempConn = psycopg2.connect(host=self.host,
+                                    database='postgres',
+                                    user=self.user,
+                                    password=self.password)
         tempDBCursor = tempConn.cursor()
         tempDBCursor.execute("SELECT * FROM pg_database " +
                              "WHERE datname = '" + self.dbName + "'")
@@ -56,13 +63,15 @@ class PostgresDatastore(Datastore):
             tempConn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
             tempDBCursor.execute('CREATE DATABASE ' + self.dbName)
 
-        connectionString = "host='" + self.host + "'" + \
-                           "dbname='" + self.dbName + "'" + \
-                           "user='" + self.user + "'" + \
-                           "password='" + self.password + "'"
+        options = None
+        if self.schema is not None:
+            options = '-c search_path={' + self.schema + '}'
 
-        conn = psycopg2.connect(connectionString)
-
+        conn = psycopg2.connect(host=self.host,
+                                database=self.dbName,
+                                user=self.user,
+                                password=self.password,
+                                options=options)
         if isSrcSys:
             conn.set_session(readonly=True)
 

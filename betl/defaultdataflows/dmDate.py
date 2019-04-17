@@ -2,12 +2,13 @@ import pandas as pd
 from datetime import date, timedelta
 
 
-def getSchemaDescription():
+def getSchemaDescription(schemaName):
 
     # This schema description reflects the same meta data structure that
     # we find in the schema spreadsheets.
     tableSchema = {
         'tableName': 'dm_date',
+        'schema': schemaName,
         'columnSchemas': {}
     }
 

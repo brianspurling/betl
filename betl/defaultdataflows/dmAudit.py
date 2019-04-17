@@ -1,13 +1,15 @@
-def getSchemaDescription():
+def getSchemaDescription(schemaName):
 
     # This schema description reflects the same meta data structure that
     # we find in the schema spreadsheets.
     tableSchema = {
         'tableName': 'dm_audit',
+        'schema': schemaName,
         'columnSchemas': {}
     }
 
     tableSchema['columnSchemas']['audit_id'] = {
+        'schema':  schemaName,
         'tableName':   'dm_audit',
         'columnName':  'audit_id',
         'dataType':    'TEXT',
@@ -16,6 +18,7 @@ def getSchemaDescription():
     }
 
     tableSchema['columnSchemas']['latest_delta_load_operation'] = {
+        'schema':  schemaName,
         'tableName':   'dm_audit',
         'columnName':  'latest_delta_load_operation',
         'dataType':    'TEXT',
@@ -24,6 +27,7 @@ def getSchemaDescription():
     }
 
     tableSchema['columnSchemas']['data_quality_score'] = {
+        'schema':  schemaName,
         'tableName':   'dm_audit',
         'columnName':  'data_quality_score',
         'dataType':    'INTEGER',
@@ -31,6 +35,7 @@ def getSchemaDescription():
         'fkDimension': None
     }
 
+    print(tableSchema)
     return tableSchema
 
 

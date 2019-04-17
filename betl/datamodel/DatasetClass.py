@@ -26,7 +26,6 @@ class Dataset():
         self.tables = {}
 
         for tableName in datasetSchemaDesc['tableSchemas']:
-
             self.tables[tableName] = Table(
                 conf=self.CONF,
                 tableSchema=datasetSchemaDesc['tableSchemas'][tableName],

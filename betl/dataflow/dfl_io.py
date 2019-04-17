@@ -36,7 +36,7 @@ def read(self,
             self.CONF.getLogicalSchemaDataLayer(dataLayer).databaseID
         self.data[_targetDataset] = dbIO.readDataFromDB(
             tableName=tableName,
-            conn=self.CONF.getDWHDatastore(dbId).conn)
+            dataStore=self.CONF.getDWHDatastore(dbId))
 
     else:
         self.data[_targetDataset] = \
@@ -246,7 +246,7 @@ def getDataFromSrc(self, tableName, srcSysID, desc, srcTableName=None):
 
         self.data[tableName] = \
             dbIO.readDataFromDB(tableName=srcTableName,
-                                conn=srcSysDatastore.conn,
+                                dataStore=srcSysDatastore,
                                 cols='*',
                                 limitdata=limitdata)
 

@@ -14,6 +14,7 @@ class DataLayer():
 
         self.CONF = conf
         self.databaseID = self.CONF.dataLayers[dataLayerID]
+        self.schema = self.CONF.DWH_DATABASES_DETAILS[self.databaseID]['schema']
         self.dataLayerID = dataLayerID
         self.datasets = {}
 
@@ -42,13 +43,13 @@ class DataLayer():
                 if self.CONF.DEFAULT_DM_DATE:
                     self.datasets['BSE'].tables['dm_date'] = \
                         Table(conf,
-                              dmDate.getSchemaDescription(),
+                              dmDate.getSchemaDescription(self.CONF.DWH_DATABASES_DETAILS[self.databaseID]['schema']),
                               dataLayerID='BSE')
 
                 if self.CONF.DEFAULT_DM_AUDIT:
                     self.datasets['BSE'].tables['dm_audit'] = \
                         Table(conf,
-                              dmAudit.getSchemaDescription(),
+                              dmAudit.getSchemaDescription(self.CONF.DWH_DATABASES_DETAILS[self.databaseID]['schema']),
                               dataLayerID='BSE')
 
     def getDatastore(self):
