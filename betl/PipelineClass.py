@@ -107,10 +107,14 @@ class Pipeline():
 
                 extractOps.append(leafOps)
 
+                prevOps = extractOps
+                if len(extractOps) == 0:
+                    prevOps = [logExtractStart]
+
                 logExtractEnd = self.createOp(
                     taskId='logExtractEnd',
                     func=stageExtract.logExtractEnd,
-                    upstream=extractOps)
+                    upstream=prevOps)
 
             else:
 
@@ -371,11 +375,14 @@ class Pipeline():
                     func=stageSummarise.logSummariseStart,
                     upstream=logLoadEnd)
 
+                prev = summariseStart
+
                 if self.CONF.DEFAULT_SUMMARISE:
                     defaultSummarisePrep = self.createOp(
                         taskId='defaultSummarisePrep',
                         func=stageSummarise.defaultSummarisePrep,
                         upstream=summariseStart)
+                    prev = defaultSummarisePrep
 
                 logBespokeSummariseStart = self.createOp(
                     taskId='logBespokeSummariseStart',
@@ -386,10 +393,14 @@ class Pipeline():
                     dfs=self.CONF.SUMMARISE_DATAFLOWS,
                     upstream=logBespokeSummariseStart)
 
+                prev = leafOps
+                if len(leafOps) == 0:
+                    prev = logBespokeSummariseStart
+
                 logBespokeSummariseEnd = self.createOp(
                     taskId='logBespokeSummariseEnd',
                     func=stageSummarise.logBespokeSummariseEnd,
-                    upstream=leafOps)
+                    upstream=prev)
 
                 logSummariseEnd = self.createOp(
                     taskId='logSummariseEnd',
