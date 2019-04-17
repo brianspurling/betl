@@ -35,7 +35,6 @@ def getSchemaDescription(schemaName):
         'fkDimension': None
     }
 
-    print(tableSchema)
     return tableSchema
 
 
