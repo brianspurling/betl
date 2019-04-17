@@ -27,6 +27,7 @@ class Table():
             tableName = tableSchema['tableName'].lower()
             srcTableName = None
 
+        self.schema = tableSchema['schema'].lower()
         self.tableName = tableName
         self.srcTableName = srcTableName
 
@@ -63,6 +64,7 @@ class Table():
         # The fact tables get a FK to the audit dimension
         if self.getTableType() == 'FACT':
             columnSchema = {
+                'schema':      self.schema,
                 'tableName':   self.tableName,
                 'columnName':  'fk_audit',
                 'dataType':    'INTEGER',
@@ -78,7 +80,7 @@ class Table():
 
     def getSqlCreateStatement(self):
 
-        tableCreateStatement = 'CREATE TABLE ' + self.tableName + ' ('
+        tableCreateStatement = 'CREATE TABLE ' + self.schema + '.' + self.tableName + ' ('
 
         colsCreateStatements = []
         for columnObject in self.columns:
@@ -102,7 +104,11 @@ class Table():
 
     def getSqlDropStatement(self):
 
-        tableDropStatement = 'DROP TABLE IF EXISTS ' + self.tableName
+        schema = ''
+        if self.schema is not None:
+            schema = self.schema + '.'
+
+        tableDropStatement = 'DROP TABLE IF EXISTS ' + schema + '.' + self.tableName
 
         return tableDropStatement
 
@@ -134,7 +140,6 @@ class Table():
                 # We must drop a column's foreign key before its index
                 sqlStatements.append(col.getSqlDropForeignKeyStatement())
                 sqlStatements.append(col.getSqlDropIndexStatement())
-
         return sqlStatements
 
     def getSqlCreateIndexes(self):
