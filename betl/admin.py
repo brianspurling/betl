@@ -74,7 +74,9 @@ def admin(appDirectory,
 
         if runRebuilds:
 
-            buildPhysicalDWHSchemas(conf),
+            conf.constructLogicalDWHSchemas()
+
+            buildPhysicalDWHSchemas(conf)
 
 
 ######################
