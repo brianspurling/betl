@@ -121,7 +121,8 @@ class Conf():
                 'host': appConfig['data']['dwh_dbs'][dbId]['HOST'],
                 'dbName': appConfig['data']['dwh_dbs'][dbId]['DBNAME'],
                 'user': appConfig['data']['dwh_dbs'][dbId]['USER'],
-                'password': appConfig['data']['dwh_dbs'][dbId]['PASSWORD']}
+                'password': appConfig['data']['dwh_dbs'][dbId]['PASSWORD'],
+                'schema': appConfig['data']['dwh_dbs'][dbId]['SCHEMA']}
 
         # Source system datastores
         # Different datastores will have different details
@@ -360,6 +361,7 @@ class Conf():
                     dbName=self.DWH_DATABASES_DETAILS[dbId]['dbName'],
                     user=self.DWH_DATABASES_DETAILS[dbId]['user'],
                     password=self.DWH_DATABASES_DETAILS[dbId]['password'],
+                    schema=self.DWH_DATABASES_DETAILS[dbId]['schema'],
                     createIfNotFound=True)
             return self.DWH_DATABASES[dbId]
 
@@ -378,7 +380,8 @@ class Conf():
                         host=self.SRC_SYSTEM_DETAILS[ssID]['host'],
                         dbName=self.SRC_SYSTEM_DETAILS[ssID]['dbname'],
                         user=self.SRC_SYSTEM_DETAILS[ssID]['user'],
-                        password=self.SRC_SYSTEM_DETAILS[ssID]['PASSWORD'],
+                        password=self.SRC_SYSTEM_DETAILS[ssID]['password'],
+                        schema=self.SRC_SYSTEM_DETAILS[ssID]['schema'],
                         isSrcSys=True)
 
             elif srcSysType == 'SQLITE':
