@@ -108,7 +108,7 @@ class Table():
         if self.schema is not None:
             schema = self.schema + '.'
 
-        tableDropStatement = 'DROP TABLE IF EXISTS ' + schema + '.' + self.tableName
+        tableDropStatement = 'DROP TABLE IF EXISTS ' + schema + self.tableName
 
         return tableDropStatement
 

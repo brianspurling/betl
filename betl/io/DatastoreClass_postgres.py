@@ -37,6 +37,13 @@ class PostgresDatastore(Datastore):
             + self.dbName,
             connect_args=schemaDict)
 
+        # @sqlalchemy.event.listens_for(self.eng, 'before_cursor_execute')
+        # def receive_before_cursor_execute(conn, cursor, statement, params, context, executemany):
+        #     print("Listen before_cursor_execute - executemany: %s" % str(executemany))
+        #     if executemany:
+        #         cursor.fast_executemany = True
+        #         cursor.commit()
+
     def commit(self):
         self.conn.commit()
 

@@ -3,8 +3,8 @@ from betl.io import dbIO
 import numpy as np
 
 
-def truncate(self, dataset, dataLayerID, desc, forceDBWrite=False):
-    self.stepStart(desc=desc)
+def truncate(self, dataset, dataLayerID, desc=None, forceDBWrite=False, silent=False):
+    self.stepStart(desc=desc, silent=silent)
 
     path = (self.CONF.TMP_DATA_PATH + '/' + dataLayerID + '/')
     filename = dataset + '.csv'

@@ -53,9 +53,9 @@ class Pipeline():
         ######################
 
         # If the DAG param has been passed in, the pipeline - a series of
-        # operators (createOp()) - will constructed as an Airflow DAG -- i.e.
-        # it will not be executed until the DAG is triggered by Airflow. If no
-        # DAG param has been passed, these operators will be executed
+        # operators (createOp()) - will be constructed as an Airflow DAG --
+        # i.e. it will not be executed until the DAG is triggered by Airflow.
+        # If no DAG param has been passed, these operators will be executed
         # immediately
 
         logExecutionEnd_op = self.createOp(

@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import psycopg2
-from sqlalchemy.types import Text
+import io
 
 
 def readDataFromDB(tableName, dataStore, cols='*', limitdata=None):
@@ -22,20 +22,25 @@ def readDataFromDB(tableName, dataStore, cols='*', limitdata=None):
 
 
 def writeDataToDB(df, tableName, eng, if_exists,
-                  emptyStingToNaN=True, dtype=None):
+                  emptyStringToNaN=True, dtype=None):
 
-    if emptyStingToNaN:
+    if emptyStringToNaN:
         df.replace('', np.nan, inplace=True)
 
-    df.to_sql(tableName,
-              eng,
-              if_exists=if_exists,
-              index=False,
-              dtype={col_name: Text for col_name in df})
-    # TODO: why do I need to do the above line? It was put in to solve a bug
-    # but I would have thought it wasn't ok, because it will clash with
-    # pre-made tables and overwrite them. However it doesn't appear to be
-    # doing that... :s
+    connection = eng.raw_connection()
+    cur = connection.cursor()
+    output = io.StringIO()
+    df.to_csv(output, sep=',', quotechar='"', header=False, index=False)
+    output.seek(0)
+    sql = 'COPY ' + tableName + ' FROM STDIN (FORMAT \'csv\', DELIMITER \',\', QUOTE \'"\')'
+    cur.copy_expert(sql, output)
+    # cur.copy_from(output, tableName, sep='~', null='')
+    connection.commit()
+    cur.close()
+    # df.to_sql(tableName,
+    #           eng,
+    #           if_exists=if_exists,
+    #           index=False)
 
 
 def truncateTable(tableName, datastore, schema):

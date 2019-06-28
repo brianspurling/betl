@@ -1,6 +1,3 @@
-import pandas as pd
-
-
 def setNulls(self, dataset, columns, desc, silent=False):
 
     self.stepStart(desc=desc, silent=silent)
@@ -17,9 +14,13 @@ def setNulls(self, dataset, columns, desc, silent=False):
 def toNumeric(self,
               dataset,
               columns,
-              desc,
+              castFrom,
+              castTo,
               cleanedColumns=None,
-              cast=None):
+              desc=None):
+
+    if desc is None:
+        desc = 'Cast ' + str(columns) + ' from ' + castFrom + ' to ' + castTo
 
     self.stepStart(desc=desc)
 
@@ -35,22 +36,26 @@ def toNumeric(self,
             cleanedColumn = cleanedColumns[cnt]
         cnt += 1
 
-        self.data[dataset][cleanedColumn] = \
-            self.data[dataset][column].str.replace(r"[^\d.]+", '')
+        if castFrom == 'str':
+            self.data[dataset][cleanedColumn] = \
+                self.data[dataset][column].str.replace(r"[^\d.]+", '')
 
-        self.data[dataset][cleanedColumn] = \
-            pd.to_numeric(
-                arg=self.data[dataset][cleanedColumn],
-                errors='coerce')
+        # self.data[dataset][cleanedColumn] = \
+        #     pd.to_numeric(
+        #         arg=self.data[dataset][cleanedColumn],
+        #         errors='coerce')
 
-        if cast == 'integer':
+        if castTo == 'int':
             self.data[dataset][cleanedColumn] = \
                 self.data[dataset][cleanedColumn].fillna(0).astype(int)
+        if castTo == 'Int64':
+            self.data[dataset][cleanedColumn] = \
+                self.data[dataset][cleanedColumn].astype('Int64')
         else:
             raise ValueError('You tried to cast to a type not yet ' +
-                             'handled by dataflow.toNumeric: ' + cast)
+                             'handled by dataflow.toNumeric: ' + castTo)
 
-        # TODO need to pick up look here
+        # TODO need to pick up loop here
         report = 'Cleaned ' + column + ' to ' + cleanedColumn
 
     self.stepEnd(

@@ -149,16 +149,16 @@ class Conf():
 
         self.BULK_OR_DELTA = appConfig['ctrl']['BULK_OR_DELTA'].upper()
 
-        self.RUN_EXTRACT = appConfig['ctrl']['RUN_EXTRACT'].upper()
-        self.RUN_TRANSFORM = appConfig['ctrl']['RUN_TRANSFORM'].upper()
-        self.RUN_LOAD = appConfig['ctrl']['RUN_LOAD'].upper()
-        self.RUN_DM_LOAD = appConfig['ctrl']['RUN_DM_LOAD'].upper()
-        self.RUN_FT_LOAD = appConfig['ctrl']['RUN_FT_LOAD'].upper()
-        self.RUN_SUMMARISE = appConfig['ctrl']['RUN_SUMMARISE'].upper()
-        self.RUN_DATAFLOWS = appConfig['ctrl']['RUN_DATAFLOWS'].upper()
+        self.RUN_EXTRACT = bool(appConfig['ctrl']['RUN_EXTRACT'])
+        self.RUN_TRANSFORM = bool(appConfig['ctrl']['RUN_TRANSFORM'])
+        self.RUN_LOAD = bool(appConfig['ctrl']['RUN_LOAD'])
+        self.RUN_DM_LOAD = bool(appConfig['ctrl']['RUN_DM_LOAD'])
+        self.RUN_FT_LOAD = bool(appConfig['ctrl']['RUN_FT_LOAD'])
+        self.RUN_SUMMARISE = bool(appConfig['ctrl']['RUN_SUMMARISE'])
+        self.RUN_DATAFLOWS = bool(appConfig['ctrl']['RUN_DATAFLOWS'])
 
-        self.DEFAULT_DM_DATE = appConfig['ctrl']['DEFAULT_DM_DATE'].upper()
-        self.DEFAULT_DM_AUDIT = appConfig['ctrl']['DEFAULT_DM_AUDIT'].upper()
+        self.DEFAULT_DM_DATE = bool(appConfig['ctrl']['DEFAULT_DM_DATE'])
+        self.DEFAULT_DM_AUDIT = bool(appConfig['ctrl']['DEFAULT_DM_AUDIT'])
 
         # betlAdmin will set up a conf without a schedule
         if scheduleConfig is not None:
@@ -181,15 +181,15 @@ class Conf():
 
         self.DWH_ID = appConfig['ctrl']['DWH_ID']
         self.LOG_LEVEL = appConfig['ctrl']['LOG_LEVEL'].upper()
-        self.SKIP_WARNINGS = appConfig['ctrl']['SKIP_WARNINGS']
-        self.WRITE_TO_ETL_DB = appConfig['ctrl']['WRITE_TO_ETL_DB']
-        self.DATA_LIMIT_ROWS = int(appConfig['ctrl']['DATA_LIMIT_ROWS'])
-        self.RUN_TESTS = appConfig['ctrl']['RUN_TESTS']
-
-        if self.DATA_LIMIT_ROWS:
+        self.SKIP_WARNINGS = bool(appConfig['ctrl']['SKIP_WARNINGS'])
+        self.WRITE_TO_ETL_DB = bool(appConfig['ctrl']['WRITE_TO_ETL_DB'])
+        if 'DATA_LIMIT_ROWS' in appConfig['ctrl']:
+            self.DATA_LIMIT_ROWS = int(appConfig['ctrl']['DATA_LIMIT_ROWS'])
             self.MONITOR_MEMORY_USAGE = False
         else:
+            self.DATA_LIMIT_ROWS = None
             self.MONITOR_MEMORY_USAGE = True
+        self.RUN_TESTS = bool(appConfig['ctrl']['RUN_TESTS'])
         self.AUDIT_COLS = pd.DataFrame(Conf.auditColumns)
 
         #######################
@@ -227,9 +227,9 @@ class Conf():
         # at any point in the application's ETL process, providing the
         # generateDMDate function is added to the schedule _after_ the
         # functions in which they're set
-        self.EARLIEST_DATE_IN_DATA = datetime.date(1900, 1, 1)
+        self.EARLIEST_DATE_IN_DATA = datetime.date(2019, 1, 1)
         self.LATEST_DATE_IN_DATA = (datetime.date.today() +
-                                    datetime.timedelta(days=365))
+                                    datetime.timedelta(days=1))
 
         # The mapping controls for the temp data file names (because we prefix
         # them with an incrementing number to make manual access easier)

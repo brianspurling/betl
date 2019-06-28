@@ -17,6 +17,7 @@ def getSchemaDescription(schemaName):
         'columnName':  'date_id',
         'dataType':    'INTEGER',
         'columnType':  'Surrogate key',
+        'schema': schemaName,
         'fkDimension': None
     }
 
@@ -25,6 +26,7 @@ def getSchemaDescription(schemaName):
         'columnName':  'date_yyyymmdd',
         'dataType':    'INTEGER',
         'columnType':  'Natural key',
+        'schema': schemaName,
         'fkDimension': None
     }
 

@@ -161,6 +161,17 @@ def write(self,
 
     # write to DB
     if writeToDB:
+
+        # Since switching to a faster load mechanism (PostGRES COPY), we
+        # can no longer rely on Pandas to do a replace
+
+        if append_or_replace == 'replace':
+            self.truncate(
+                dataset=dataset,
+                dataLayerID=dataLayerID,
+                forceDBWrite=True,
+                silent=True)
+
         dbEng = dataLayer.getDatastore().eng
         dbIO.writeDataToDB(
             self.targetDataset,
@@ -201,7 +212,7 @@ def write(self,
         self.close()
 
 
-def getDataFromSrc(self, tableName, srcSysID, desc, srcTableName=None, doNotChangeSrcTableName=False):
+def getDataFromSrc(self, tableName, srcSysID, desc, bulkOrDelta='BULK', srcTableName=None, doNotChangeSrcTableName=False):
 
     self.stepStart(desc=desc)
 
@@ -270,8 +281,14 @@ def getDataFromSrc(self, tableName, srcSysID, desc, srcTableName=None, doNotChan
                          + srcSysDatastore.datastoreType
                          + '> connection type not supported')
 
+    self.setAuditCols(
+        dataset=tableName,
+        bulkOrDelta=bulkOrDelta,
+        sourceSystem=srcSysID,
+        desc="Set the audit columns on " + tableName)
+
     report = 'Read ' + str(self.data[tableName].shape[0])
-    report += ' rows from source: ' + tableName
+    report += ' rows from source: ' + srcSysID + '.' + srcTableName
 
     self.stepEnd(
         report=report,

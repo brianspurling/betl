@@ -75,15 +75,16 @@ class Column():
                 unique = 'UNIQUE'
 
             sqlStatements.append(
-                'CREATE ' + unique + ' INDEX IF NOT EXISTS ' + schema +
+                'CREATE ' + unique + ' INDEX IF NOT EXISTS ' +
                 self.tableName + '_' + str(self.columnName) + '_key' +
-                ' ON ' + self.tableName + ' (' + str(self.columnName) + ')')
+                ' ON ' + schema + self.tableName +
+                ' (' + str(self.columnName) + ')')
 
         if self.isFK:
             fkDimCol = self.fkDimension[3:] + '_id'
             sqlStatements.append(
-                'ALTER TABLE ' + self.tableName + ' ' +
-                'ADD CONSTRAINT ' + schema +
+                'ALTER TABLE ' + schema + self.tableName + ' ' +
+                'ADD CONSTRAINT ' +
                 self.tableName + '_' + str(self.columnName) + '_key ' +
                 'FOREIGN KEY (' + str(self.columnName) + ')' +
                 'REFERENCES ' + self.fkDimension + '(' + fkDimCol + ')')

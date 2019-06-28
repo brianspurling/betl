@@ -382,6 +382,8 @@ def bulkLoadFact(conf, tableSchema):
                      ' (' + column.columnName + ')',
                 silent=True)
 
+            df = dfl.getDataFrames()
+            
             dfl.join(
                 datasets=[
                     tableSchema.tableName,
